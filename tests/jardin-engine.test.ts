@@ -323,6 +323,8 @@ test('import Lignée : carotte → catalogue', () => {
   ok(v.length === 1 && v[0].speciesId === 'carrot' && v[0].daysToHarvest === 95 && v[0].origin === 'lignee:carotte', 'carotte');
   const tom = parseLigneeVarieties(JSON.stringify({ app: 'lignee', species: 'tomato', kind: 'varieties', varieties: [{ name: 'X' }] }));
   ok(tom[0].speciesId === 'tomato', 'tomate');
+  const fr = parseLigneeVarieties(JSON.stringify({ app: 'lignee', crop: 'fraise', kind: 'varieties', version: 1, varieties: [{ id: 'my-2', name: 'Remontante blanche', species: 'ananassa', early: 50, variants: ['myb10'], het: ['PFRU'] }] }));
+  ok(fr.length === 1 && fr[0].speciesId === 'strawberry' && fr[0].origin === 'lignee:fraise', 'fraise');
 });
 
 test('CSV : séparateur point-virgule et échappement', () => {

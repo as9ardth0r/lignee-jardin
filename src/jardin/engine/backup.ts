@@ -103,6 +103,7 @@ export const LIGNEE_CROPS: Record<string, string> = {
   patate: 'potato',
   piment: 'pepper',
   pois: 'pea',
+  fraise: 'strawberry',
 };
 
 /**
