@@ -145,6 +145,13 @@ export function Onboarding() {
         <p className="mt-4 text-center text-[11px] leading-snug" style={{ color: 'var(--color-paper-300)' }}>
           {tt('onb.privacy')}
         </p>
+        {store.gardens.length > 1 && (
+          <p className="mt-3 text-center">
+            <button type="button" className="text-xs underline" style={{ color: 'var(--color-paper-200)' }} onClick={() => void store.deleteGarden(store.activeGarden)}>
+              ← {tt('gardens.cancelNew')}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { forecast, forecastByMonth, multiYear } from './engine/report';
+import { toCSV } from './engine/backup';
+import { monthName, plantTitle } from './format';
+import { saveFile } from '../utils/download';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
 import { SPECIES_EXTRA } from './data/speciesExtra';
 import { yearOf } from './engine/dates';
@@ -266,6 +270,120 @@ export function SeasonView() {
       <p className="mt-3 text-[11px] leading-snug" style={{ color: INK500 }}>
         {tt('season.note')}
       </p>
+      <ForecastPanel />
+      <ProExports year={year} />
     </div>
+  );
+}
+
+/** Récoltes prévues des cultures en place, par culture et par mois. */
+function ForecastPanel() {
+  const { data, today } = useGarden();
+  const { tt, lang } = useJT();
+  const rows = useMemo(() => forecast(data, today).filter((r) => r.remainingKg > 0.05), [data, today]);
+  const months = useMemo(() => forecastByMonth(rows, today), [rows, today]);
+  if (!rows.length) return null;
+  const maxKg = Math.max(...months.map((m) => m.kg), 1);
+  const total = rows.reduce((s, r) => s + r.remainingKg, 0);
+  const value = rows.reduce((s, r) => s + r.valueEur, 0);
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 font-display text-base">📈 {tt('forecast.title')}</h3>
+      <p className="text-sm" style={{ color: INK700 }}>
+        {tt('forecast.lead', { kg: fmtNum(total, lang, 1), eur: fmtNum(value, lang, 0) })}
+      </p>
+      <ul className="mt-2 space-y-1" aria-label={tt('forecast.byMonth')}>
+        {months.map((m) => (
+          <li key={m.month} className="flex items-center gap-2 text-xs">
+            <span className="w-20 shrink-0 capitalize">
+              {monthName(Number(m.month.slice(5, 7)), lang)}
+              {m.month.slice(0, 4) !== today.slice(0, 4) ? ` ${m.month.slice(2, 4)}` : ''}
+            </span>
+            <span className="h-3 rounded" style={{ width: `${Math.max(2, (m.kg / maxKg) * 55)}%`, background: '#6c9256' }} />
+            <span className="whitespace-nowrap font-data">{fmtNum(m.kg, lang, 1)} kg</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs" style={{ color: INK500 }}>
+              <th className="py-1 pr-2 text-left font-normal">{tt('season.col.crop')}</th>
+              <th className="py-1 pr-2 text-left font-normal">{tt('report.window')}</th>
+              <th className="py-1 pr-2 text-right font-normal">{tt('report.expected')}</th>
+              <th className="py-1 text-right font-normal">{tt('report.remaining')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const p = data.plants.find((x) => x.id === r.plantId);
+              return (
+                <tr key={r.plantId} className="border-t" style={{ borderColor: 'var(--color-paper-300)' }}>
+                  <td className="py-1 pr-2">
+                    {SPECIES_BY_ID[r.speciesId]?.emoji} {p ? plantTitle(p, lang) : speciesName(r.speciesId, lang)}
+                  </td>
+                  <td className="py-1 pr-2 text-xs">
+                    {fmtDate(r.from, lang, r.from.slice(0, 4) !== today.slice(0, 4))} – {fmtDate(r.to, lang, r.to.slice(0, 4) !== today.slice(0, 4))}
+                  </td>
+                  <td className="whitespace-nowrap py-1 pr-2 text-right font-data">{fmtNum(r.expectedKg, lang, 1)} kg</td>
+                  <td className="whitespace-nowrap py-1 text-right font-data">{fmtNum(r.remainingKg, lang, 1)} kg</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-[11px] leading-snug" style={{ color: INK500 }}>
+        {tt('forecast.note')}
+      </p>
+    </section>
+  );
+}
+
+/** Rapport PDF de la saison et bilan pluriannuel (tableur). */
+function ProExports({ year }: { year: number }) {
+  const { data, today } = useGarden();
+  const { tt, lang } = useJT();
+  const nav = useNav();
+  const [busy, setBusy] = useState(false);
+  const slug = data.settings.gardenName.normalize('NFD').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'jardin';
+  const pdf = async () => {
+    setBusy(true);
+    try {
+      const { buildReportPdf } = await import('./reportPdf');
+      await saveFile(`lignee-jardin-${slug}-rapport-${year}.pdf`, await buildReportPdf(data, year, today, lang), 'application/pdf');
+    } catch {
+      nav.toast(tt('report.error'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const csv = () => {
+    const my = multiYear(data);
+    const rows: Array<Array<string | number | undefined>> = [[tt('report.year'), tt('season.col.crop'), tt('report.kg'), tt('report.m2'), tt('report.kgm2'), tt('report.valueEur')]];
+    for (const r of my.rows) rows.push([r.year, speciesName(r.speciesId, lang), Math.round(r.grams) / 1000, Math.round(r.area * 100) / 100, r.area > 0 ? Math.round((r.grams / 1000 / r.area) * 100) / 100 : undefined, Math.round(r.value * 100) / 100]);
+    rows.push([]);
+    rows.push([tt('report.year'), tt('report.inputsEur'), tt('report.valueEur'), tt('report.balanceEur')]);
+    for (const y of my.years) {
+      const v = my.rows.filter((r) => r.year === y).reduce((s, r) => s + r.value, 0);
+      rows.push([y, Math.round(my.inputs[y] * 100) / 100, Math.round(v * 100) / 100, Math.round((v - my.inputs[y]) * 100) / 100]);
+    }
+    void saveFile(`lignee-jardin-${slug}-bilan-pluriannuel.csv`, toCSV(rows), 'text/csv');
+  };
+  return (
+    <section className="mt-5">
+      <h3 className="mb-1 font-display text-base">📄 {tt('report.section')}</h3>
+      <div className="flex flex-wrap gap-2">
+        <Button small kind="primary" onClick={() => void pdf()} disabled={busy}>
+          {busy ? '…' : tt('report.pdf', { year })}
+        </Button>
+        <Button small kind="ghost" onClick={csv}>
+          {tt('report.multiYear')}
+        </Button>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-snug" style={{ color: INK500 }}>
+        {tt('report.hint')}
+      </p>
+    </section>
   );
 }

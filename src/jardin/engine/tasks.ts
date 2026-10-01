@@ -14,8 +14,9 @@ import { timeline } from './phenology';
 import { weatherAlerts, type AlertKind } from './weather';
 import { nutrientStatus } from './nutrition';
 import { waterAdvice } from './water';
+import { readingDate, tankStatus } from './sensors';
 
-export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'observe' | 'frost' | 'alert' | 'manual';
+export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'observe' | 'frost' | 'alert' | 'tank' | 'manual';
 
 export interface Task {
   key: string;
@@ -101,6 +102,20 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
     if (adv.water) tasks.push({ key: `water:${bed.id}:${today}`, kind: 'water', due: today, priority: 1, bedId: bed.id, vars: { bed: bed.name, liters: Math.max(1, Math.round(adv.liters)) } });
   }
 
+  // Bacs hydroponiques : EC et pH hors cible, solution à renouveler.
+  for (const bed of data.beds) {
+    if (bed.kind !== 'hydro') continue;
+    const st = tankStatus(bed.id, data, today);
+    for (const m of ['ec', 'ph'] as const) {
+      const r = st[m];
+      const range = st.target?.[m];
+      if (r && range && r.state !== 'ok' && diffDays(readingDate(r.t), today) <= 3) {
+        tasks.push({ key: `tank:${bed.id}:${m}:${r.t}`, kind: 'tank', due: today, priority: 1, bedId: bed.id, vars: { bed: bed.name, what: `${m}${r.state === 'low' ? 'Low' : 'High'}`, value: r.value, lo: range[0], hi: range[1] } });
+      }
+    }
+    if (st.renewDue) tasks.push({ key: `tank:${bed.id}:renew:${st.lastChange ?? 'none'}`, kind: 'tank', due: today, priority: 2, bedId: bed.id, vars: { bed: bed.name, what: 'renew', days: st.daysSinceChange ?? 0 } });
+  }
+
   // Alertes météo (prévisions locales) : gel, canicule, vent, forte pluie.
   const weatherOn = data.settings.weather && !!data.weather;
   if (weatherOn) {
@@ -108,7 +123,7 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
       const affected = data.plants.filter((p) => {
         if (!isActiveOn(p, a.date)) return false;
         const bed = bedOf(p.bedId);
-        const outdoor = bed?.kind !== 'greenhouse';
+        const outdoor = bed?.kind !== 'greenhouse' && bed?.kind !== 'hydro';
         const sp = speciesOf(p);
         if (a.kind === 'frost') return outdoor && (sp.frost === 'tender' || (sp.frost === 'half' && a.value <= -3));
         if (a.kind === 'rain' || a.kind === 'wind') return outdoor;
@@ -131,7 +146,7 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
   if (!weatherOn && doy >= clim.lastFrost - 21 && doy <= clim.lastFrost + 10) {
     const tender = data.plants.filter((p) => {
       const bed = bedOf(p.bedId);
-      return isActiveOn(p, today) && speciesOf(p).frost === 'tender' && bed && bed.kind !== 'greenhouse';
+      return isActiveOn(p, today) && speciesOf(p).frost === 'tender' && bed && bed.kind !== 'greenhouse' && bed.kind !== 'hydro';
     });
     if (tender.length) {
       tasks.push({ key: `frost:${weekKey(today)}`, kind: 'frost', due: today, priority: 1, vars: { count: tender.length, species: speciesOf(tender[0]).id } });

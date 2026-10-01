@@ -12,12 +12,14 @@ import { AddPlantSheet, PlantSheet, PlantsView } from './PlantsView';
 import { SettingsView } from './SettingsView';
 import { GardenProvider, useGarden } from './store';
 import { TodayView } from './TodayView';
+import { SensorSheet } from './Sensors';
+import { rescheduleNotifications } from './notifications';
 
 const TAB_ICON: Record<Tab, string> = { today: '☀', garden: '▦', plants: '🌱', catalog: '📖', settings: '⚙' };
 
 function Shell() {
   const store = useGarden();
-  const { tt } = useJT();
+  const { tt, lang } = useJT();
   const [tab, setTabState] = useState<Tab>('today');
   const [stack, setStack] = useState<SheetRequest[]>([]);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -26,6 +28,17 @@ function Shell() {
   useEffect(() => {
     document.documentElement.classList.toggle('terrain', terrain);
   }, [terrain]);
+
+  // Notifications : reprogrammées quelques secondes après chaque changement (et au changement de langue).
+  const { data, ready, activeGarden } = store;
+  useEffect(() => {
+    if (!ready) return;
+    const t = window.setTimeout(() => void rescheduleNotifications(data, lang).catch(() => {}), 3000);
+    return () => window.clearTimeout(t);
+  }, [ready, data, lang]);
+
+  // Changer de jardin ferme les fiches ouvertes.
+  useEffect(() => setStack([]), [activeGarden]);
 
   useEffect(() => {
     if (!toastMsg) return;
@@ -80,6 +93,21 @@ function Shell() {
               >
                 🧤 {tt('settings.terrainShort')}
               </button>
+              {store.gardens.length > 1 && (
+                <select
+                  value={store.activeGarden}
+                  onChange={(e) => void store.switchGarden(e.target.value)}
+                  aria-label={tt('gardens.switch')}
+                  className="h-8 max-w-[8.5rem] truncate rounded-full px-2 text-xs"
+                  style={{ background: 'var(--color-canopy-800)', color: 'var(--color-paper-200)', boxShadow: 'inset 0 0 0 1px var(--color-canopy-600)' }}
+                >
+                  {store.gardens.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <LanguageSwitcher />
             </div>
           </div>
@@ -131,6 +159,7 @@ function Shell() {
         {top?.type === 'task' && <TaskSheet onClose={close} />}
         {top?.type === 'obstacle' && <ObstacleSheet key={top.id} id={top.id} onClose={close} />}
         {top?.type === 'diagnose' && <DiagnosisSheet key={`${top.plantId}-${top.bedId}`} plantId={top.plantId} bedId={top.bedId} onClose={close} />}
+        {top?.type === 'sensor' && <SensorSheet key={`${top.id}-${top.bedId}-${top.kind}`} id={top.id} bedId={top.bedId} kind={top.kind} onClose={close} />}
         {top?.type === 'seed' && <SeedSheet key={`${top.id}-${top.speciesId}`} id={top.id} speciesId={top.speciesId} onClose={close} />}
 
         {toastMsg && (

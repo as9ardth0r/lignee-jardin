@@ -21,6 +21,11 @@ import { PROBLEMS, REMEDY_BY_ID } from '../src/jardin/data/problems';
 import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
+import { mergeGardens, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
+import { addReadings, ecowittURL, moistureToFraction, parseDateTime, parseEcowitt, parseReadingsCSV, readingsFromEcowitt, tankStatus, tankTarget, toMinutes } from '../src/jardin/engine/sensors';
+import { notificationId, planNotifications } from '../src/jardin/engine/notify';
+import { forecast, forecastByMonth, multiYear, reportData } from '../src/jardin/engine/report';
+import type { Sensor } from '../src/jardin/model';
 
 let failed = 0;
 function test(name: string, fn: () => void) {
@@ -539,6 +544,188 @@ test('saison : récoltes, valeur, coût des intrants', () => {
   const s = seasonSummary(d, 2026);
   ok(s.grams === 5000 && near(s.value, 20) && s.inputsCost === 4.5, JSON.stringify(s));
   ok(near(s.rows[0].area, plantArea(p)), 'surface comptée une fois');
+});
+
+// --- Phase 3 : jardin partagé ----------------------------------------------------
+
+test('partage : horodatage, auteur et traces de suppression', () => {
+  const b1 = bed({ id: 'b1' });
+  const b2 = bed({ id: 'b2', name: 'B2' });
+  const prev = data({ beds: [b1, b2] });
+  const next = { ...prev, beds: [{ ...b1, name: 'Nord' }] };
+  const out = stampChanges(prev, next, '2026-10-01T10:00:00.000Z', 'Camille');
+  ok(out.beds[0].mod === '2026-10-01T10:00:00.000Z' && out.beds[0].by === 'Camille', 'modif datée et signée');
+  ok(out.deleted.b2 === '2026-10-01T10:00:00.000Z', 'suppression notée');
+  const same = stampChanges(out, { ...out }, '2026-10-02T00:00:00.000Z', 'X');
+  ok(same.beds[0].mod === '2026-10-01T10:00:00.000Z', 'inchangé = pas de nouvelle date');
+  ok(Object.keys(pruneDeleted({ a: '2024-01-01T00:00:00Z', b: '2026-09-01T00:00:00Z' }, '2026-10-01T00:00:00Z')).join() === 'b', 'vieilles traces oubliées');
+});
+
+test('partage : fusion, la plus récente gagne, suppressions comprises', () => {
+  const t = (h: number) => `2026-10-01T${String(h).padStart(2, '0')}:00:00.000Z`;
+  const local = data({
+    beds: [bed({ id: 'b1', name: 'Local', mod: t(10), by: 'A' }), bed({ id: 'b3', name: 'À supprimer', mod: t(8) })],
+    plants: [plant({ id: 'p1', mod: t(9) })],
+    readings: { s1: [[100, 1], [200, 2]] },
+  });
+  const remote = data({
+    beds: [bed({ id: 'b1', name: 'Distant', mod: t(11), by: 'B' }), bed({ id: 'b2', name: 'Nouvelle', mod: t(9) })],
+    plants: [plant({ id: 'p1', count: 99, mod: t(8) })],
+    readings: { s1: [[200, 2], [300, 3]] },
+    deleted: { b3: t(9) },
+  });
+  const { data: m, stats } = mergeGardens(local, remote);
+  ok(m.beds.find((b) => b.id === 'b1')?.name === 'Distant', 'plus récente');
+  ok(m.beds.some((b) => b.id === 'b2'), 'ajout');
+  ok(!m.beds.some((b) => b.id === 'b3'), 'suppression plus récente appliquée');
+  ok(m.plants[0].count === 6, 'version locale plus récente gardée');
+  ok(m.readings.s1.map((r) => r[0]).join() === '100,200,300', 'relevés additionnés');
+  ok(stats.added === 1 && stats.updated === 1 && stats.removed === 1 && stats.conflicts === 1, JSON.stringify(stats));
+  // Idempotence : refusionner la même copie ne change rien.
+  const again = mergeGardens(m, remote);
+  ok(again.stats.added === 0 && again.stats.updated === 0 && again.data.beds.length === m.beds.length, 'idempotent');
+  // Une modification postérieure à la suppression fait revivre la fiche.
+  const revived = mergeGardens(data({ beds: [bed({ id: 'b3', mod: t(12) })] }), remote);
+  ok(revived.data.beds.some((b) => b.id === 'b3'), 'modif plus récente que la suppression');
+});
+
+test('partage : la sauvegarde garde capteurs, relevés et traces', () => {
+  const d = data({ sensors: [{ id: 's', name: 'Sonde', kind: 'soilMoisture', source: 'manual', bedId: 'b1' }], readings: { s: [[1, 20], [2, 'x' as unknown as number]] }, deleted: { z: '2026-01-01T00:00:00Z' }, tankChanges: [{ id: 't', bedId: 'b1', date: '2026-09-01' }] });
+  const back = parseBackup(serializeBackup(d, [])).data;
+  ok(back.sensors.length === 1 && back.readings.s.length === 1 && back.deleted.z && back.tankChanges.length === 1, JSON.stringify(back.readings));
+});
+
+// --- Phase 3 : capteurs -------------------------------------------------------------
+
+test('capteurs : dates et CSV (séparateurs, virgule décimale, en-tête, colonnes)', () => {
+  ok(parseDateTime('2026-09-30 14:05')!.getHours() === 14, 'heure locale');
+  ok(parseDateTime('2026-09-30T12:00:00Z')!.toISOString() === '2026-09-30T12:00:00.000Z', 'UTC');
+  ok(parseDateTime('2026-09-30T14:00:00+02:00')!.toISOString() === '2026-09-30T12:00:00.000Z', 'fuseau');
+  ok(parseDateTime('30/09/2026 08:30')!.getDate() === 30, 'jj/mm/aaaa');
+  ok(parseDateTime('1790000000')!.getUTCFullYear() === 2026, 'horodatage Unix');
+  ok(parseDateTime('hier') === null, 'invalide');
+  const fr = parseReadingsCSV('Date;Temp;Humidité\n2026-09-30 10:00;18,5;35,2\n2026-09-30 11:00;19;36\nmauvaise;ligne;x\n', 'soilMoisture');
+  ok(fr.columns.join() === '1,2' && fr.readings.length === 2 && fr.skipped === 1 && fr.header?.[2] === 'Humidité', JSON.stringify(fr));
+  const col2 = parseReadingsCSV('Date;Temp;Humidité\n2026-09-30 10:00;18,5;35,2\n', 'soilMoisture', 2);
+  ok(col2.readings[0][1] === 35.2, 'colonne choisie');
+  const en = parseReadingsCSV('2026-09-30T10:00:00Z,6.2\n2026-09-30T11:00:00Z,15\n', 'ph');
+  ok(en.readings.length === 1 && en.skipped === 1, 'pH hors bornes rejeté');
+});
+
+test('capteurs : série (doublons, écart minimal, ordre)', () => {
+  const r = addReadings([[100, 1]], [[105, 2], [130, 3], [90, 0], [130, 9]]);
+  ok(r.list.map((x) => x[0]).join() === '90,130' || r.list.map((x) => x[0]).join() === '90,100,130', r.list.map((x) => x[0]).join());
+  ok(r.list.every((x, i) => i === 0 || x[0] - r.list[i - 1][0] >= 10), 'écart de 10 min');
+});
+
+test('capteurs : passerelle Ecowitt (lecture défensive, °F, canaux)', () => {
+  ok(ecowittURL('http://192.168.1.5/') === 'http://192.168.1.5/get_livedata_info', 'URL');
+  const live = parseEcowitt({
+    common_list: [{ id: '0x02', val: '68.0', unit: 'F' }, { id: '0x07', val: '65%' }],
+    ch_soil: [{ channel: '1', name: '', battery: '5', humidity: '38%' }, { channel: '2', humidity: 'n/a' }],
+    ch_temp: [{ channel: '1', temp: '16.4', unit: 'C' }],
+    ch_aisle: [{ channel: '1', temp: '21.0', unit: 'C', humidity: '60%' }],
+  });
+  ok(live.outdoor.temp === 20 && live.outdoor.humidity === 65, JSON.stringify(live.outdoor));
+  ok(live.soil['1'] === 38 && live.soil['2'] === undefined && live.soilTemp['1'] === 16.4 && live.aisle['1'].humidity === 60, JSON.stringify(live));
+  const sensors: Sensor[] = [
+    { id: 'a', name: 'a', kind: 'soilMoisture', source: 'ecowitt', channel: '1' },
+    { id: 'b', name: 'b', kind: 'airTemp', source: 'ecowitt', channel: 'outdoor' },
+    { id: 'c', name: 'c', kind: 'humidity', source: 'ecowitt', channel: 'aisle1' },
+    { id: 'd', name: 'd', kind: 'soilMoisture', source: 'manual', channel: '1' },
+  ];
+  const got = readingsFromEcowitt(live, sensors, 1000);
+  ok(got.map(([id, r]) => `${id}=${r[1]}`).join() === 'a=38,b=20,c=60', got.join(';'));
+  ok(parseEcowitt(null).soil && Object.keys(parseEcowitt('x').soil).length === 0, 'réponse invalide');
+});
+
+test('capteurs : humidité du sol → réserve utile, recalage du bilan hydrique', () => {
+  ok(near(moistureToFraction({}, 20.5, 'loam'), 0.5, 1e-9), 'texture');
+  ok(moistureToFraction({ dry: 300, wet: 700 }, 500, 'loam') === 0.5 && moistureToFraction({ dry: 300, wet: 700 }, 900, 'loam') === 1, 'étalonnage');
+  const p = plant({ speciesId: 'lettuce', sowDate: '2026-06-01' });
+  const b = bed();
+  const base = data({ beds: [b], plants: [p], settings: { ...DEFAULT_SETTINGS, rainSource: 'manual' } });
+  const dry = waterAdvice(b, base, '2026-07-20');
+  ok(dry.water && !dry.sensorToday, 'sans sonde : arroser');
+  const at = toMinutes(new Date(2026, 6, 20, 9, 0));
+  const wet = { ...base, sensors: [{ id: 's', name: 's', kind: 'soilMoisture' as const, source: 'manual' as const, bedId: 'b1' }], readings: { s: [[at, 27]] as [number, number][] } };
+  const adv = waterAdvice(b, wet, '2026-07-20');
+  ok(adv.sensorToday && !adv.water && adv.ratio > 0.85, `sonde humide : ratio ${adv.ratio}`);
+});
+
+// --- Phase 3 : hydroponie -------------------------------------------------------------
+
+test('hydroponie : cibles communes, état du bac et tâches', () => {
+  const t = tankTarget(['lettuce', 'basil'])!;
+  ok(t.ec[0] === 1.0 && t.ec[1] === 1.2 && t.ph[0] === 5.5 && t.ph[1] === 6.5, JSON.stringify(t));
+  ok(tankTarget(['carrot']) === null, 'pas de cible connue');
+  const conflicting = tankTarget(['lettuce', 'tomato'])!;
+  ok(conflicting.ec[0] <= conflicting.ec[1], 'plages disjointes : plage prudente');
+  const b = bed({ id: 'h', kind: 'hydro', name: 'Bac' });
+  const at = toMinutes(new Date(2026, 8, 30, 9));
+  const d = data({
+    beds: [b],
+    plants: [plant({ id: 'l', speciesId: 'lettuce', bedId: 'h', sowDate: '2026-09-01' })],
+    sensors: [{ id: 'ec', name: 'EC', kind: 'ec', bedId: 'h', source: 'manual' }, { id: 'ph', name: 'pH', kind: 'ph', bedId: 'h', source: 'manual' }],
+    readings: { ec: [[at, 1.6]], ph: [[at, 6.0]] },
+    tankChanges: [{ id: 'c', bedId: 'h', date: '2026-09-10' }],
+  });
+  const st = tankStatus('h', d, '2026-10-01');
+  ok(st.ec?.state === 'high' && st.ph?.state === 'ok' && st.renewDue && st.daysSinceChange === 21, JSON.stringify(st));
+  const tasks = generateTasks(d, '2026-10-01');
+  ok(tasks.some((x) => x.kind === 'tank' && x.vars.what === 'ecHigh'), 'EC trop haute');
+  ok(tasks.some((x) => x.kind === 'tank' && x.vars.what === 'renew'), 'renouvellement');
+  ok(!tasks.some((x) => x.kind === 'water'), 'pas d’arrosage pour un bac');
+  const old = generateTasks(d, '2026-10-10');
+  ok(!old.some((x) => x.vars.what === 'ecHigh'), 'mesure trop ancienne ignorée');
+});
+
+// --- Phase 3 : notifications ------------------------------------------------------------
+
+test('notifications : matin, veille de gel, rappel de sauvegarde, plafond', () => {
+  ok(notificationId('a') !== notificationId('b') && notificationId('a') === notificationId('a') && notificationId('x') > 0 && notificationId('x') < 2 ** 31, 'identifiants');
+  const now = new Date(2026, 4, 9, 7, 0);
+  const days = series('2026-02-08', 100, (i, date) => (date === '2026-05-11' ? { tmin: -2, tmax: 9 } : {}));
+  const d = data({
+    beds: [bed()],
+    plants: [plant({ id: 't', speciesId: 'tomato', sowDate: '2026-04-20', transplantDate: '2026-05-05', indoor: true })],
+    settings: { ...DEFAULT_SETTINGS, onboarded: true, notify: true, notifyHour: 8, notifyMax: 3, weather: true, lat: 48.8, lon: 2.3 },
+    weather: cacheFrom(days),
+  });
+  const plan = planNotifications(d, now);
+  ok(plan.some((n) => n.kind === 'morning' && n.at.getHours() === 8 && n.at.getDate() === 9), 'résumé du matin');
+  const frost = plan.find((n) => n.kind === 'alert');
+  ok(frost && frost.at.getDate() === 10 && frost.at.getHours() === 18, `alerte la veille : ${frost?.at}`);
+  ok(plan.some((n) => n.kind === 'backup'), 'jamais sauvegardé : rappel');
+  ok(plan.every((n) => n.at > now), 'rien dans le passé');
+  const capped = planNotifications({ ...d, settings: { ...d.settings, notifyMax: 1 } }, now);
+  const perDay = new Map<number, number>();
+  for (const n of capped) perDay.set(n.at.getDate(), (perDay.get(n.at.getDate()) ?? 0) + 1);
+  ok([...perDay.values()].every((v) => v <= 1), 'plafond quotidien');
+  ok(capped.find((n) => n.at.getDate() === 10)?.kind === 'alert', 'l’alerte passe avant le résumé');
+  ok(!planNotifications({ ...d, settings: { ...d.settings, lastBackup: '2026-05-01' } }, now).some((n) => n.kind === 'backup'), 'sauvegarde récente : pas de rappel');
+  ok(planNotifications({ ...d, settings: { ...d.settings, notify: false } }, now).length === 0, 'désactivées');
+});
+
+// --- Phase 3 : mode pro ------------------------------------------------------------------
+
+test('mode pro : récoltes prévues, répartition par mois, bilan pluriannuel, rapport', () => {
+  const p = plant({ id: 'p', speciesId: 'lettuce', count: 12, sowDate: '2026-05-01' });
+  const obs = (id: string, date: string, g: number, plantId = 'p') => ({ id, plantId, bedId: 'b1', date, note: '', harvestG: g, photoIds: [] });
+  const d = data({
+    beds: [bed()],
+    plants: [p, plant({ id: 'old', speciesId: 'tomato', status: 'ended', sowDate: '2025-04-01', endDate: '2025-10-01' })],
+    observations: [obs('a', '2026-06-20', 500), obs('b', '2025-08-01', 4000, 'old')],
+    applications: [{ id: 'x', bedId: 'b1', productId: 'blood', amount: 100, date: '2025-05-01', cost: 3 }],
+  });
+  const f = forecast(d, '2026-06-21');
+  ok(f.length === 1 && near(f[0].harvestedKg, 0.5) && near(f[0].remainingKg, f[0].expectedKg - 0.5), JSON.stringify(f));
+  const months = forecastByMonth(f, '2026-06-21');
+  ok(near(months.reduce((s, m) => s + m.kg, 0), f[0].remainingKg, 1e-6), 'tout est réparti');
+  const my = multiYear(d);
+  ok(my.years.join() === '2025,2026' && my.inputs[2025] === 3 && my.rows.find((r) => r.year === 2025)?.grams === 4000, JSON.stringify(my));
+  const r = reportData(d, 2026, '2026-06-21');
+  ok(r.season.grams === 500 && r.forecast.length === 1 && r.applications.length === 0, 'rapport 2026');
 });
 
 if (failed) {

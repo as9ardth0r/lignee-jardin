@@ -8,6 +8,15 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
+    // Requêtes HTTP par la couche native : nécessaire pour lire une
+    // passerelle Ecowitt du réseau local (http://192.168.x.x, sans CORS).
+    CapacitorHttp: {
+      enabled: true,
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_notify',
+      iconColor: '#4a7f36',
+    },
     // Le splash natif reste affiché tant que main.tsx n'appelle pas
     // SplashScreen.hide() explicitement (voir main.tsx) — évite le
     // flash de contenu non stylé pendant le chargement du bundle JS,

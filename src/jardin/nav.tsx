@@ -13,7 +13,8 @@ export type SheetRequest =
   | { type: 'task' }
   | { type: 'obstacle'; id: string }
   | { type: 'diagnose'; plantId?: string; bedId?: string }
-  | { type: 'seed'; id?: string; speciesId?: string };
+  | { type: 'seed'; id?: string; speciesId?: string }
+  | { type: 'sensor'; id?: string; bedId?: string; kind?: import('./model').SensorKind };
 
 export interface Nav {
   tab: Tab;

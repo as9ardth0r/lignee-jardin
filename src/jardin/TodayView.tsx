@@ -5,7 +5,7 @@ import { addDays, dayOfYear, fromDayOfYear, yearOf } from './engine/dates';
 import { speciesOf } from './engine/crop';
 import { generateTasks, type Task } from './engine/tasks';
 import { bedArea, waterAdvice } from './engine/water';
-import { fmtDate, fmtL, fmtLongDate, plantTitle, speciesName } from './format';
+import { fmtDate, fmtL, fmtLongDate, plantTitle } from './format';
 import { useJT, type JKey } from './i18n';
 import { useNav } from './nav';
 import { useGarden } from './store';
@@ -13,6 +13,7 @@ import { waterText } from './GardenView';
 import { WeatherCard } from './Weather';
 import { timeline } from './engine/phenology';
 import { Button, Card, Empty, INK500, INK700, Meter } from './ui';
+import { taskText } from './taskText';
 
 const TASK_ICON: Record<Task['kind'], string> = {
   sow: '🌱',
@@ -24,6 +25,7 @@ const TASK_ICON: Record<Task['kind'], string> = {
   observe: '📷',
   frost: '❄',
   alert: '⚠',
+  tank: '🧪',
   manual: '✎',
 };
 
@@ -32,12 +34,7 @@ const SHOWN = 8;
 
 export function TaskText({ task }: { task: Task }) {
   const { tt, lang } = useJT();
-  const species = typeof task.vars.species === 'string' ? speciesName(task.vars.species, lang) : '';
-  const name = task.vars.variety ? `${species} · ${task.vars.variety}` : species;
-  if (task.kind === 'alert') {
-    return <>{tt(`task.alert.${task.vars.alert}` as JKey, { ...task.vars, value: task.vars.value, date: fmtDate(String(task.vars.date), lang), species, count: task.vars.count })}</>;
-  }
-  return <>{tt(`task.${task.kind}` as JKey, { ...task.vars, name, species })}</>;
+  return <>{taskText(task, tt, lang)}</>;
 }
 
 export function TodayView() {
@@ -47,7 +44,7 @@ export function TodayView() {
   const nav = useNav();
   const [showAll, setShowAll] = useState(false);
   const tasks = useMemo(() => generateTasks(data, today), [data, today]);
-  const advice = useMemo(() => data.beds.map((b) => ({ bed: b, adv: waterAdvice(b, data, today) })), [data, today]);
+  const advice = useMemo(() => data.beds.filter((b) => b.kind !== 'hydro').map((b) => ({ bed: b, adv: waterAdvice(b, data, today) })), [data, today]);
   const growing = data.plants.filter((p) => p.status === 'growing');
   const clim = CLIMATES[data.settings.climate];
   const doy = dayOfYear(today);

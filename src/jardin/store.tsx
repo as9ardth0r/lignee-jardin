@@ -7,16 +7,31 @@
  * pourra être servie par SQLite (plugin Capacitor) plus tard.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent } from './model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Reading, type Sensor, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent } from './model';
 import { mergeWeather, needsRefresh, parseOpenMeteo, weatherURL } from './engine/weather';
 import { demoGarden, parseBackup, serializeBackup, type PhotoExport } from './engine/backup';
 import { todayISO } from './engine/dates';
+import { mergeGardens, photoIdsOf, pruneDeleted, stampChanges, type MergeStats } from './engine/sync';
+import { addReadings, ecowittURL, parseEcowitt, readingsFromEcowitt } from './engine/sensors';
 
 const DB_NAME = 'lignee-jardin';
 const DB_VERSION = 1;
 const KV = 'kv';
 const PHOTOS = 'photos';
+/** Jardin d'origine (phase 1 et 2) ; les suivants sont rangés sous `garden:<id>`. */
 const DATA_KEY = 'garden';
+const INDEX_KEY = 'gardens';
+const MAIN_ID = 'main';
+const keyOf = (id: string) => (id === MAIN_ID ? DATA_KEY : `garden:${id}`);
+
+export interface GardenRef {
+  id: string;
+  name: string;
+}
+interface GardenIndex {
+  active: string;
+  list: GardenRef[];
+}
 
 interface PhotoRecord {
   id: string;
@@ -145,6 +160,23 @@ export interface GardenStore {
   /** Télécharge la météo locale (si une position est connue). */
   refreshWeather: (force?: boolean) => Promise<'ok' | 'offline' | 'error' | 'noPlace' | 'fresh'>;
   weatherBusy: boolean;
+  /** Plusieurs jardins sur l'appareil. */
+  gardens: GardenRef[];
+  activeGarden: string;
+  switchGarden: (id: string) => Promise<void>;
+  createGarden: () => Promise<void>;
+  deleteGarden: (id: string) => Promise<void>;
+  /** Fusionne la sauvegarde d'un jardin partagé dans le jardin ouvert. */
+  mergeBackup: (raw: string) => Promise<MergeStats>;
+  saveSensor: (s: Sensor) => void;
+  deleteSensor: (id: string) => void;
+  addReadings: (sensorId: string, list: Reading[]) => number;
+  deleteReading: (sensorId: string, t: number) => void;
+  addTankChange: (c: Omit<TankChange, 'id'>) => void;
+  deleteTankChange: (id: string) => void;
+  /** Lit la passerelle Ecowitt du réseau local. */
+  pollEcowitt: () => Promise<'ok' | 'noHost' | 'error' | 'noSensor'>;
+  ecowittAt?: string;
 }
 
 const Ctx = createContext<GardenStore | null>(null);
@@ -159,16 +191,25 @@ export function GardenProvider({ children }: { children: ReactNode }) {
   const latest = useRef<GardenData>(EMPTY_DATA);
   const [today, setToday] = useState(() => todayISO());
   const [weatherBusy, setWeatherBusy] = useState(false);
+  const [index, setIndex] = useState<GardenIndex>({ active: MAIN_ID, list: [{ id: MAIN_ID, name: DEFAULT_SETTINGS.gardenName }] });
+  const indexRef = useRef(index);
+  const [ecowittAt, setEcowittAt] = useState<string | undefined>();
 
   useEffect(() => {
     let cancelled = false;
     openDB()
       .then(async (db) => {
         dbRef.current = db;
-        const stored = await tx<GardenData>(db, KV, 'readonly', (s) => s.get(DATA_KEY) as IDBRequest<GardenData>);
+        const storedIndex = await tx<GardenIndex>(db, KV, 'readonly', (s) => s.get(INDEX_KEY) as IDBRequest<GardenIndex>);
+        const idx = storedIndex && Array.isArray(storedIndex.list) && storedIndex.list.length ? storedIndex : null;
+        const active = idx?.active ?? MAIN_ID;
+        const stored = await tx<GardenData>(db, KV, 'readonly', (s) => s.get(keyOf(active)) as IDBRequest<GardenData>);
         if (!cancelled) {
           latest.current = normalize(stored);
           setData(latest.current);
+          const next = idx ?? { active: MAIN_ID, list: [{ id: MAIN_ID, name: latest.current.settings.gardenName }] };
+          indexRef.current = next;
+          setIndex(next);
         }
       })
       .catch(() => {
@@ -186,19 +227,58 @@ export function GardenProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /** Applique une modification et l'écrit sur le disque (regroupée sur 300 ms). */
-  const mutate = useCallback((fn: (d: GardenData) => GardenData) => {
+  const writeNow = useCallback(() => {
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    const db = dbRef.current;
+    if (!db) return Promise.resolve();
+    return tx(db, KV, 'readwrite', (s) => s.put(latest.current, keyOf(indexRef.current.active)))
+      .then(() => undefined)
+      .catch(() => setVolatile(true));
+  }, []);
+
+  /**
+   * Applique une modification et l'écrit sur le disque (regroupée sur 300 ms).
+   * Les enregistrements modifiés sont datés et signés (jardin partagé),
+   * sauf pour un import ou une fusion qui gardent les dates d'origine.
+   */
+  const mutate = useCallback((fn: (d: GardenData) => GardenData, stamp = true) => {
     setData((prev) => {
-      const next = fn(prev);
+      const raw = fn(prev);
+      const next = stamp ? stampChanges(prev, raw, new Date().toISOString(), raw.settings.author?.trim() || undefined) : raw;
       latest.current = next;
       window.clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => {
-        saveTimer.current = undefined;
-        const db = dbRef.current;
-        if (db) tx(db, KV, 'readwrite', (s) => s.put(latest.current, DATA_KEY)).catch(() => setVolatile(true));
-      }, 300);
+      saveTimer.current = window.setTimeout(() => void writeNow(), 300);
       return next;
     });
+  }, [writeNow]);
+
+  const saveIndex = useCallback((next: GardenIndex) => {
+    indexRef.current = next;
+    setIndex(next);
+    const db = dbRef.current;
+    if (db) tx(db, KV, 'readwrite', (s) => s.put(next, INDEX_KEY)).catch(() => {});
   }, []);
+
+  // Le nom du jardin ouvert suit le réglage « nom du jardin ».
+  useEffect(() => {
+    if (!ready) return;
+    const cur = indexRef.current;
+    const name = data.settings.gardenName;
+    const entry = cur.list.find((g) => g.id === cur.active);
+    if (entry && entry.name !== name) saveIndex({ ...cur, list: cur.list.map((g) => (g.id === cur.active ? { ...g, name } : g)) });
+  }, [ready, data.settings.gardenName, saveIndex]);
+
+  const loadGarden = useCallback(
+    async (id: string) => {
+      await writeNow();
+      const db = dbRef.current;
+      const stored = db ? await tx<GardenData>(db, KV, 'readonly', (s) => s.get(keyOf(id)) as IDBRequest<GardenData>) : undefined;
+      latest.current = normalize(stored);
+      setData(latest.current);
+    },
+    [writeNow],
+  );
 
   // Écrit immédiatement si l'app passe en arrière-plan (téléphone verrouillé, onglet fermé).
   useEffect(() => {
@@ -206,13 +286,11 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       if (document.visibilityState !== 'hidden') return;
       const db = dbRef.current;
       if (!db || saveTimer.current === undefined) return;
-      window.clearTimeout(saveTimer.current);
-      saveTimer.current = undefined;
-      tx(db, KV, 'readwrite', (s) => s.put(latest.current, DATA_KEY)).catch(() => {});
+      void writeNow();
     };
     document.addEventListener('visibilitychange', flush);
     return () => document.removeEventListener('visibilitychange', flush);
-  }, []);
+  }, [writeNow]);
 
   const upsert = <T extends { id: string }>(list: T[], item: T) => (list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [...list, item]);
 
@@ -265,6 +343,37 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('online', online);
     };
   }, [ready, weatherOn, data.settings.lat, data.settings.lon, refreshWeather]);
+
+  const pollEcowitt = useCallback(async (): Promise<'ok' | 'noHost' | 'error' | 'noSensor'> => {
+    const { settings, sensors } = latest.current;
+    if (!settings.ecowittHost) return 'noHost';
+    const mine = sensors.filter((x) => x.source === 'ecowitt');
+    if (!mine.length) return 'noSensor';
+    try {
+      const res = await fetch(ecowittURL(settings.ecowittHost));
+      if (!res.ok) return 'error';
+      const live = parseEcowitt(await res.json());
+      const at = Math.floor(Date.now() / 60_000);
+      mutate((d) => {
+        let readings = d.readings;
+        for (const [sensorId, r] of readingsFromEcowitt(live, d.sensors, at)) readings = { ...readings, [sensorId]: addReadings(readings[sensorId] ?? [], [r]).list };
+        return { ...d, readings };
+      }, false);
+      setEcowittAt(new Date().toISOString());
+      return 'ok';
+    } catch {
+      return 'error';
+    }
+  }, [mutate]);
+
+  // Passerelle Ecowitt : lecture à l'ouverture puis toutes les 15 minutes tant que l'app est ouverte.
+  const ecowittOn = ready && !!data.settings.ecowittHost && data.sensors.some((x) => x.source === 'ecowitt');
+  useEffect(() => {
+    if (!ecowittOn) return;
+    void pollEcowitt();
+    const t = window.setInterval(() => void pollEcowitt(), 15 * 60_000);
+    return () => window.clearInterval(t);
+  }, [ecowittOn, data.settings.ecowittHost, pollEcowitt]);
 
   const store = useMemo<GardenStore>(
     () => ({
@@ -349,16 +458,19 @@ export function GardenProvider({ children }: { children: ReactNode }) {
         const db = dbRef.current;
         const photos: PhotoExport[] = [];
         if (db) {
+          const own = photoIdsOf(data);
           const all = (await tx<PhotoRecord[]>(db, PHOTOS, 'readonly', (s) => s.getAll() as IDBRequest<PhotoRecord[]>)) ?? [];
-          for (const r of all) photos.push({ meta: r.meta, full: await blobToDataURL(r.full), thumb: await blobToDataURL(r.thumb) });
+          for (const r of all.filter((x) => own.has(x.id))) photos.push({ meta: r.meta, full: await blobToDataURL(r.full), thumb: await blobToDataURL(r.thumb) });
         }
-        return serializeBackup(data, photos);
+        const out = serializeBackup({ ...data, deleted: pruneDeleted(data.deleted, new Date().toISOString()) }, photos);
+        mutate((d) => ({ ...d, settings: { ...d.settings, lastBackup: today } }), false);
+        return out;
       },
       importBackup: async (raw) => {
         const parsed = parseBackup(raw);
         const db = dbRef.current;
         if (db) {
-          await tx(db, PHOTOS, 'readwrite', (s) => s.clear());
+          for (const id of photoIdsOf(data)) await tx(db, PHOTOS, 'readwrite', (s) => s.delete(id)).catch(() => {});
           for (const p of parsed.photos) {
             const rec: PhotoRecord = { id: p.meta.id, meta: p.meta, full: await dataURLToBlob(p.full), thumb: await dataURLToBlob(p.thumb) };
             await tx(db, PHOTOS, 'readwrite', (s) => s.put(rec));
@@ -366,14 +478,29 @@ export function GardenProvider({ children }: { children: ReactNode }) {
         }
         urlCache.current.forEach((u) => URL.revokeObjectURL(u));
         urlCache.current.clear();
-        mutate(() => ({ ...parsed.data, settings: { ...parsed.data.settings, onboarded: true } }));
+        mutate(() => ({ ...parsed.data, settings: { ...parsed.data.settings, onboarded: true } }), false);
+      },
+      mergeBackup: async (raw) => {
+        const parsed = parseBackup(raw);
+        const db = dbRef.current;
+        const have = photoIdsOf(latest.current);
+        if (db) {
+          for (const p of parsed.photos) {
+            if (have.has(p.meta.id)) continue;
+            const rec: PhotoRecord = { id: p.meta.id, meta: p.meta, full: await dataURLToBlob(p.full), thumb: await dataURLToBlob(p.thumb) };
+            await tx(db, PHOTOS, 'readwrite', (s) => s.put(rec));
+          }
+        }
+        const { data: merged, stats } = mergeGardens(latest.current, parsed.data);
+        mutate(() => merged, false);
+        return stats;
       },
       loadDemo: () => mutate((d) => demoGarden(today, d)),
       resetAll: async () => {
         const db = dbRef.current;
         if (db) {
-          await tx(db, PHOTOS, 'readwrite', (s) => s.clear());
-          await tx(db, KV, 'readwrite', (s) => s.delete(DATA_KEY));
+          for (const id of photoIdsOf(data)) await tx(db, PHOTOS, 'readwrite', (s) => s.delete(id)).catch(() => {});
+          await tx(db, KV, 'readwrite', (s) => s.delete(keyOf(indexRef.current.active)));
         }
         urlCache.current.forEach((u) => URL.revokeObjectURL(u));
         urlCache.current.clear();
@@ -399,8 +526,59 @@ export function GardenProvider({ children }: { children: ReactNode }) {
         }),
       refreshWeather,
       weatherBusy,
+      gardens: index.list,
+      activeGarden: index.active,
+      switchGarden: async (id) => {
+        if (id === indexRef.current.active || !indexRef.current.list.some((g) => g.id === id)) return;
+        await writeNow();
+        saveIndex({ ...indexRef.current, active: id });
+        await loadGarden(id);
+      },
+      createGarden: async () => {
+        await writeNow();
+        const id = uid('g');
+        saveIndex({ active: id, list: [...indexRef.current.list, { id, name: DEFAULT_SETTINGS.gardenName }] });
+        latest.current = normalize(undefined);
+        setData(latest.current);
+      },
+      deleteGarden: async (id) => {
+        const cur = indexRef.current;
+        if (cur.list.length < 2) return;
+        const db = dbRef.current;
+        if (db) {
+          const stored = await tx<GardenData>(db, KV, 'readonly', (s) => s.get(keyOf(id)) as IDBRequest<GardenData>);
+          for (const pid of photoIdsOf(normalize(stored))) await tx(db, PHOTOS, 'readwrite', (s) => s.delete(pid)).catch(() => {});
+          await tx(db, KV, 'readwrite', (s) => s.delete(keyOf(id)));
+        }
+        const list = cur.list.filter((g) => g.id !== id);
+        if (id === cur.active) {
+          window.clearTimeout(saveTimer.current);
+          saveTimer.current = undefined;
+          saveIndex({ active: list[0].id, list });
+          const stored = db ? await tx<GardenData>(db, KV, 'readonly', (s) => s.get(keyOf(list[0].id)) as IDBRequest<GardenData>) : undefined;
+          latest.current = normalize(stored);
+          setData(latest.current);
+        } else saveIndex({ ...cur, list });
+      },
+      saveSensor: (x) => mutate((d) => ({ ...d, sensors: upsert(d.sensors, x) })),
+      deleteSensor: (id) =>
+        mutate((d) => {
+          const readings = { ...d.readings };
+          delete readings[id];
+          return { ...d, sensors: d.sensors.filter((x) => x.id !== id), readings };
+        }),
+      addReadings: (sensorId, list) => {
+        const { added } = addReadings(latest.current.readings[sensorId] ?? [], list);
+        mutate((d) => ({ ...d, readings: { ...d.readings, [sensorId]: addReadings(d.readings[sensorId] ?? [], list).list } }), false);
+        return added;
+      },
+      deleteReading: (sensorId, t) => mutate((d) => ({ ...d, readings: { ...d.readings, [sensorId]: (d.readings[sensorId] ?? []).filter((r) => r[0] !== t) } }), false),
+      addTankChange: (c) => mutate((d) => ({ ...d, tankChanges: [...d.tankChanges, { ...c, id: uid('tk') }] })),
+      deleteTankChange: (id) => mutate((d) => ({ ...d, tankChanges: d.tankChanges.filter((x) => x.id !== id) })),
+      pollEcowitt,
+      ecowittAt,
     }),
-    [ready, volatile, data, today, mutate, deletePhotos, refreshWeather, weatherBusy],
+    [ready, volatile, data, today, mutate, deletePhotos, refreshWeather, weatherBusy, index, writeNow, saveIndex, loadGarden, pollEcowitt, ecowittAt],
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

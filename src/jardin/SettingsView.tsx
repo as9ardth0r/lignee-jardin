@@ -13,6 +13,7 @@ import { useGarden } from './store';
 import { Button, Card, Chip, Field, INK500, INK700, Notice, Select, TextInput } from './ui';
 import { downloadTextFile, readFileAsText } from '../utils/download';
 import { LocationPicker } from './Weather';
+import { GardensCard, NotificationsCard } from './ProSettings';
 
 export const KINDS: GardenKind[] = ['vegetable', 'orchard', 'ornamental', 'balcony', 'greenhouse'];
 export const PRACTICES: Practice[] = ['conventional', 'livingSoil', 'permaculture', 'organic', 'soilless'];
@@ -230,6 +231,10 @@ export function SettingsView() {
           </span>
         </label>
       </Card>
+
+      <NotificationsCard />
+
+      <GardensCard />
 
       <Card title={tt('settings.data')}>
         <p className="text-sm leading-relaxed" style={{ color: INK700 }}>

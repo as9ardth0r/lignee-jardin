@@ -11,6 +11,7 @@ import { addDays, daysInMonth, diffDays, monthOf } from './dates';
 import { isActiveOn, kcAt, speciesOf, varietyScale } from './crop';
 import { eqAge } from './phenology';
 import { activeWeather, rainNext } from './weather';
+import { moistureByDay } from './sensors';
 
 /** Réduction d'évaporation par un paillage (hypothèse de départ, à recaler). */
 export const MULCH_FACTOR = 0.75;
@@ -50,6 +51,8 @@ export interface WaterDay {
   ru: number;
   /** ET₀ et pluie venues de la météo locale (sinon normales ou relevés). */
   measured: boolean;
+  /** Réserve recalée ce jour-là sur une sonde d'humidité du sol. */
+  sensor: boolean;
 }
 
 /** Kc de la planche : le plus fort des cultures présentes, lu sur leur âge équivalent (degrés-jours). */
@@ -78,6 +81,7 @@ export function simulateBed(bed: Bed, data: GardenData, from: ISODate, to: ISODa
     else if (e.bedId === bed.id) irrByDay.set(e.date, (irrByDay.get(e.date) ?? 0) + e.amount / area);
   }
   const n = diffDays(from, to);
+  const probe = moistureByDay(bed.id, bed.texture ?? data.settings.texture, data);
   let reserve = -1;
   for (let i = 0; i <= n; i++) {
     const date = addDays(from, i);
@@ -99,7 +103,10 @@ export function simulateBed(bed: Bed, data: GardenData, from: ISODate, to: ISODa
     }
     const irrigation = irrByDay.get(date) ?? 0;
     reserve = Math.min(ru, Math.max(0, reserve + rain + irrigation - etc));
-    days.push({ date, et0, kc, etc, rain, irrigation, reserve, ru, measured: !!w });
+    // Une sonde d'humidité du sol remplace le calcul : la mesure fait foi.
+    const f = probe.get(date);
+    if (f !== undefined) reserve = f * ru;
+    days.push({ date, et0, kc, etc, rain, irrigation, reserve, ru, measured: !!w, sensor: f !== undefined });
   }
   return days;
 }
@@ -123,6 +130,8 @@ export interface WaterAdvice {
   postponed: boolean;
   /** Durée de goutte-à-goutte équivalente (min), si le débit de la planche est connu. */
   dripMinutes?: number;
+  /** La réserve du jour vient d'une sonde d'humidité. */
+  sensorToday: boolean;
 }
 
 /** Pluie utile annoncée (mm sur 48 h) à partir de laquelle on reporte l'arrosage. */
@@ -137,7 +146,8 @@ export function waterAdvice(bed: Bed, data: GardenData, today: ISODate): WaterAd
   const hasPlants = activePlants(bed, data.plants, today).length > 0;
   const ratio = last.ru > 0 ? last.reserve / last.ru : 1;
   const area = bedArea(bed);
-  const needed = hasPlants && ratio < WATER_THRESHOLD;
+  // Un bac hydroponique n'a pas de réserve du sol : voir le suivi EC/pH.
+  const needed = hasPlants && bed.kind !== 'hydro' && ratio < WATER_THRESHOLD;
   const rainExpected = bed.kind === 'greenhouse' || !data.settings.weather ? 0 : rainNext(data.weather, today, 2) * RAIN_EFFICIENCY;
   // On n'attend la pluie que si la réserve n'est pas déjà presque vide.
   const postponed = needed && rainExpected >= POSTPONE_RAIN_MM && last.reserve >= last.ru * 0.2;
@@ -145,5 +155,6 @@ export function waterAdvice(bed: Bed, data: GardenData, today: ISODate): WaterAd
   const liters = water ? Math.max(0, Math.min(last.ru * 0.9 - last.reserve, WATER_DOSE_MAX_MM) * area) : 0;
   const daysLeft = last.etc > 0 ? Math.max(0, Math.floor((last.reserve - last.ru * WATER_THRESHOLD) / last.etc)) : 99;
   const dripMinutes = water && bed.drip && bed.dripFlow && bed.dripFlow > 0 ? Math.round((liters / bed.dripFlow) * 60) : undefined;
-  return { bedId: bed.id, ru: last.ru, reserve: last.reserve, ratio, etcToday: last.etc, water, liters, daysLeft, hasPlants, history, rainExpected, postponed, dripMinutes };
+  const sensorToday = last.sensor;
+  return { bedId: bed.id, ru: last.ru, reserve: last.reserve, ratio, etcToday: last.etc, water, liters, daysLeft, hasPlants, history, rainExpected, postponed, dripMinutes, sensorToday };
 }

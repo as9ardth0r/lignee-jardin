@@ -54,6 +54,16 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
     seeds: arr(d.seeds, (v) => hasId(v) && obj(v) && typeof v.speciesId === 'string' && !!SPECIES_BY_ID[v.speciesId as string] && typeof v.year === 'number'),
     prices: obj(d.prices) ? Object.fromEntries(Object.entries(d.prices).filter(([, x]) => typeof x === 'number' && x >= 0)) : {},
     weather: obj(d.weather) && Array.isArray((d.weather as { days?: unknown }).days) ? d.weather : undefined,
+    sensors: arr(d.sensors, (v) => hasId(v) && obj(v) && typeof v.kind === 'string' && typeof v.name === 'string'),
+    readings: obj(d.readings)
+      ? Object.fromEntries(
+          Object.entries(d.readings)
+            .filter(([, r]) => Array.isArray(r))
+            .map(([k, r]) => [k, (r as unknown[]).filter((x): x is [number, number] => Array.isArray(x) && x.length === 2 && Number.isFinite(x[0]) && Number.isFinite(x[1]))]),
+        )
+      : {},
+    tankChanges: arr(d.tankChanges, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.bedId === 'string'),
+    deleted: obj(d.deleted) ? Object.fromEntries(Object.entries(d.deleted).filter(([, x]) => typeof x === 'string')) : {},
   };
   for (const o of data.observations) if (!Array.isArray(o.photoIds)) o.photoIds = [];
   const photos = arr<PhotoExport>(b.photos, (v) => obj(v) && obj(v.meta) && typeof v.full === 'string' && typeof v.thumb === 'string');
@@ -64,8 +74,9 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
 
 export function toCSV(rows: Array<Array<string | number | undefined>>): string {
   const cell = (v: string | number | undefined) => {
-    const s = v === undefined ? '' : String(v);
-    return /[";\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    // Nombres en virgule décimale : avec le point-virgule, c'est ce qu'attend un tableur réglé en français (sinon 3.5 devient une date).
+    const s = v === undefined ? '' : typeof v === 'number' ? String(v).replace('.', ',') : String(v);
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   // Point-virgule : séparateur attendu par les tableurs en français.
   return '﻿' + rows.map((r) => r.map(cell).join(';')).join('\n');
@@ -159,6 +170,14 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
     ],
     tasks: [],
     taskStates: [],
+    // Une sonde d'humidité relevée chaque matin sur la planche 1.
+    sensors: [{ id: 'demo-s1', name: 'Sonde Planche 1', kind: 'soilMoisture', bedId: 'demo-b1', source: 'manual' }],
+    readings: {
+      'demo-s1': [-6, -5, -4, -3, -2, -1, 0].map((d, i): [number, number] => {
+        const [y, m, day] = addDays(today, d).split('-').map(Number);
+        return [Math.floor(new Date(y, m - 1, day, 8).getTime() / 60_000), [26, 24, 23, 21, 25, 23, 22][i]];
+      }),
+    },
     obstacles: [
       { id: 'demo-o1', name: 'Maison', kind: 'building', x: 0, y: 6.4, w: 7, h: 1.6, height: 7 },
       { id: 'demo-o2', name: 'Pommier', kind: 'tree', x: 10, y: 3.5, w: 2, h: 2, height: 4 },

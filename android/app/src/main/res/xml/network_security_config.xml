@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTP en clair autorisé : la passerelle Ecowitt du réseau local ne parle que
+  http://. Les services Internet utilisés (Open-Meteo) restent en https.
+  Android ne permet pas de restreindre par plage d'adresses IP privées.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

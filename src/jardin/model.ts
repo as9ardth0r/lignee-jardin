@@ -137,6 +137,16 @@ export interface Product {
 
 // --- Réglages du jardin ---------------------------------------------------
 
+/**
+ * Trace de modification d'un enregistrement (phase 3) : date ISO de la
+ * dernière modification et auteur, posées automatiquement par le stockage.
+ * Sert à fusionner deux copies d'un même jardin (la plus récente gagne).
+ */
+export interface Meta {
+  mod?: string;
+  by?: string;
+}
+
 export type ClimateId = 'oceanic' | 'parisian' | 'continental' | 'mediterranean' | 'mountain';
 export type GardenKind = 'vegetable' | 'orchard' | 'ornamental' | 'balcony' | 'greenhouse';
 export type Practice = 'conventional' | 'livingSoil' | 'permaculture' | 'organic' | 'soilless';
@@ -170,6 +180,16 @@ export interface Settings {
   planW: number;
   planH: number;
   terrain: boolean;
+  /** Nom de la personne qui saisit (jardin partagé). */
+  author?: string;
+  /** Notifications locales : activées, heure du résumé du matin, plafond quotidien. */
+  notify: boolean;
+  notifyHour: number;
+  notifyMax: number;
+  /** Date de la dernière sauvegarde exportée (rappel mensuel). */
+  lastBackup?: ISODate;
+  /** Passerelle Ecowitt du réseau local (adresse IP ou nom), facultative. */
+  ecowittHost?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -186,13 +206,16 @@ export const DEFAULT_SETTINGS: Settings = {
   planW: 12,
   planH: 8,
   terrain: false,
+  notify: false,
+  notifyHour: 8,
+  notifyMax: 3,
 };
 
 // --- Données du jardinier ---------------------------------------------------
 
-export type BedKind = 'bed' | 'pot' | 'greenhouse';
+export type BedKind = 'bed' | 'pot' | 'greenhouse' | 'hydro';
 
-export interface Bed {
+export interface Bed extends Meta {
   id: string;
   name: string;
   kind: BedKind;
@@ -207,13 +230,15 @@ export interface Bed {
   drip: boolean;
   /** Débit du goutte-à-goutte de la planche (L/h), pour convertir un arrosage en minutes. */
   dripFlow?: number;
+  /** Volume de solution nutritive (L), pour un bac hydroponique. */
+  tankL?: number;
   createdAt: ISODate;
 }
 
 export type ObstacleKind = 'building' | 'wall' | 'tree' | 'hedge';
 
 /** Ce qui fait de l'ombre sur le plan (maison, mur, arbre, haie). */
-export interface Obstacle {
+export interface Obstacle extends Meta {
   id: string;
   name: string;
   kind: ObstacleKind;
@@ -225,7 +250,7 @@ export interface Obstacle {
   height: number;
 }
 
-export interface Variety {
+export interface Variety extends Meta {
   id: string;
   speciesId: string;
   name: string;
@@ -237,7 +262,7 @@ export interface Variety {
 
 export type PlantStatus = 'planned' | 'growing' | 'ended';
 
-export interface Plant {
+export interface Plant extends Meta {
   id: string;
   speciesId: string;
   varietyId?: string;
@@ -262,7 +287,7 @@ export interface Plant {
 
 export type Health = 'good' | 'watch' | 'sick';
 
-export interface Observation {
+export interface Observation extends Meta {
   id: string;
   plantId?: string;
   bedId?: string;
@@ -275,7 +300,7 @@ export interface Observation {
   photoIds: string[];
 }
 
-export interface Application {
+export interface Application extends Meta {
   id: string;
   bedId: string;
   /** Apport ciblé sur une culture ; sinon réparti sur la planche au prorata des surfaces. */
@@ -289,7 +314,7 @@ export interface Application {
   cost?: number;
 }
 
-export interface WaterEvent {
+export interface WaterEvent extends Meta {
   id: string;
   kind: 'rain' | 'irrigation';
   /** Pluie : mm, pour tout le jardin. Arrosage : litres, pour une planche. */
@@ -298,7 +323,7 @@ export interface WaterEvent {
   date: ISODate;
 }
 
-export interface ManualTask {
+export interface ManualTask extends Meta {
   id: string;
   title: string;
   due: ISODate;
@@ -308,14 +333,14 @@ export interface ManualTask {
 }
 
 /** État d'une tâche générée (faite ou reportée), indexé par sa clé stable. */
-export interface TaskState {
+export interface TaskState extends Meta {
   key: string;
   done?: ISODate;
   snoozeUntil?: ISODate;
 }
 
 /** Stade observé (première fleur, première récolte…) : sert à recaler les prévisions. */
-export interface PhenoEvent {
+export interface PhenoEvent extends Meta {
   id: string;
   plantId: string;
   stage: StageId;
@@ -325,7 +350,7 @@ export interface PhenoEvent {
 export type TreatmentMethod = 'manual' | 'barrier' | 'auxiliary' | 'product' | 'cultural';
 
 /** Intervention sanitaire (registre). */
-export interface Treatment {
+export interface Treatment extends Meta {
   id: string;
   plantId?: string;
   bedId?: string;
@@ -338,7 +363,7 @@ export interface Treatment {
 }
 
 /** Lot de graines en stock. */
-export interface SeedLot {
+export interface SeedLot extends Meta {
   id: string;
   speciesId: string;
   varietyName?: string;
@@ -381,6 +406,40 @@ export interface PhotoMeta {
   height: number;
 }
 
+export type SensorKind = 'soilMoisture' | 'soilTemp' | 'airTemp' | 'humidity' | 'ec' | 'ph';
+export const SENSOR_KINDS: SensorKind[] = ['soilMoisture', 'soilTemp', 'airTemp', 'humidity', 'ec', 'ph'];
+export type SensorSource = 'manual' | 'csv' | 'ecowitt';
+
+/** Capteur (ou point de mesure manuel) rattaché à une planche ou au jardin. */
+export interface Sensor extends Meta {
+  id: string;
+  name: string;
+  kind: SensorKind;
+  bedId?: string;
+  source: SensorSource;
+  /** Ecowitt : canal de la sonde (ch_soil 1 à 16) ou « outdoor ». */
+  channel?: string;
+  /**
+   * Humidité du sol : lectures brutes « sol sec » et « sol ressuyé après
+   * arrosage » ; sans étalonnage, la valeur est lue comme une humidité
+   * volumique (%) et rapportée à la texture.
+   */
+  dry?: number;
+  wet?: number;
+}
+
+/** Relevé : [minutes depuis 1970 (UTC), valeur]. Compact, les capteurs en produisent beaucoup. */
+export type Reading = [number, number];
+
+/** Renouvellement de la solution d'un bac hydroponique. */
+export interface TankChange extends Meta {
+  id: string;
+  bedId: string;
+  date: ISODate;
+  volumeL?: number;
+  note?: string;
+}
+
 export interface GardenData {
   settings: Settings;
   beds: Bed[];
@@ -398,6 +457,12 @@ export interface GardenData {
   /** Prix au kg choisis par le jardinier (sinon prix de référence du catalogue). */
   prices: Record<string, number>;
   weather?: WeatherCache;
+  sensors: Sensor[];
+  /** Relevés par capteur, triés par date. */
+  readings: Record<string, Reading[]>;
+  tankChanges: TankChange[];
+  /** Enregistrements supprimés (identifiant → date ISO), pour la fusion de jardins. */
+  deleted: Record<string, string>;
 }
 
 export const EMPTY_DATA: GardenData = {
@@ -415,6 +480,10 @@ export const EMPTY_DATA: GardenData = {
   treatments: [],
   seeds: [],
   prices: {},
+  sensors: [],
+  readings: {},
+  tankChanges: [],
+  deleted: {},
 };
 
 export function uid(prefix: string): string {

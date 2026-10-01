@@ -3,6 +3,8 @@
  * - ajoute une couche « monochrome » (icônes à thème d'Android 13+),
  *   tirée de assets/icon-monochrome.png (silhouette blanche sur fond
  *   transparent, même cadrage que l'avant-plan).
+ * - crée la petite icône des notifications (`ic_stat_notify`, silhouette
+ *   blanche recadrée, 24 dp aux cinq densités).
  * À lancer après `npx capacitor-assets generate` (voir `npm run android:assets`).
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -28,4 +30,15 @@ for (const name of ['ic_launcher.xml', 'ic_launcher_round.xml']) {
     writeFileSync(path, xml);
   }
 }
-console.log('Icône monochrome ajoutée (Android 13+).');
+const sharp = (await import('sharp')).default;
+const trimmed = await sharp(SRC).trim().toBuffer();
+for (const [dir, px] of [['mdpi', 24], ['hdpi', 36], ['xhdpi', 48], ['xxhdpi', 72], ['xxxhdpi', 96]]) {
+  const pad = Math.round(px / 12);
+  mkdirSync(`${RES}/drawable-${dir}`, { recursive: true });
+  await sharp(trimmed)
+    .resize(px - 2 * pad, px - 2 * pad, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .extend({ top: pad, bottom: pad, left: pad, right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toFile(`${RES}/drawable-${dir}/ic_stat_notify.png`);
+}
+console.log('Icône monochrome (Android 13+) et icône de notification ajoutées.');

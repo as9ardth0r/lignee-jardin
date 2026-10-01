@@ -12,11 +12,13 @@ import { useJT, type JKey } from './i18n';
 import { useNav } from './nav';
 import { useGarden } from './store';
 import { Button, Card, Chip, Empty, Field, INK500, INK700, Meter, Notice, Select, Sheet, TextInput, Why } from './ui';
+import { BedSensors, SensorsCard } from './Sensors';
 
 const BED_FILL: Record<BedKind, { fill: string; stroke: string }> = {
   bed: { fill: '#8a6a44', stroke: '#5a4329' },
   pot: { fill: '#b8643a', stroke: '#7a3f22' },
   greenhouse: { fill: '#cfe3e8', stroke: '#6f8f98' },
+  hydro: { fill: '#3f7f8c', stroke: '#24525b' },
 };
 
 const snap = (v: number) => Math.round(v * 10) / 10;
@@ -26,7 +28,7 @@ export function waterText(adv: WaterAdvice, tt: TT, lang: 'fr' | 'en'): string {
   if (!adv.hasPlants) return tt('water.noPlants');
   if (adv.postponed) return `🌧 ${tt('water.postponed', { mm: fmtNum(adv.rainExpected, lang, 0) })}`;
   if (adv.water) return `💧 ${tt('water.needLiters', { liters: fmtL(adv.liters, lang) })}${adv.dripMinutes ? ` (${tt('water.dripMin', { min: adv.dripMinutes })})` : ''}`;
-  return tt('water.okDays', { days: Math.min(adv.daysLeft, 30) });
+  return `${tt('water.okDays', { days: Math.min(adv.daysLeft, 30) })}${adv.sensorToday ? ` · 📡 ${tt('water.probe')}` : ''}`;
 }
 
 const OBSTACLE_FILL: Record<ObstacleKind, { fill: string; stroke: string }> = {
@@ -312,6 +314,7 @@ export function GardenView() {
           </ul>
         )}
       </Card>
+      <SensorsCard />
     </div>
   );
 }
@@ -458,8 +461,9 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Field label={tt('bed.name')}>{(fid) => <TextInput id={fid} value={bed.name} onChange={(v) => set({ name: v })} />}</Field>
             <Field label={tt('bed.kind')}>
-              {(fid) => <Select id={fid} value={bed.kind} onChange={(v) => set({ kind: v })} options={(['bed', 'pot', 'greenhouse'] as BedKind[]).map((k) => ({ v: k, l: tt(`bedKind.${k}` as JKey) }))} />}
+              {(fid) => <Select id={fid} value={bed.kind} onChange={(v) => set({ kind: v })} options={(['bed', 'pot', 'greenhouse', 'hydro'] as BedKind[]).map((k) => ({ v: k, l: tt(`bedKind.${k}` as JKey) }))} />}
             </Field>
+            {bed.kind !== 'hydro' && (
             <Field label={tt('bed.texture')}>
               {(fid) => (
                 <Select
@@ -470,8 +474,10 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
                 />
               )}
             </Field>
+            )}
             <Field label={tt('bed.w')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={bed.w} onChange={(v) => set({ w: num(v) })} />}</Field>
             <Field label={tt('bed.h')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={bed.h} onChange={(v) => set({ h: num(v) })} />}</Field>
+            {bed.kind !== 'hydro' && (
             <div className="flex flex-col justify-end gap-1.5 text-sm">
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={bed.mulch} onChange={(e) => set({ mulch: e.target.checked })} /> {tt('bed.mulch')}
@@ -480,8 +486,9 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
                 <input type="checkbox" checked={bed.drip} onChange={(e) => set({ drip: e.target.checked })} /> {tt('bed.drip')}
               </label>
             </div>
+            )}
           </div>
-          {bed.drip && (
+          {bed.drip && bed.kind !== 'hydro' && (
             <div className="mt-3 max-w-xs">
               <Field label={tt('bed.dripFlow')} hint={tt('bed.dripFlowHint')}>
                 {(fid) => <TextInput id={fid} type="number" step={1} value={bed.dripFlow ?? ''} onChange={(v) => set({ dripFlow: Number(v) > 0 ? Number(v) : undefined })} />}
@@ -513,6 +520,14 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
           </section>
         )}
 
+        {bed.kind === 'hydro' && (
+          <div className="max-w-xs">
+            <Field label={tt('tank.volumeBed')}>{(fid) => <TextInput id={fid} type="number" value={bed.tankL ?? ''} onChange={(v) => set({ tankL: Number(v) > 0 ? Number(v) : undefined })} />}</Field>
+          </div>
+        )}
+        <BedSensors bed={bed} />
+
+        {bed.kind !== 'hydro' && (
         <section>
           <h3 className="mb-2 font-display text-lg">💧 {tt('water.title')}</h3>
           <div className="flex items-baseline justify-between gap-2 text-sm">
@@ -553,8 +568,10 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
             <p>{tt('water.dose')}</p>
             {bed.mulch && <p>{tt('water.whyMulch')}</p>}
             {bed.kind === 'greenhouse' && <p>{tt('water.whyGreenhouse')}</p>}
+            {adv.history.some((d) => d.sensor) && <p>{tt('water.whySensor')}</p>}
           </Why>
         </section>
+        )}
 
         <section>
           <div className="mb-2 flex items-center justify-between gap-2">

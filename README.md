@@ -1,6 +1,6 @@
 # Lignée · Jardin
 
-**Le carnet de bord du potager** — phases 1 et 2 d'une application de suivi du
+**Le carnet de bord du potager** — phases 1, 2 et 3 d'une application de suivi du
 jardin pour jardiniers confirmés et semi-pros : chaque plante, chaque
 planche et chaque apport suivis, avec des conseils d'eau et d'engrais
 chiffrés mais honnêtes sur leurs marges d'erreur. Application web
@@ -100,8 +100,48 @@ dont elle importe les variétés fixées.
 - **Bilan de saison** : récoltes pesées par espèce, rendement au m²,
   valeur au prix de détail (modifiable), coût des intrants.
 
-Le cahier des charges complet (phase 3 : capteurs, notifications, mode
-pro) est tenu à part.
+## Ce qu'ajoute la phase 3
+
+- **Notifications locales** (plugin Capacitor, aucun serveur) : résumé
+  du matin à l'heure choisie s'il y a quelque chose à faire, alerte la
+  veille à 18 h pour un gel ou un épisode sévère, rappel de sauvegarde
+  si la dernière date de plus de 30 jours ; plafond quotidien (alertes
+  d'abord). Reprogrammées à chaque changement, trois jours d'avance.
+  Dans un navigateur : seulement tant que l'app est ouverte.
+- **Plusieurs jardins** sur l'appareil (sélecteur en haut de l'écran),
+  chacun avec ses données et ses photos ; le jardin d'origine est repris
+  tel quel.
+- **Jardin partagé sans serveur** : chaque fiche est datée et signée
+  (prénom) à chaque modification, les suppressions laissent une trace ;
+  on s'envoie le fichier du jardin et on le fusionne fiche par fiche
+  (la plus récente gagne, suppressions comprises, relevés additionnés,
+  photos manquantes ajoutées, réglages locaux conservés).
+- **Capteurs** : humidité et température du sol, température et
+  humidité de l'air, EC, pH ; saisie à la main, import CSV de
+  n'importe quel enregistreur (séparateur, virgule décimale, en-tête et
+  colonne détectés), ou passerelle **Ecowitt** du réseau local
+  (`/get_livedata_info`, sondes WH51, WN34, WH31, capteur extérieur),
+  lue à l'ouverture puis toutes les 15 minutes. Une sonde d'humidité
+  (étalonnable sol sec / sol ressuyé) **recale le bilan hydrique** de sa
+  planche.
+- **Bacs hydroponiques** : nouveau type de planche, plages EC/pH par
+  culture (plage commune quand plusieurs cultures partagent un bac),
+  tâches « EC trop haute / pH trop bas » et renouvellement de la
+  solution tous les 14 jours.
+- **Mode pro** : récoltes à venir par culture et par mois (rendement
+  visé × surface − déjà pesé, réparti sur la fenêtre prévue par
+  degrés-jours), **rapport de saison en PDF** (synthèse, récoltes,
+  prévisions, apports, interventions sanitaires) et **bilan pluriannuel**
+  en tableur.
+- **Exports dans l'APK** : la WebView Android ne télécharge pas ; les
+  fichiers (sauvegarde, CSV, PDF) passent par le partage Android
+  (Drive, e-mail, « Enregistrer dans Fichiers »). Les CSV utilisent le
+  point-virgule et la virgule décimale (tableurs en français).
+
+Pas encore fait : synchronisation automatique par serveur (il faudrait
+un hébergement et un cadre RGPD), capteurs Bluetooth (non testables
+sans matériel), widget Android, notes vocales, identification par
+photo (Pl@ntNet).
 
 ### Tests
 
@@ -120,6 +160,11 @@ Phase 2 : lecture et fusion de la météo, alertes, suggestion de climat,
 degrés-jours et recalage, eau avec météo (report, goutte-à-goutte),
 tâches d'alerte, position du soleil et ombres, diagnostic, graines,
 bilan de saison.
+Phase 3 : horodatage et fusion de jardins (idempotente, suppressions,
+conflits), CSV de relevés, passerelle Ecowitt (°F, canaux, réponse
+invalide), humidité du sol et bilan hydrique, bacs hydroponiques,
+notifications (matin, veille de gel, sauvegarde, plafond), prévisions
+et bilan pluriannuel.
 
 ## Installation
 
@@ -328,12 +373,19 @@ src/
     │   ├── sun.ts            # Position du soleil, ombres, heures de soleil
     │   ├── diagnosis.ts      # Classement des hypothèses
     │   ├── season.ts         # Graines, bilan de saison
+    │   ├── sync.ts           # Horodatage, traces de suppression, fusion de jardins
+    │   ├── sensors.ts        # Relevés, CSV, Ecowitt, humidité du sol, EC/pH
+    │   ├── notify.ts         # Notifications à programmer (plafond quotidien)
+    │   └── report.ts         # Prévisions de récolte, bilan pluriannuel, rapport
     │   └── backup.ts         # Sauvegarde, CSV, import Lignée, jardin d'exemple
     ├── store.tsx             # IndexedDB (données + photos), état partagé
     ├── JardinApp.tsx, nav.tsx, ui.tsx, format.ts, i18n.ts
     ├── Onboarding.tsx, TodayView.tsx, GardenView.tsx, PlantsView.tsx
     ├── NutritionPanel.tsx, Forms.tsx, CatalogView.tsx, SettingsView.tsx
-    ├── Weather.tsx, Health.tsx, Seeds.tsx
+    ├── Weather.tsx, Health.tsx, Seeds.tsx, Sensors.tsx, ProSettings.tsx
+    ├── notifications.ts      # Plugin natif ou API du navigateur
+    ├── reportPdf.ts          # Rapport de saison (jsPDF, chargé à la demande)
+    ├── taskText.ts           # Texte des tâches (écran, notifications)
 tests/jardin-engine.test.ts
 ```
 
@@ -385,6 +437,8 @@ remplit la vue sans sortir du cercle de sécurité de 66 dp.
 - Loi Labbé (n° 2014-110, modifiée par la loi de transition énergétique de 2015) : depuis le 1er janvier 2019, les jardiniers amateurs ne peuvent utiliser que des produits de biocontrôle, à faible risque, utilisables en agriculture biologique ou des PNPP ; catalogue E-Phy de l'Anses pour chaque produit commercial.
 - Open-Meteo (open-meteo.com) : API de prévision et de géocodage, données sous licence CC BY 4.0, gratuite pour un usage non commercial (10 000 appels par jour).
 - Degrés-jours de croissance (méthode de la moyenne avec seuil de base et plafond) ; position du soleil par les formules usuelles de déclinaison et d'angle horaire.
+- Plages EC/pH des tableaux courants de culture hors-sol (ordres de grandeur, à affiner selon variété, stade et eau de départ).
+- Humidité volumique à la capacité au champ et au point de flétrissement par texture (valeurs usuelles de pédologie), pour lire une sonde non étalonnée.
 - Tableaux usuels de durée germinative des semences potagères et distances d'isolement des guides de production de semences au jardin.
 
 ## Avertissement
@@ -402,3 +456,11 @@ sont calculées avec des obstacles en forme de blocs, sans relief ni
 nuages ; les degrés-jours partent d'une courbe de référence calée sur
 des normales parisiennes et d'hypothèses (abri 22/15 °C, serre +4 °C)
 que vos stades observés corrigent peu à peu.
+
+Phase 3 : la lecture Ecowitt suit le format observé de
+`/get_livedata_info`, non documenté officiellement et non testé ici sur
+une vraie passerelle ; l'APK autorise pour cela le HTTP en clair
+(`res/xml/network_security_config.xml`). Les notifications d'un
+navigateur ne partent que si l'app est ouverte. La fusion de jardins
+garde la version la plus récente d'une fiche modifiée des deux côtés :
+l'autre version est perdue (l'app le signale).
