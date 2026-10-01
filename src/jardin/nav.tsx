@@ -1,0 +1,29 @@
+import { createContext, useContext } from 'react';
+
+export type Tab = 'today' | 'garden' | 'plants' | 'catalog' | 'settings';
+export const TABS: Tab[] = ['today', 'garden', 'plants', 'catalog', 'settings'];
+
+export type SheetRequest =
+  | { type: 'plant'; id: string }
+  | { type: 'bed'; id: string }
+  | { type: 'species'; id: string }
+  | { type: 'addPlant'; bedId?: string; speciesId?: string; editId?: string }
+  | { type: 'observe'; plantId?: string; bedId?: string }
+  | { type: 'water'; bedId?: string; kind?: 'rain' | 'irrigation'; liters?: number }
+  | { type: 'task' };
+
+export interface Nav {
+  tab: Tab;
+  setTab: (t: Tab) => void;
+  open: (s: SheetRequest) => void;
+  close: () => void;
+  toast: (msg: string) => void;
+}
+
+export const NavCtx = createContext<Nav | null>(null);
+
+export function useNav(): Nav {
+  const n = useContext(NavCtx);
+  if (!n) throw new Error('useNav hors de NavCtx');
+  return n;
+}

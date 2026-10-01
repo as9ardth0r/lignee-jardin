@@ -1,0 +1,190 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Palette — planche botanique : canopée sombre, papier de
+     catalogue, or résine (trichomes), prune (anthocyanes des
+     variétés violettes). Choisie pour ce sujet précis, pas la
+     palette SaaS par défaut. */
+  --color-canopy-950: #0f1a12;
+  --color-canopy-900: #152218;
+  --color-canopy-800: #1c2e20;
+  --color-canopy-700: #2a4130;
+  --color-canopy-600: #3b5942;
+
+  --color-paper-100: #faf7ee;
+  --color-paper-200: #f3ecd9;
+  --color-paper-300: #e8dcc0;
+
+  --color-resin-400: #d9ae52;
+  --color-resin-500: #c89b3c;
+  --color-resin-600: #a87d2b;
+
+  --color-bloom-400: #8a6a8f;
+  --color-bloom-500: #6b4a6e;
+  --color-bloom-600: #543a57;
+
+  /* Accent Jardin — vert feuille, dans le même registre botanique. */
+  --color-tomato-400: #a8cf86;
+  --color-tomato-500: #4a7f36;
+  --color-tomato-600: #365f27;
+
+  --color-leaf-400: #86a870;
+  --color-leaf-500: #6c9256;
+
+
+  --color-ink-900: #1b1811;
+  --color-ink-700: #3a352a;
+  --color-ink-500: #6b6455;
+
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  --font-body: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-data: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--color-canopy-950);
+    color: var(--color-paper-100);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--color-resin-500);
+    color: var(--color-ink-900);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-resin-400);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* "Fiche de spécimen" — surface papier, coin légèrement irrégulier,
+     comme une carte d'herbier plutôt qu'une carte SaaS générique. */
+  .specimen-card {
+    background: var(--color-paper-100);
+    color: var(--color-ink-900);
+    border-radius: 3px 9px 3px 9px;
+    box-shadow: 0 1px 0 rgba(15, 26, 18, 0.06), 0 8px 20px -12px rgba(15, 26, 18, 0.55);
+  }
+
+  .genotype-code {
+    font-family: var(--font-data);
+    letter-spacing: 0.01em;
+  }
+
+  .divider-vine {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--color-canopy-600) 15%,
+      var(--color-canopy-600) 85%,
+      transparent
+    );
+  }
+
+  /* Curseur (input[type=range]) redessiné dans la palette du site —
+     remplace le style bleu générique du navigateur qui détonnait dans
+     une interface autrement entièrement sur mesure. Le remplissage
+     suit la valeur via la variable --range-progress, posée en style
+     inline par le composant (ex. `${(value / max) * 100}%`). */
+  .resin-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--color-resin-500) 0%,
+      var(--color-resin-500) var(--range-progress, 0%),
+      var(--color-canopy-700) var(--range-progress, 0%),
+      var(--color-canopy-700) 100%
+    );
+    outline: none;
+    cursor: pointer;
+  }
+  .resin-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-resin-400);
+    border: 2px solid var(--color-paper-100);
+    box-shadow: 0 1px 3px rgba(15, 26, 18, 0.4);
+    cursor: pointer;
+    transition: transform 120ms ease;
+  }
+  .resin-range::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+  .resin-range::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-canopy-700);
+  }
+  .resin-range::-moz-range-progress {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-resin-500);
+  }
+  .resin-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-resin-400);
+    border: 2px solid var(--color-paper-100);
+    box-shadow: 0 1px 3px rgba(15, 26, 18, 0.4);
+    cursor: pointer;
+  }
+  .resin-range:focus-visible {
+    outline: 2px solid var(--color-resin-400);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  @keyframes sprout {
+    0% {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  .animate-sprout {
+    animation: sprout 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Mode terrain : texte plus grand, cibles tactiles d'au moins 48 px,
+   contraste renforcé — utilisable au soleil et avec des gants. */
+html.terrain {
+  font-size: 112.5%;
+}
+html.terrain .btn,
+html.terrain .chip,
+html.terrain .tab,
+html.terrain .field {
+  min-height: 48px;
+}
+html.terrain .specimen-card {
+  color: #000;
+}

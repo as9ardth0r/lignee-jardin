@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lignée Jardin</string>
+    <string name="title_activity_main">Lignée Jardin</string>
+    <string name="package_name">app.lignee.jardin</string>
+    <string name="custom_url_scheme">app.lignee.jardin</string>
+</resources>

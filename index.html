@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#152218" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lignée Jardin" />
+    <meta name="description" content="Lignée Jardin — le carnet de bord hors-ligne du potager : plantes et planches, journal photo, besoins NPK par stade, bilan hydrique, plan du jardin et tâches du jour." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,450;0,9..144,600;1,9..144,450&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Lignée Jardin — le carnet de bord du potager</title>
+    <style>
+      /* Splash d'amorçage : peint immédiatement avec le HTML, avant même
+         que React ne démarre — c'est ce qui permet d'afficher une image
+         complète, ce que l'écran de démarrage natif d'Android 12+ ne
+         permet plus (icône + couleur unie uniquement). Masqué par
+         main.tsx une fois le premier rendu React effectué. */
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: url('/splash-hero.png') center / min(100vw, 100vh) no-repeat,
+          radial-gradient(ellipse at 50% 42%, #20362a 0%, #0f1a12 75%);
+        transition: opacity 320ms ease;
+      }
+      #boot-splash.boot-splash-hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="boot-splash"></div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

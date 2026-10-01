@@ -1,0 +1,152 @@
+/**
+ * Sauvegarde complète (JSON, photos comprises), exports CSV, import des
+ * variétés fixées dans les apps Lignée, et jardin d'exemple.
+ */
+import { SPECIES_BY_ID } from '../data/species';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type GardenData, type ISODate, type PhotoMeta, type Variety } from '../model';
+import { addDays, isValidISO } from './dates';
+
+export const BACKUP_APP = 'lignee-jardin';
+export const BACKUP_VERSION = 1;
+
+export interface PhotoExport {
+  meta: PhotoMeta;
+  /** Image complète et vignette en data URL (base64). */
+  full: string;
+  thumb: string;
+}
+
+export interface Backup {
+  app: string;
+  version: number;
+  exportedAt: string;
+  data: GardenData;
+  photos: PhotoExport[];
+}
+
+export function serializeBackup(data: GardenData, photos: PhotoExport[]): string {
+  const b: Backup = { app: BACKUP_APP, version: BACKUP_VERSION, exportedAt: new Date().toISOString(), data, photos };
+  return JSON.stringify(b);
+}
+
+const arr = <T,>(x: unknown, ok: (v: unknown) => boolean): T[] => (Array.isArray(x) ? (x.filter(ok) as T[]) : []);
+const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
+const hasId = (v: unknown) => obj(v) && typeof v.id === 'string';
+
+/** Lit une sauvegarde ; rejette ce qui n'est pas une sauvegarde Lignée Jardin. */
+export function parseBackup(raw: string): { data: GardenData; photos: PhotoExport[] } {
+  const b = JSON.parse(raw) as Partial<Backup>;
+  if (!obj(b) || b.app !== BACKUP_APP || !obj(b.data)) throw new Error('format');
+  const d = b.data as Partial<GardenData>;
+  const data: GardenData = {
+    settings: { ...DEFAULT_SETTINGS, ...(obj(d.settings) ? d.settings : {}) },
+    beds: arr(d.beds, (v) => hasId(v) && obj(v) && typeof v.name === 'string'),
+    plants: arr(d.plants, (v) => hasId(v) && obj(v) && typeof v.speciesId === 'string' && !!SPECIES_BY_ID[v.speciesId as string] && isValidISO(v.sowDate)),
+    varieties: arr(d.varieties, (v) => hasId(v) && obj(v) && typeof v.name === 'string'),
+    observations: arr(d.observations, (v) => hasId(v) && obj(v) && isValidISO(v.date)),
+    applications: arr(d.applications, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
+    water: arr(d.water, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
+    tasks: arr(d.tasks, (v) => hasId(v) && obj(v) && isValidISO(v.due)),
+    taskStates: arr(d.taskStates, (v) => obj(v) && typeof v.key === 'string'),
+  };
+  for (const o of data.observations) if (!Array.isArray(o.photoIds)) o.photoIds = [];
+  const photos = arr<PhotoExport>(b.photos, (v) => obj(v) && obj(v.meta) && typeof v.full === 'string' && typeof v.thumb === 'string');
+  return { data, photos };
+}
+
+// --- CSV ---------------------------------------------------------------------
+
+export function toCSV(rows: Array<Array<string | number | undefined>>): string {
+  const cell = (v: string | number | undefined) => {
+    const s = v === undefined ? '' : String(v);
+    return /[";\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  // Point-virgule : séparateur attendu par les tableurs en français.
+  return '﻿' + rows.map((r) => r.map(cell).join(';')).join('\n');
+}
+
+// --- Variétés venues des apps Lignée ----------------------------------------
+
+/** Correspondance entre l'app Lignée d'origine et l'espèce du catalogue. */
+export const LIGNEE_CROPS: Record<string, string> = {
+  tomato: 'tomato',
+  tomate: 'tomato',
+  carotte: 'carrot',
+  chou: 'cabbage',
+  courge: 'squash',
+  haricot: 'bean',
+  mais: 'sweetcorn',
+  melon: 'melon',
+  pasteque: 'watermelon',
+  patate: 'potato',
+  piment: 'pepper',
+  pois: 'pea',
+};
+
+/**
+ * Lit un export « Mes lignées » d'une app Lignée
+ * ({ app: 'lignee', crop | species, kind: 'varieties', varieties: [...] }).
+ */
+export function parseLigneeVarieties(raw: string): Variety[] {
+  const d = JSON.parse(raw);
+  if (!obj(d) || d.app !== 'lignee' || !Array.isArray(d.varieties)) throw new Error('format');
+  const crop = String(d.crop ?? d.species ?? '');
+  const speciesId = LIGNEE_CROPS[crop];
+  if (!speciesId) throw new Error('crop');
+  return (d.varieties as unknown[])
+    .filter((v): v is Record<string, unknown> => obj(v) && typeof v.name === 'string')
+    .map((v) => ({
+      id: uid('var'),
+      speciesId,
+      name: String(v.name),
+      origin: `lignee:${crop}`,
+      daysToHarvest: typeof v.days === 'number' && v.days > 10 ? Math.round(v.days) : undefined,
+      note: obj(v.notes) && typeof v.notes.fr === 'string' ? v.notes.fr : typeof v.origin === 'string' ? v.origin : undefined,
+    }));
+}
+
+// --- Jardin d'exemple ---------------------------------------------------------
+
+/** Trois planches et quelques cultures datées par rapport à aujourd'hui, pour découvrir l'app. */
+export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): GardenData {
+  const bed = (id: string, name: string, x: number, y: number, w: number, h: number, mulch: boolean, kind: 'bed' | 'greenhouse' = 'bed') => ({ id, name, kind, x, y, w, h, mulch, drip: false, createdAt: today });
+  const beds = [bed('demo-b1', 'Planche 1', 0.5, 0.5, 4, 1.2, true), bed('demo-b2', 'Planche 2', 0.5, 2.3, 4, 1.2, false), bed('demo-b3', 'Serre', 6, 0.5, 3, 2.5, true, 'greenhouse')];
+  const plant = (id: string, speciesId: string, bedId: string, count: number, sowOffset: number, indoor: boolean, transplantOffset?: number, varietyName?: string) => ({
+    id,
+    speciesId,
+    bedId,
+    count,
+    indoor,
+    status: (sowOffset > 0 ? 'planned' : 'growing') as 'planned' | 'growing',
+    sowDate: addDays(today, sowOffset),
+    transplantDate: transplantOffset !== undefined ? addDays(today, transplantOffset) : undefined,
+    varietyName,
+    createdAt: today,
+  });
+  return {
+    ...base,
+    settings: { ...base.settings, onboarded: true },
+    beds,
+    plants: [
+      plant('demo-p1', 'tomato', 'demo-b3', 6, -95, true, -45, 'Cœur de bœuf'),
+      plant('demo-p2', 'lettuce', 'demo-b1', 12, -40, false),
+      plant('demo-p3', 'carrot', 'demo-b1', 60, -55, false),
+      plant('demo-p4', 'zucchini', 'demo-b2', 3, -70, true, -45),
+      plant('demo-p5', 'bean', 'demo-b2', 40, 2, false),
+    ],
+    varieties: [],
+    observations: [],
+    applications: [
+      { id: 'demo-a1', bedId: 'demo-b3', productId: 'organicNPK', amount: 600, date: addDays(today, -50) },
+      { id: 'demo-a2', bedId: 'demo-b1', productId: 'poultry', amount: 300, date: addDays(today, -40) },
+      { id: 'demo-a3', bedId: 'demo-b2', productId: 'organicNPK', amount: 500, date: addDays(today, -45) },
+    ],
+    water: [
+      ...[-30, -24, -18, -12, -6].map((d, i) => ({ id: `demo-w${i}`, kind: 'irrigation' as const, amount: 120, bedId: 'demo-b3', date: addDays(today, d) })),
+      { id: 'demo-r1', kind: 'rain' as const, amount: 12, date: addDays(today, -9) },
+      { id: 'demo-r2', kind: 'rain' as const, amount: 6, date: addDays(today, -3) },
+    ],
+    tasks: [],
+    taskStates: [],
+  };
+}

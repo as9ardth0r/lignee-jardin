@@ -1,0 +1,147 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { CatalogView, SpeciesSheet } from './CatalogView';
+import { ObservationSheet, TaskSheet, WaterSheet } from './Forms';
+import { BedSheet, GardenView } from './GardenView';
+import { useJT, type JKey } from './i18n';
+import { NavCtx, TABS, type Nav, type SheetRequest, type Tab } from './nav';
+import { Onboarding } from './Onboarding';
+import { AddPlantSheet, PlantSheet, PlantsView } from './PlantsView';
+import { SettingsView } from './SettingsView';
+import { GardenProvider, useGarden } from './store';
+import { TodayView } from './TodayView';
+
+const TAB_ICON: Record<Tab, string> = { today: '☀', garden: '▦', plants: '🌱', catalog: '📖', settings: '⚙' };
+
+function Shell() {
+  const store = useGarden();
+  const { tt } = useJT();
+  const [tab, setTabState] = useState<Tab>('today');
+  const [stack, setStack] = useState<SheetRequest[]>([]);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const terrain = store.data.settings.terrain;
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('terrain', terrain);
+  }, [terrain]);
+
+  useEffect(() => {
+    if (!toastMsg) return;
+    const t = window.setTimeout(() => setToastMsg(null), 2600);
+    return () => window.clearTimeout(t);
+  }, [toastMsg]);
+
+  const close = useCallback(() => setStack((s) => s.slice(0, -1)), []);
+  const nav = useMemo<Nav>(
+    () => ({
+      tab,
+      setTab: (t) => {
+        setTabState(t);
+        setStack([]);
+        window.scrollTo({ top: 0 });
+      },
+      // Une fiche ouverte depuis une autre s'empile ; fermer revient à la précédente.
+      open: (s) => setStack((st) => [...st.filter((x) => JSON.stringify(x) !== JSON.stringify(s)), s].slice(-4)),
+      close,
+      toast: setToastMsg,
+    }),
+    [tab, close],
+  );
+
+  if (!store.ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ color: 'var(--color-paper-300)' }}>
+        {tt('common.loading')}
+      </div>
+    );
+  }
+  if (!store.data.settings.onboarded) return <Onboarding />;
+
+  const top = stack[stack.length - 1];
+
+  return (
+    <NavCtx.Provider value={nav}>
+      <div className="min-h-screen pb-24">
+        <header className="border-b" style={{ borderColor: 'var(--color-canopy-800)' }}>
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+            <p className="font-display text-xl" style={{ color: 'var(--color-paper-100)' }}>
+              Lignée <span className="italic" style={{ color: 'var(--color-tomato-400)' }}>· {tt('app.title')}</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => store.updateSettings({ terrain: !terrain })}
+                aria-pressed={terrain}
+                title={tt('settings.terrainHint')}
+                className="btn flex h-8 items-center rounded-full px-3 text-xs"
+                style={{ background: terrain ? 'var(--color-resin-500)' : 'var(--color-canopy-800)', color: terrain ? 'var(--color-ink-900)' : 'var(--color-paper-200)', boxShadow: 'inset 0 0 0 1px var(--color-canopy-600)' }}
+              >
+                🧤 {tt('settings.terrainShort')}
+              </button>
+              <LanguageSwitcher />
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-3xl px-3 py-4 sm:px-4">
+          {store.volatile && (
+            <p className="mb-3 rounded px-3 py-2 text-xs" style={{ background: '#f7ecd2', color: '#6b4a10' }}>
+              {tt('settings.volatile')}
+            </p>
+          )}
+          {tab === 'today' && <TodayView />}
+          {tab === 'garden' && <GardenView />}
+          {tab === 'plants' && <PlantsView />}
+          {tab === 'catalog' && <CatalogView />}
+          {tab === 'settings' && <SettingsView />}
+          <p className="mt-6 px-2 text-center text-[11px] leading-snug" style={{ color: 'var(--color-paper-300)', opacity: 0.8 }}>
+            {tt('app.footer')}
+          </p>
+        </main>
+
+        <nav className="fixed inset-x-0 bottom-0 z-30 border-t" style={{ background: 'var(--color-canopy-900)', borderColor: 'var(--color-canopy-700)', paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label={tt('nav.label')}>
+          <ul className="mx-auto flex max-w-3xl">
+            {TABS.map((t) => (
+              <li key={t} className="flex-1">
+                <button
+                  type="button"
+                  onClick={() => nav.setTab(t)}
+                  aria-current={tab === t ? 'page' : undefined}
+                  className="tab flex w-full flex-col items-center gap-0.5 py-2 text-[11px]"
+                  style={{ color: tab === t ? 'var(--color-tomato-400)' : 'var(--color-paper-300)' }}
+                >
+                  <span className="text-lg leading-none" aria-hidden="true">
+                    {TAB_ICON[t]}
+                  </span>
+                  {tt(`nav.${t}` as JKey)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {top?.type === 'plant' && <PlantSheet key={top.id} id={top.id} onClose={close} />}
+        {top?.type === 'bed' && <BedSheet key={top.id} id={top.id} onClose={close} />}
+        {top?.type === 'species' && <SpeciesSheet key={top.id} id={top.id} onClose={close} />}
+        {top?.type === 'addPlant' && <AddPlantSheet key={`${top.editId}-${top.bedId}-${top.speciesId}`} bedId={top.bedId} speciesId={top.speciesId} editId={top.editId} onClose={close} />}
+        {top?.type === 'observe' && <ObservationSheet plantId={top.plantId} bedId={top.bedId} onClose={close} />}
+        {top?.type === 'water' && <WaterSheet bedId={top.bedId} kind={top.kind} liters={top.liters} onClose={close} />}
+        {top?.type === 'task' && <TaskSheet onClose={close} />}
+
+        {toastMsg && (
+          <div role="status" className="animate-sprout fixed inset-x-0 bottom-20 z-50 mx-auto w-fit max-w-[90vw] rounded-full px-4 py-2 text-sm shadow-lg" style={{ background: 'var(--color-paper-100)', color: 'var(--color-ink-900)' }}>
+            {toastMsg}
+          </div>
+        )}
+      </div>
+    </NavCtx.Provider>
+  );
+}
+
+export default function JardinApp() {
+  return (
+    <GardenProvider>
+      <Shell />
+    </GardenProvider>
+  );
+}

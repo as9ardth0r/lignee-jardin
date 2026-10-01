@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Android 12+ (API 31+) : l'OS affiche son propre écran de démarrage
+         avant que notre thème (android:background=@drawable/splash) ne
+         prenne le relais. Sans ce fichier, ce premier écran système est
+         blanc par défaut ; on le teinte ici avec notre vert pour éviter
+         le flash blanc. -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:windowSplashScreenBackground">#152218</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenAnimationDuration">1</item>
+        <item name="android:background">@drawable/splash</item>
+    </style>
+</resources>
