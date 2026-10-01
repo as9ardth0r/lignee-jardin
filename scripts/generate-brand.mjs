@@ -122,12 +122,17 @@ mkdirSync('assets/brand', { recursive: true });
 writeFileSync('assets/brand/icon.svg', icon());
 writeFileSync('assets/brand/icon-square.svg', icon({ rounded: false }));
 writeFileSync('assets/brand/icon-maskable.svg', icon({ rounded: false, scale: 0.72 }));
-writeFileSync('assets/brand/icon-foreground.svg', icon({ rounded: false, scale: 0.62, background: false }));
+// Avant-plan de l'icône adaptative Android : capacitor-assets l'insère
+// déjà à 16,7 % (il occupe la vue de 72 dp) et le lanceur y applique un
+// masque (cercle, carré arrondi…). L'emblème est donc dessiné grand
+// (0,84) : assez pour remplir la vue, assez petit pour rester dans le
+// cercle de sécurité de 66 dp quel que soit le masque.
+writeFileSync('assets/brand/icon-foreground.svg', icon({ rounded: false, scale: 0.84, background: false }));
 writeFileSync(
   'assets/brand/icon-background.svg',
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">${bgDefs}<rect width="512" height="512" fill="url(#g)"/></svg>`
 );
 writeFileSync('assets/brand/splash.svg', splash());
 writeFileSync('assets/brand/splash-transparent.svg', splash(false));
-writeFileSync('public/favicon.svg', icon({ scale: 1.12 }));
+writeFileSync('public/favicon.svg', icon({ scale: 1 }));
 console.log('SVG générés dans assets/brand/ et public/favicon.svg');

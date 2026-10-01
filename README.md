@@ -299,7 +299,16 @@ Pour régénérer les images après une modification de l'emblème :
    `assets/icon-only.png`, `assets/icon-foreground.png`,
    `assets/icon-background.png` (1024²), `assets/splash.jpg` et
    `assets/splash-dark.jpg` (2732²) ;
-3. `npm run android:assets` pour décliner les icônes et splashs Android.
+   `assets/icon-monochrome.png` (432², silhouette blanche de l'avant-plan
+   sur fond transparent, pour les icônes à thème d'Android 13+) ;
+3. `npm run android:assets` pour décliner les icônes et splashs Android ;
+   la commande ajoute ensuite la couche monochrome à l'icône adaptative
+   (`scripts/android-icon-extras.mjs`).
+
+L'avant-plan de l'icône adaptative est dessiné à l'échelle 0,84 :
+capacitor-assets l'insère déjà dans la vue de 72 dp, et le lanceur y
+applique son masque (cercle, carré arrondi) ; à cette échelle l'emblème
+remplit la vue sans sortir du cercle de sécurité de 66 dp.
 
 ## Design
 
