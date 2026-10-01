@@ -10,7 +10,10 @@ export type SheetRequest =
   | { type: 'addPlant'; bedId?: string; speciesId?: string; editId?: string }
   | { type: 'observe'; plantId?: string; bedId?: string }
   | { type: 'water'; bedId?: string; kind?: 'rain' | 'irrigation'; liters?: number }
-  | { type: 'task' };
+  | { type: 'task' }
+  | { type: 'obstacle'; id: string }
+  | { type: 'diagnose'; plantId?: string; bedId?: string }
+  | { type: 'seed'; id?: string; speciesId?: string };
 
 export interface Nav {
   tab: Tab;

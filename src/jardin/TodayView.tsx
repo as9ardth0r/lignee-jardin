@@ -2,13 +2,16 @@ import { useMemo, useState } from 'react';
 import { CLIMATES } from './data/climate';
 import { SPECIES_BY_ID } from './data/species';
 import { addDays, dayOfYear, fromDayOfYear, yearOf } from './engine/dates';
-import { speciesOf, stageInfo } from './engine/crop';
+import { speciesOf } from './engine/crop';
 import { generateTasks, type Task } from './engine/tasks';
 import { bedArea, waterAdvice } from './engine/water';
 import { fmtDate, fmtL, fmtLongDate, plantTitle, speciesName } from './format';
 import { useJT, type JKey } from './i18n';
 import { useNav } from './nav';
 import { useGarden } from './store';
+import { waterText } from './GardenView';
+import { WeatherCard } from './Weather';
+import { timeline } from './engine/phenology';
 import { Button, Card, Empty, INK500, INK700, Meter } from './ui';
 
 const TASK_ICON: Record<Task['kind'], string> = {
@@ -20,6 +23,7 @@ const TASK_ICON: Record<Task['kind'], string> = {
   harvest: '🧺',
   observe: '📷',
   frost: '❄',
+  alert: '⚠',
   manual: '✎',
 };
 
@@ -30,6 +34,9 @@ export function TaskText({ task }: { task: Task }) {
   const { tt, lang } = useJT();
   const species = typeof task.vars.species === 'string' ? speciesName(task.vars.species, lang) : '';
   const name = task.vars.variety ? `${species} · ${task.vars.variety}` : species;
+  if (task.kind === 'alert') {
+    return <>{tt(`task.alert.${task.vars.alert}` as JKey, { ...task.vars, value: task.vars.value, date: fmtDate(String(task.vars.date), lang), species, count: task.vars.count })}</>;
+  }
   return <>{tt(`task.${task.kind}` as JKey, { ...task.vars, name, species })}</>;
 }
 
@@ -109,6 +116,8 @@ export function TodayView() {
         </div>
       </Card>
 
+      <WeatherCard />
+
       {data.beds.length === 0 ? (
         <Card title={tt('today.emptyTitle')}>
           <p className="text-sm leading-relaxed" style={{ color: INK700 }}>
@@ -173,12 +182,8 @@ export function TodayView() {
                   <button type="button" onClick={() => nav.open({ type: 'bed', id: bed.id })} className="w-full text-left">
                     <div className="flex items-baseline justify-between gap-2 text-sm">
                       <span className="font-medium">{bed.name}</span>
-                      <span className="text-xs" style={{ color: adv.water ? 'var(--color-tomato-600)' : INK500 }}>
-                        {!adv.hasPlants
-                          ? tt('water.noPlants')
-                          : adv.water
-                            ? `💧 ${tt('water.needLiters', { liters: fmtL(adv.liters, lang) })}`
-                            : tt('water.okDays', { days: Math.min(adv.daysLeft, 30) })}
+                      <span className="text-right text-xs" style={{ color: adv.water ? 'var(--color-tomato-600)' : INK500 }}>
+                        {waterText(adv, tt, lang)}
                       </span>
                     </div>
                     <div className="mt-1.5">
@@ -192,7 +197,7 @@ export function TodayView() {
                 </li>
               ))}
             </ul>
-            {data.settings.rainSource === 'average' && (
+            {data.settings.rainSource === 'average' && !(data.settings.weather && data.weather) && (
               <p className="mt-3 text-[11px] leading-snug" style={{ color: INK500 }}>
                 {tt('water.averageNote')}
               </p>
@@ -205,8 +210,7 @@ export function TodayView() {
             ) : (
               <ul className="grid gap-2 sm:grid-cols-2">
                 {growing.map((p) => {
-                  const v = p.varietyId ? data.varieties.find((x) => x.id === p.varietyId) : undefined;
-                  const info = stageInfo(p, today, v);
+                  const info = timeline(p, data, today);
                   return (
                     <li key={p.id}>
                       <button type="button" onClick={() => nav.open({ type: 'plant', id: p.id })} className="flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left" style={{ background: 'var(--color-paper-200)' }}>

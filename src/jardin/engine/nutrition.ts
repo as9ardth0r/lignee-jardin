@@ -8,7 +8,8 @@
 import { PRODUCT_BY_ID } from '../data/products';
 import type { Application, CropType, GardenData, ISODate, Plant, Product, Settings, StageId } from '../model';
 import { addDays } from './dates';
-import { isActiveOn, plantArea, speciesOf, stageInfo } from './crop';
+import { isActiveOn, plantArea, speciesOf } from './crop';
+import { timeline } from './phenology';
 
 export type Nutrient = 'N' | 'P2O5' | 'K2O';
 export const NUTRIENTS: Nutrient[] = ['N', 'P2O5', 'K2O'];
@@ -146,10 +147,9 @@ export function shareOf(app: Application, plant: Plant, plants: Plant[]): number
   return total > 0 ? plantArea(plant) / total : 0;
 }
 
-export function nutrientStatus(plant: Plant, data: Pick<GardenData, 'applications' | 'plants' | 'varieties'>, today: ISODate): NutrientStatus {
+export function nutrientStatus(plant: Plant, data: GardenData, today: ISODate): NutrientStatus {
   const sp = speciesOf(plant);
-  const variety = plant.varietyId ? data.varieties.find((v) => v.id === plant.varietyId) : undefined;
-  const info = stageInfo(plant, today, variety);
+  const info = timeline(plant, data, today);
   const { need, legume, yieldKg } = seasonNeed(plant);
   const stages = info.starts.map((s) => s.stage);
   const weights = Object.fromEntries(NUTRIENTS.map((n) => [n, splitWeights(sp.type, stages, n)])) as Record<Nutrient, number[]>;

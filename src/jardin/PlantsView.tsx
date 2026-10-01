@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
 import { uid, type Plant, type PlantStatus } from './model';
-import { cropCalendar, inWindow, isPlanted, plantArea, plantsForArea, stageInfo } from './engine/crop';
+import { cropCalendar, inWindow, isActiveOn, isPlanted, plantArea, plantsForArea } from './engine/crop';
+import { timeline } from './engine/phenology';
+import { sunMismatch } from './engine/sun';
+import { companionsOf } from './data/speciesExtra';
+import { useBedSun } from './GardenView';
+import { PhenoPanel, TreatmentList } from './Health';
+import { SeasonView } from './Seeds';
 import { addDays, diffDays, monthOf } from './engine/dates';
 import { rotationWarning } from './engine/rotation';
 import { fmtDate, fmtG, fmtNum, monthName, plantTitle, speciesName } from './format';
@@ -14,6 +20,30 @@ import { Button, Card, Chip, Empty, Field, INK500, INK700, Meter, Notice, Select
 const STATUS_FILTERS: PlantStatus[] = ['growing', 'planned', 'ended'];
 
 export function PlantsView() {
+  const { tt } = useJT();
+  const [mode, setMode] = useState<'crops' | 'harvests'>('crops');
+  return (
+    <>
+      <div className="mb-3 flex gap-1.5">
+        <Chip active={mode === 'crops'} onClick={() => setMode('crops')}>
+          🌱 {tt('plants.modeCrops')}
+        </Chip>
+        <Chip active={mode === 'harvests'} onClick={() => setMode('harvests')}>
+          🧺 {tt('plants.modeHarvests')}
+        </Chip>
+      </div>
+      {mode === 'crops' ? (
+        <CropList />
+      ) : (
+        <Card title={tt('season.title')}>
+          <SeasonView />
+        </Card>
+      )}
+    </>
+  );
+}
+
+function CropList() {
   const { data, today } = useGarden();
   const { tt, lang } = useJT();
   const nav = useNav();
@@ -39,8 +69,7 @@ export function PlantsView() {
         ) : (
           <ul className="space-y-1.5">
             {list.map((p) => {
-              const v = p.varietyId ? data.varieties.find((x) => x.id === p.varietyId) : undefined;
-              const info = stageInfo(p, today, v);
+              const info = timeline(p, data, today);
               const bed = data.beds.find((b) => b.id === p.bedId);
               return (
                 <li key={p.id}>
@@ -85,9 +114,9 @@ const STAGE_COLOR: Record<string, string> = {
 function StageTimeline({ plant }: { plant: Plant }) {
   const { data, today } = useGarden();
   const { tt, lang } = useJT();
-  const v = plant.varietyId ? data.varieties.find((x) => x.id === plant.varietyId) : undefined;
-  const info = stageInfo(plant, today, v);
+  const info = timeline(plant, data, today);
   const total = diffDays(plant.sowDate, info.seasonEnd);
+  const yr = (d: string) => d.slice(0, 4) !== plant.sowDate.slice(0, 4);
   const pct = (d: string) => Math.max(0, Math.min(100, (diffDays(plant.sowDate, d) / total) * 100));
   return (
     <figure>
@@ -108,9 +137,9 @@ function StageTimeline({ plant }: { plant: Plant }) {
       <figcaption className="flex justify-between text-[11px]" style={{ color: INK500 }}>
         <span>{fmtDate(plant.sowDate, lang)}</span>
         <span>
-          {tt('plant.harvestWindow', { from: fmtDate(info.harvestFrom, lang), to: fmtDate(info.harvestTo, lang) })}
+          {tt('plant.harvestWindow', { from: fmtDate(info.harvestFrom, lang, yr(info.harvestFrom)), to: fmtDate(info.harvestTo, lang, yr(info.harvestTo)) })}
         </span>
-        <span>{fmtDate(info.seasonEnd, lang)}</span>
+        <span>{fmtDate(info.seasonEnd, lang, yr(info.seasonEnd))}</span>
       </figcaption>
     </figure>
   );
@@ -190,8 +219,7 @@ export function PlantSheet({ id, onClose }: { id: string; onClose: () => void })
   if (!p) return null;
   const sp = SPECIES_BY_ID[p.speciesId];
   const bed = data.beds.find((b) => b.id === p.bedId);
-  const v = p.varietyId ? data.varieties.find((x) => x.id === p.varietyId) : undefined;
-  const info = stageInfo(p, today, v);
+  const info = timeline(p, data, today);
   const harvested = data.observations.filter((o) => o.plantId === p.id).reduce((s, o) => s + (o.harvestG ?? 0), 0);
 
   return (
@@ -219,6 +247,7 @@ export function PlantSheet({ id, onClose }: { id: string; onClose: () => void })
           </p>
           <div className="mt-3">
             <StageTimeline plant={p} />
+            <PhenoPanel plant={p} />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {p.status === 'planned' && (
@@ -252,6 +281,16 @@ export function PlantSheet({ id, onClose }: { id: string; onClose: () => void })
         </section>
 
         <NutritionPanel plant={p} />
+
+        <section>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="font-display text-lg">🐞 {tt('treat.title')}</h3>
+            <Button small kind="primary" onClick={() => nav.open({ type: 'diagnose', plantId: p.id })}>
+              🔍 {tt('diag.open')}
+            </Button>
+          </div>
+          <TreatmentList plantId={p.id} />
+        </section>
 
         <section>
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -319,6 +358,11 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
   const defaultCount = bedObj ? plantsForArea(sp, Math.min(bedObj.w * bedObj.h, 2)) : 1;
   const nCount = Math.max(1, Math.round(Number(count) || defaultCount));
   const rot = bed ? rotationWarning(bed, sp, data.plants, date, editing?.id) : null;
+  const bedSunAll = useBedSun();
+  const exposure = bed ? bedSunAll.get(bed)?.exposure : undefined;
+  const sunWarn = exposure && sunMismatch(sp.sun, exposure);
+  const neighbours = new Set(data.plants.filter((p) => p.bedId === bed && p.id !== editing?.id && p.status !== 'ended' && (p.status === 'planned' || isActiveOn(p, date))).map((p) => p.speciesId));
+  const companions = companionsOf(spId).filter((c) => neighbours.has(c.other));
   const month = monthOf(date);
   const windows = indoor ? cal.sowIndoor : isPlanted(sp) ? cal.plantOut : cal.sowOutdoor.length ? cal.sowOutdoor : cal.plantOut;
   const outOfWindow = windows.length > 0 && !inWindow(month, windows);
@@ -455,6 +499,13 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
             {tt('add.rotation', { family: tt(`family.${sp.family}` as JKey), prev: speciesName(rot.previous.speciesId, lang), years: fmtNum(rot.years, lang, 1), wanted: rot.wanted })}
           </Notice>
         )}
+
+        {sunWarn && <Notice tone="warn">{tt('add.sunWarn', { need: tt(`sunNeed.${sp.sun}` as JKey), got: tt(`sun.${exposure}` as JKey) })}</Notice>}
+        {companions.map((c) => (
+          <Notice key={c.other} tone={c.effect === 'good' ? 'good' : 'warn'}>
+            {tt(c.effect === 'good' ? 'add.companionGood' : 'add.companionBad', { other: speciesName(c.other, lang) })} {c.why[lang]} <i>({tt(`evidence.${c.evidence}` as JKey)})</i>
+          </Notice>
+        ))}
 
         <Field label={tt('add.note')}>{(fid) => <TextArea id={fid} value={note} onChange={setNote} />}</Field>
 

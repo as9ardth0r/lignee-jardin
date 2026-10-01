@@ -1,12 +1,13 @@
 # Lignée · Jardin
 
-**Le carnet de bord du potager** — phase 1 d'une application de suivi du
+**Le carnet de bord du potager** — phases 1 et 2 d'une application de suivi du
 jardin pour jardiniers confirmés et semi-pros : chaque plante, chaque
 planche et chaque apport suivis, avec des conseils d'eau et d'engrais
 chiffrés mais honnêtes sur leurs marges d'erreur. Application web
 autonome (React + TypeScript, PWA installable, APK Android via
 Capacitor), **hors-ligne d'abord**, sans compte ni serveur : les données
-vivent dans IndexedDB sur l'appareil, rien n'est envoyé nulle part.
+vivent dans IndexedDB sur l'appareil. Seule exception, facultative : la
+météo locale (coordonnées arrondies à ~1 km envoyées à Open-Meteo).
 Application sœur des apps *Lignée* de sélection (tomate, carotte, pois…),
 dont elle importe les variétés fixées.
 
@@ -56,8 +57,51 @@ dont elle importe les variétés fixées.
   import des « Mes lignées » des apps Lignée, mode terrain (texte plus
   grand, cibles de 48 px), FR/EN.
 
-Le cahier des charges complet (phases 2 et 3 : météo locale, degrés-jours,
-diagnostic, ensoleillement, capteurs, mode pro) est tenu à part.
+## Ce qu'ajoute la phase 2
+
+- **Lieu et météo locale** (Open-Meteo, sans clé) : position de
+  l'appareil, recherche de commune ou coordonnées ; climat de référence
+  suggéré d'après la latitude, la longitude et l'altitude. 92 jours
+  passés + 10 jours de prévisions mis en cache (500 jours gardés),
+  actualisés à l'ouverture, toutes les heures et au retour du réseau ;
+  sans connexion, l'app retombe sur les normales du climat.
+- **Alertes** gel, chaleur, rafales, fortes pluies sur aujourd'hui + 3
+  jours, transformées en tâches seulement pour les cultures concernées
+  (gel : cultures frileuses en pleine terre).
+- **Eau** : ET₀ et pluie réelles quand la météo est active, **report de
+  l'arrosage** si plus de 8 mm sont annoncés et que la réserve le
+  permet, **durée de goutte-à-goutte** d'après le débit de la planche.
+- **Degrés-jours** : chaque culture avance selon la chaleur reçue
+  (base de l'espèce, plafond 30 °C ; semis abrité 22/15 °C, serre
+  +4 °C), comparée à une culture de référence ; stades, fenêtre de
+  récolte, Kc et besoins d'engrais en découlent. **Recalage** : noter un
+  stade observé (1re fleur, 1re récolte…) corrige toutes les cultures de
+  l'espèce (rapport de degrés-jours, moyenne géométrique bornée ×0,6–1,6).
+- **Ensoleillement** : obstacles sur le plan (bâtiment, mur, arbre, haie,
+  avec leur hauteur), orientation du plan, ombres portées au jour et à
+  l'heure choisis, heures de soleil direct par planche (21 juin,
+  équinoxes, moyenne avril–septembre) et exposition ; alerte quand une
+  culture manque de soleil.
+- **Diagnostic et lutte intégrée** : organe, 34 signes, conditions
+  récentes (pré-remplies par la météo) → trois hypothèses classées parmi
+  29 problèmes (carences, maladies, ravageurs, accidents), avec ce qui
+  concorde, ce qui manque, quoi vérifier, seuil d'intervention et moyens
+  d'action autorisés aux amateurs (méthodes d'abord ; produits de
+  biocontrôle, faible risque, UAB ou PNPP seulement, « voir l'étiquette »
+  pour dose et délai avant récolte). **Registre des interventions** par
+  culture, export CSV.
+- **Graines** : grainothèque (année, quantité, provenance), état d'après
+  la durée de germination de l'espèce, test de germination et nombre de
+  graines à semer ; conservation des semences (fécondation, distance
+  d'isolement).
+- **Voisinage** : 14 associations favorables ou déconseillées, avec le
+  niveau de preuve (« tradition » ou « quelques études »), signalées à la
+  plantation.
+- **Bilan de saison** : récoltes pesées par espèce, rendement au m²,
+  valeur au prix de détail (modifiable), coût des intrants.
+
+Le cahier des charges complet (phase 3 : capteurs, notifications, mode
+pro) est tenu à part.
 
 ### Tests
 
@@ -72,6 +116,10 @@ disponible, excès), partage des apports, produit conseillé, bilan
 hydrique (sol nu, été sec, arrosage, paillage, serre, pluie moyenne),
 tâches (semis, report, repiquage, arrosage, gelées, fertilisation
 espacée, rappels plafonnés), rotation, sauvegarde et import Lignée, CSV.
+Phase 2 : lecture et fusion de la météo, alertes, suggestion de climat,
+degrés-jours et recalage, eau avec météo (report, goutte-à-goutte),
+tâches d'alerte, position du soleil et ombres, diagnostic, graines,
+bilan de saison.
 
 ## Installation
 
@@ -265,7 +313,9 @@ src/
     ├── data/
     │   ├── species.ts        # 42 espèces
     │   ├── products.ts       # 16 engrais et amendements
-    │   └── climate.ts        # 5 climats (ET₀, pluie, gelées), réserve utile par texture
+    │   ├── climate.ts        # 5 climats (ET₀, pluie, gelées, températures), réserve utile par texture
+    │   ├── problems.ts       # Signes, 29 problèmes, moyens d'action autorisés aux amateurs
+    │   └── speciesExtra.ts   # Graines (durée, fécondation, isolement), prix, voisinage
     ├── engine/
     │   ├── dates.ts          # Jours de jardin (ISO, UTC)
     │   ├── crop.ts           # Calendrier, stades, Kc, surfaces
@@ -273,11 +323,17 @@ src/
     │   ├── water.ts          # Bilan hydrique par planche
     │   ├── tasks.ts          # Tâches du jour
     │   ├── rotation.ts       # Retour d'une famille sur une planche
+    │   ├── weather.ts        # Open-Meteo, cache, alertes, contexte récent
+    │   ├── phenology.ts      # Degrés-jours, courbe de référence, recalage
+    │   ├── sun.ts            # Position du soleil, ombres, heures de soleil
+    │   ├── diagnosis.ts      # Classement des hypothèses
+    │   ├── season.ts         # Graines, bilan de saison
     │   └── backup.ts         # Sauvegarde, CSV, import Lignée, jardin d'exemple
     ├── store.tsx             # IndexedDB (données + photos), état partagé
     ├── JardinApp.tsx, nav.tsx, ui.tsx, format.ts, i18n.ts
     ├── Onboarding.tsx, TodayView.tsx, GardenView.tsx, PlantsView.tsx
     ├── NutritionPanel.tsx, Forms.tsx, CatalogView.tsx, SettingsView.tsx
+    ├── Weather.tsx, Health.tsx, Seeds.tsx
 tests/jardin-engine.test.ts
 ```
 
@@ -326,7 +382,10 @@ remplit la vue sans sortir du cercle de sécurité de 66 dp.
 - Allen R.G., Pereira L.S., Raes D. & Smith M. (1998), *Crop evapotranspiration — Guidelines for computing crop water requirements*, FAO Irrigation and Drainage Paper 56 (méthode du Kc, tableaux des Kc et des profondeurs racinaires).
 - Guides de fertilisation des légumes (CTIFL, Yara) : exportations N-P₂O₅-K₂O par tonne récoltée, ordres de grandeur.
 - Normales climatiques de villes représentatives (Brest, Paris, Strasbourg, Marseille, une station de moyenne montagne) pour ET₀, pluie et gelées, arrondies.
-- Loi Labbé (produits phytosanitaires interdits aux jardiniers amateurs depuis le 1er janvier 2019) pour le cadre du futur module santé.
+- Loi Labbé (n° 2014-110, modifiée par la loi de transition énergétique de 2015) : depuis le 1er janvier 2019, les jardiniers amateurs ne peuvent utiliser que des produits de biocontrôle, à faible risque, utilisables en agriculture biologique ou des PNPP ; catalogue E-Phy de l'Anses pour chaque produit commercial.
+- Open-Meteo (open-meteo.com) : API de prévision et de géocodage, données sous licence CC BY 4.0, gratuite pour un usage non commercial (10 000 appels par jour).
+- Degrés-jours de croissance (méthode de la moyenne avec seuil de base et plafond) ; position du soleil par les formules usuelles de déclinaison et d'angle horaire.
+- Tableaux usuels de durée germinative des semences potagères et distances d'isolement des guides de production de semences au jardin.
 
 ## Avertissement
 
@@ -336,3 +395,10 @@ partir de valeurs de référence et de moyennes climatiques, pas de
 mesures de votre jardin. La météo réelle, l'analyse de sol et vos
 observations priment. Les données restent sur l'appareil : exportez une
 sauvegarde régulièrement.
+
+Le diagnostic propose des **hypothèses**, pas des certitudes : vérifiez
+avant d'agir, et lisez toujours l'étiquette d'un produit. Les ombres
+sont calculées avec des obstacles en forme de blocs, sans relief ni
+nuages ; les degrés-jours partent d'une courbe de référence calée sur
+des normales parisiennes et d'hypothèses (abri 22/15 °C, serre +4 °C)
+que vos stades observés corrigent peu à peu.

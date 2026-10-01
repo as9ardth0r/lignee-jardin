@@ -4,7 +4,7 @@
  */
 import { SPECIES_BY_ID } from '../data/species';
 import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type GardenData, type ISODate, type PhotoMeta, type Variety } from '../model';
-import { addDays, isValidISO } from './dates';
+import { addDays, isValidISO, yearOf } from './dates';
 
 export const BACKUP_APP = 'lignee-jardin';
 export const BACKUP_VERSION = 1;
@@ -48,6 +48,12 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
     water: arr(d.water, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
     tasks: arr(d.tasks, (v) => hasId(v) && obj(v) && isValidISO(v.due)),
     taskStates: arr(d.taskStates, (v) => obj(v) && typeof v.key === 'string'),
+    obstacles: arr(d.obstacles, (v) => hasId(v) && obj(v) && typeof v.height === 'number'),
+    phenoEvents: arr(d.phenoEvents, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.plantId === 'string'),
+    treatments: arr(d.treatments, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.problemId === 'string'),
+    seeds: arr(d.seeds, (v) => hasId(v) && obj(v) && typeof v.speciesId === 'string' && !!SPECIES_BY_ID[v.speciesId as string] && typeof v.year === 'number'),
+    prices: obj(d.prices) ? Object.fromEntries(Object.entries(d.prices).filter(([, x]) => typeof x === 'number' && x >= 0)) : {},
+    weather: obj(d.weather) && Array.isArray((d.weather as { days?: unknown }).days) ? d.weather : undefined,
   };
   for (const o of data.observations) if (!Array.isArray(o.photoIds)) o.photoIds = [];
   const photos = arr<PhotoExport>(b.photos, (v) => obj(v) && obj(v.meta) && typeof v.full === 'string' && typeof v.thumb === 'string');
@@ -135,11 +141,16 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
       plant('demo-p5', 'bean', 'demo-b2', 40, 2, false),
     ],
     varieties: [],
-    observations: [],
+    observations: [
+      { id: 'demo-h1', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -12), note: 'Premières courgettes', harvestG: 1400, photoIds: [] },
+      { id: 'demo-h2', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -4), note: '', harvestG: 2100, photoIds: [] },
+      { id: 'demo-h3', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -3), note: 'Premières tomates mûres', harvestG: 900, photoIds: [] },
+      { id: 'demo-h4', plantId: 'demo-p2', bedId: 'demo-b1', date: addDays(today, -2), note: '', harvestG: 650, photoIds: [] },
+    ],
     applications: [
-      { id: 'demo-a1', bedId: 'demo-b3', productId: 'organicNPK', amount: 600, date: addDays(today, -50) },
-      { id: 'demo-a2', bedId: 'demo-b1', productId: 'poultry', amount: 300, date: addDays(today, -40) },
-      { id: 'demo-a3', bedId: 'demo-b2', productId: 'organicNPK', amount: 500, date: addDays(today, -45) },
+      { id: 'demo-a1', bedId: 'demo-b3', productId: 'organicNPK', amount: 600, date: addDays(today, -50), cost: 4.5 },
+      { id: 'demo-a2', bedId: 'demo-b1', productId: 'poultry', amount: 300, date: addDays(today, -40), cost: 2 },
+      { id: 'demo-a3', bedId: 'demo-b2', productId: 'organicNPK', amount: 500, date: addDays(today, -45), cost: 3.8 },
     ],
     water: [
       ...[-30, -24, -18, -12, -6].map((d, i) => ({ id: `demo-w${i}`, kind: 'irrigation' as const, amount: 120, bedId: 'demo-b3', date: addDays(today, d) })),
@@ -148,5 +159,17 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
     ],
     tasks: [],
     taskStates: [],
+    obstacles: [
+      { id: 'demo-o1', name: 'Maison', kind: 'building', x: 0, y: 6.4, w: 7, h: 1.6, height: 7 },
+      { id: 'demo-o2', name: 'Pommier', kind: 'tree', x: 10, y: 3.5, w: 2, h: 2, height: 4 },
+    ],
+    phenoEvents: [],
+    treatments: [],
+    seeds: [
+      { id: 'demo-s1', speciesId: 'carrot', varietyName: 'Nantaise 2', year: yearOf(today) - 1, quantity: '½ sachet', source: 'Jardinerie' },
+      { id: 'demo-s2', speciesId: 'leek', varietyName: 'Bleu de Solaise', year: yearOf(today) - 3, quantity: '1 sachet', source: 'Échange' },
+      { id: 'demo-s3', speciesId: 'tomato', varietyName: 'Cœur de bœuf', year: yearOf(today), quantity: '200 graines', source: 'Mes graines' },
+    ],
+    prices: {},
   };
 }

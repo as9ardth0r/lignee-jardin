@@ -32,4 +32,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Position approximative, seulement si le jardinier choisit « Utiliser ma position » (météo locale). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Demandée avec la précédente par la WebView de Capacitor ; la position est de toute façon arrondie à ~1 km. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 </manifest>

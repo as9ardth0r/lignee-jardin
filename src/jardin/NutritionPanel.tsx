@@ -25,6 +25,7 @@ export function NutritionPanel({ plant }: { plant: Plant }) {
   const product = PRODUCT_BY_ID[productId] ?? products[0];
   const dose = product ? doseFor(product, st.dueNow, st.area) : null;
   const [amount, setAmount] = useState('');
+  const [cost, setCost] = useState('');
   const unit = product?.kind === 'liquid' ? 'mL' : 'g';
   const noSoilTest = data.settings.pH === undefined;
   const livingSoil = data.settings.practices.some((p) => p === 'livingSoil' || p === 'permaculture');
@@ -34,8 +35,10 @@ export function NutritionPanel({ plant }: { plant: Plant }) {
   const record = () => {
     const qty = Number(amount.replace(',', '.')) || (dose ? Math.round(dose.amount) : 0);
     if (!product || qty <= 0) return;
-    store.addApplication({ bedId: plant.bedId, plantId: plant.id, productId: product.id, amount: qty, date: today });
+    const c = Number(cost.replace(',', '.'));
+    store.addApplication({ bedId: plant.bedId, plantId: plant.id, productId: product.id, amount: qty, date: today, cost: c > 0 ? c : undefined });
     setAmount('');
+    setCost('');
     nav.toast(tt('nut.recorded'));
   };
 
@@ -134,6 +137,9 @@ export function NutritionPanel({ plant }: { plant: Plant }) {
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <div className="w-32">
               <Field label={tt('nut.amount', { unit })}>{(fid) => <TextInput id={fid} type="number" value={amount} onChange={setAmount} placeholder={dose ? String(Math.round(dose.amount)) : '0'} />}</Field>
+            </div>
+            <div className="w-24">
+              <Field label={tt('nut.cost')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={cost} onChange={setCost} placeholder="€" />}</Field>
             </div>
             <Button kind="primary" small onClick={record} disabled={!dose && !(Number(amount) > 0)}>
               {tt('nut.record')}

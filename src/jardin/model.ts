@@ -104,6 +104,18 @@ export interface Species {
   note: Txt;
 }
 
+/** Données complémentaires d'une espèce (phase 2), dans data/speciesExtra.ts. */
+export interface SpeciesExtra {
+  /** Durée de germination des graines bien conservées (années). */
+  seedLife: number;
+  /** Fécondation : autogame (se croise peu), par les insectes, par le vent ; ou multiplication végétative. */
+  pollination: 'self' | 'insect' | 'wind' | 'vegetative';
+  /** Distance d'isolement conseillée pour garder des graines pures (m). */
+  isolation: number;
+  /** Prix de référence au détail (€/kg), pour le bilan de saison. */
+  priceKg: number;
+}
+
 export type ProductKind = 'organic' | 'mineral' | 'liquid';
 
 export interface Product {
@@ -143,8 +155,17 @@ export interface Settings {
   texture: Texture;
   pH?: number;
   water: WaterSetup[];
-  /** Pluie : relevés du pluviomètre seulement, ou moyennes du climat les jours sans relevé. */
+  /** Nom du lieu choisi (commune), pour l'affichage. */
+  placeName?: string;
+  /** Météo locale (Open-Meteo) : activée quand une position est connue. */
+  weather: boolean;
+  /**
+   * Pluie les jours sans relevé du pluviomètre : météo mesurée (si la
+   * météo locale est active), moyenne du climat, ou rien.
+   */
   rainSource: 'manual' | 'average';
+  /** Orientation du plan : direction du nord en degrés (0 = haut du plan, 90 = droite). */
+  planNorth: number;
   /** Dimensions du plan (m). */
   planW: number;
   planH: number;
@@ -159,7 +180,9 @@ export const DEFAULT_SETTINGS: Settings = {
   practices: ['conventional'],
   texture: 'loam',
   water: ['manual'],
+  weather: false,
   rainSource: 'average',
+  planNorth: 0,
   planW: 12,
   planH: 8,
   terrain: false,
@@ -182,7 +205,24 @@ export interface Bed {
   texture?: Texture;
   mulch: boolean;
   drip: boolean;
+  /** Débit du goutte-à-goutte de la planche (L/h), pour convertir un arrosage en minutes. */
+  dripFlow?: number;
   createdAt: ISODate;
+}
+
+export type ObstacleKind = 'building' | 'wall' | 'tree' | 'hedge';
+
+/** Ce qui fait de l'ombre sur le plan (maison, mur, arbre, haie). */
+export interface Obstacle {
+  id: string;
+  name: string;
+  kind: ObstacleKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Hauteur (m). */
+  height: number;
 }
 
 export interface Variety {
@@ -245,6 +285,8 @@ export interface Application {
   amount: number;
   date: ISODate;
   note?: string;
+  /** Coût (€), facultatif, pour le bilan de saison. */
+  cost?: number;
 }
 
 export interface WaterEvent {
@@ -272,6 +314,66 @@ export interface TaskState {
   snoozeUntil?: ISODate;
 }
 
+/** Stade observé (première fleur, première récolte…) : sert à recaler les prévisions. */
+export interface PhenoEvent {
+  id: string;
+  plantId: string;
+  stage: StageId;
+  date: ISODate;
+}
+
+export type TreatmentMethod = 'manual' | 'barrier' | 'auxiliary' | 'product' | 'cultural';
+
+/** Intervention sanitaire (registre). */
+export interface Treatment {
+  id: string;
+  plantId?: string;
+  bedId?: string;
+  problemId: string;
+  method: TreatmentMethod;
+  /** Produit (catalogue des traitements autorisés aux amateurs), le cas échéant. */
+  remedyId?: string;
+  date: ISODate;
+  note?: string;
+}
+
+/** Lot de graines en stock. */
+export interface SeedLot {
+  id: string;
+  speciesId: string;
+  varietyName?: string;
+  /** Année de récolte ou du sachet. */
+  year: number;
+  quantity?: string;
+  source?: string;
+  /** Taux de germination mesuré (0–1) et date du test. */
+  germRate?: number;
+  germTested?: ISODate;
+}
+
+/** Une journée de météo (mesurée ou prévue), telle que mise en cache. */
+export interface WeatherDay {
+  date: ISODate;
+  tmax: number;
+  tmin: number;
+  /** Pluie (mm). */
+  rain: number;
+  /** Évapotranspiration de référence FAO (mm). */
+  et0: number;
+  /** Vent moyen max et rafales max (km/h). */
+  wind: number;
+  gust: number;
+}
+
+export interface WeatherCache {
+  lat: number;
+  lon: number;
+  /** Horodatage ISO du dernier téléchargement. */
+  fetchedAt: string;
+  /** Jours connus, triés ; ceux après `today` sont des prévisions. */
+  days: WeatherDay[];
+}
+
 export interface PhotoMeta {
   id: string;
   date: ISODate;
@@ -289,6 +391,13 @@ export interface GardenData {
   water: WaterEvent[];
   tasks: ManualTask[];
   taskStates: TaskState[];
+  obstacles: Obstacle[];
+  phenoEvents: PhenoEvent[];
+  treatments: Treatment[];
+  seeds: SeedLot[];
+  /** Prix au kg choisis par le jardinier (sinon prix de référence du catalogue). */
+  prices: Record<string, number>;
+  weather?: WeatherCache;
 }
 
 export const EMPTY_DATA: GardenData = {
@@ -301,6 +410,11 @@ export const EMPTY_DATA: GardenData = {
   water: [],
   tasks: [],
   taskStates: [],
+  obstacles: [],
+  phenoEvents: [],
+  treatments: [],
+  seeds: [],
+  prices: {},
 };
 
 export function uid(prefix: string): string {

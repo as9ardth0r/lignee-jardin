@@ -8,7 +8,9 @@
 import { AWC_MM_PER_CM, CLIMATES } from '../data/climate';
 import type { Bed, GardenData, ISODate, Plant, Settings } from '../model';
 import { addDays, daysInMonth, diffDays, monthOf } from './dates';
-import { isActiveOn, kcAt, speciesOf, stageInfo } from './crop';
+import { isActiveOn, kcAt, speciesOf, varietyScale } from './crop';
+import { eqAge } from './phenology';
+import { activeWeather, rainNext } from './weather';
 
 /** Réduction d'évaporation par un paillage (hypothèse de départ, à recaler). */
 export const MULCH_FACTOR = 0.75;
@@ -46,23 +48,27 @@ export interface WaterDay {
   irrigation: number;
   reserve: number;
   ru: number;
+  /** ET₀ et pluie venues de la météo locale (sinon normales ou relevés). */
+  measured: boolean;
 }
 
-function kcOfBed(active: Plant[], date: ISODate, data: Pick<GardenData, 'varieties'>): number {
+/** Kc de la planche : le plus fort des cultures présentes, lu sur leur âge équivalent (degrés-jours). */
+function kcOfBed(active: Plant[], date: ISODate, data: GardenData): number {
   if (active.length === 0) return BARE_KC;
   return Math.max(
     BARE_KC,
     ...active.map((p) => {
+      const sp = speciesOf(p);
       const v = p.varietyId ? data.varieties.find((x) => x.id === p.varietyId) : undefined;
-      const info = stageInfo(p, date, v);
-      return kcAt(speciesOf(p), info.age, info.scale);
+      return kcAt(sp, eqAge(p, data, date), varietyScale(sp, v));
     }),
   );
 }
 
 /** Simulation jour par jour, de `from` à `to` inclus ; réserve pleine au départ. */
-export function simulateBed(bed: Bed, data: Pick<GardenData, 'settings' | 'plants' | 'water' | 'varieties'>, from: ISODate, to: ISODate): WaterDay[] {
+export function simulateBed(bed: Bed, data: GardenData, from: ISODate, to: ISODate): WaterDay[] {
   const clim = CLIMATES[data.settings.climate];
+  const wx = activeWeather(data);
   const days: WaterDay[] = [];
   const rainByDay = new Map<ISODate, number>();
   const irrByDay = new Map<ISODate, number>();
@@ -79,18 +85,21 @@ export function simulateBed(bed: Bed, data: Pick<GardenData, 'settings' | 'plant
     const active = activePlants(bed, data.plants, date);
     const ru = reserveMm(bed, data.settings, active);
     if (reserve < 0) reserve = ru;
-    const et0 = clim.et0[m - 1];
+    const w = wx.get(date);
+    const et0 = w ? w.et0 : clim.et0[m - 1];
     const kc = kcOfBed(active, date, data);
     const etc = kc * et0 * (bed.mulch ? MULCH_FACTOR : 1);
+    // Pluie : relevé du pluviomètre, sinon météo locale (sauf si le jardinier note tout), sinon moyenne du climat.
     let rain = 0;
     if (bed.kind !== 'greenhouse') {
       const logged = rainByDay.get(date);
       if (logged !== undefined) rain = logged * RAIN_EFFICIENCY;
+      else if (w && data.settings.rainSource !== 'manual') rain = w.rain * RAIN_EFFICIENCY;
       else if (data.settings.rainSource === 'average') rain = (clim.rain[m - 1] / daysInMonth(date)) * RAIN_EFFICIENCY;
     }
     const irrigation = irrByDay.get(date) ?? 0;
     reserve = Math.min(ru, Math.max(0, reserve + rain + irrigation - etc));
-    days.push({ date, et0, kc, etc, rain, irrigation, reserve, ru });
+    days.push({ date, et0, kc, etc, rain, irrigation, reserve, ru, measured: !!w });
   }
   return days;
 }
@@ -109,9 +118,17 @@ export interface WaterAdvice {
   daysLeft: number;
   hasPlants: boolean;
   history: WaterDay[];
+  /** Pluie utile annoncée sur 48 h (mm) ; si elle suffit, l'arrosage est reporté. */
+  rainExpected: number;
+  postponed: boolean;
+  /** Durée de goutte-à-goutte équivalente (min), si le débit de la planche est connu. */
+  dripMinutes?: number;
 }
 
-export function waterAdvice(bed: Bed, data: Pick<GardenData, 'settings' | 'plants' | 'water' | 'varieties'>, today: ISODate): WaterAdvice {
+/** Pluie utile annoncée (mm sur 48 h) à partir de laquelle on reporte l'arrosage. */
+export const POSTPONE_RAIN_MM = 8;
+
+export function waterAdvice(bed: Bed, data: GardenData, today: ISODate): WaterAdvice {
   const starts = data.plants.filter((p) => p.bedId === bed.id && p.status !== 'planned').map((p) => p.transplantDate ?? p.sowDate);
   const earliest = starts.length ? starts.reduce((a, b) => (a < b ? a : b)) : today;
   const from = earliest < addDays(today, -HISTORY_DAYS) ? addDays(today, -HISTORY_DAYS) : earliest > today ? today : earliest;
@@ -120,8 +137,13 @@ export function waterAdvice(bed: Bed, data: Pick<GardenData, 'settings' | 'plant
   const hasPlants = activePlants(bed, data.plants, today).length > 0;
   const ratio = last.ru > 0 ? last.reserve / last.ru : 1;
   const area = bedArea(bed);
-  const water = hasPlants && ratio < WATER_THRESHOLD;
+  const needed = hasPlants && ratio < WATER_THRESHOLD;
+  const rainExpected = bed.kind === 'greenhouse' || !data.settings.weather ? 0 : rainNext(data.weather, today, 2) * RAIN_EFFICIENCY;
+  // On n'attend la pluie que si la réserve n'est pas déjà presque vide.
+  const postponed = needed && rainExpected >= POSTPONE_RAIN_MM && last.reserve >= last.ru * 0.2;
+  const water = needed && !postponed;
   const liters = water ? Math.max(0, Math.min(last.ru * 0.9 - last.reserve, WATER_DOSE_MAX_MM) * area) : 0;
   const daysLeft = last.etc > 0 ? Math.max(0, Math.floor((last.reserve - last.ru * WATER_THRESHOLD) / last.etc)) : 99;
-  return { bedId: bed.id, ru: last.ru, reserve: last.reserve, ratio, etcToday: last.etc, water, liters, daysLeft, hasPlants, history };
+  const dripMinutes = water && bed.drip && bed.dripFlow && bed.dripFlow > 0 ? Math.round((liters / bed.dripFlow) * 60) : undefined;
+  return { bedId: bed.id, ru: last.ru, reserve: last.reserve, ratio, etcToday: last.etc, water, liters, daysLeft, hasPlants, history, rainExpected, postponed, dripMinutes };
 }

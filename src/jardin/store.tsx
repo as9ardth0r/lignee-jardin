@@ -7,7 +7,8 @@
  * pourra être servie par SQLite (plugin Capacitor) plus tard.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Application, type Bed, type GardenData, type ManualTask, type Observation, type PhotoMeta, type Plant, type Settings, type TaskState, type Variety, type WaterEvent } from './model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent } from './model';
+import { mergeWeather, needsRefresh, parseOpenMeteo, weatherURL } from './engine/weather';
 import { demoGarden, parseBackup, serializeBackup, type PhotoExport } from './engine/backup';
 import { todayISO } from './engine/dates';
 
@@ -132,6 +133,18 @@ export interface GardenStore {
   importBackup: (raw: string) => Promise<void>;
   loadDemo: () => void;
   resetAll: () => Promise<void>;
+  saveObstacle: (o: Obstacle) => void;
+  deleteObstacle: (id: string) => void;
+  addPhenoEvent: (e: Omit<PhenoEvent, 'id'>) => void;
+  deletePhenoEvent: (id: string) => void;
+  addTreatment: (t: Omit<Treatment, 'id'>) => void;
+  deleteTreatment: (id: string) => void;
+  saveSeed: (lot: SeedLot) => void;
+  deleteSeed: (id: string) => void;
+  setPrice: (speciesId: string, priceKg: number | undefined) => void;
+  /** Télécharge la météo locale (si une position est connue). */
+  refreshWeather: (force?: boolean) => Promise<'ok' | 'offline' | 'error' | 'noPlace' | 'fresh'>;
+  weatherBusy: boolean;
 }
 
 const Ctx = createContext<GardenStore | null>(null);
@@ -145,6 +158,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
   const urlCache = useRef(new Map<string, string>());
   const latest = useRef<GardenData>(EMPTY_DATA);
   const [today, setToday] = useState(() => todayISO());
+  const [weatherBusy, setWeatherBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -214,6 +228,44 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshWeather = useCallback(
+    async (force = false): Promise<'ok' | 'offline' | 'error' | 'noPlace' | 'fresh'> => {
+      const { settings, weather } = latest.current;
+      if (settings.lat === undefined || settings.lon === undefined) return 'noPlace';
+      if (!force && !needsRefresh(weather, settings.lat, settings.lon, new Date())) return 'fresh';
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+      setWeatherBusy(true);
+      try {
+        const res = await fetch(weatherURL(settings.lat, settings.lon));
+        if (!res.ok) return 'error';
+        const days = parseOpenMeteo(await res.json());
+        const { lat, lon } = latest.current.settings;
+        if (lat === undefined || lon === undefined) return 'noPlace';
+        mutate((d) => ({ ...d, weather: mergeWeather(d.weather, lat, lon, days, new Date().toISOString()) }));
+        return 'ok';
+      } catch {
+        return 'error';
+      } finally {
+        setWeatherBusy(false);
+      }
+    },
+    [mutate],
+  );
+
+  // Météo : à l'ouverture, puis toutes les heures tant que l'app reste ouverte (si le cache a plus de 3 h).
+  const weatherOn = data.settings.weather && data.settings.lat !== undefined;
+  useEffect(() => {
+    if (!ready || !weatherOn) return;
+    void refreshWeather();
+    const t = window.setInterval(() => void refreshWeather(), 3_600_000);
+    const online = () => void refreshWeather();
+    window.addEventListener('online', online);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener('online', online);
+    };
+  }, [ready, weatherOn, data.settings.lat, data.settings.lon, refreshWeather]);
+
   const store = useMemo<GardenStore>(
     () => ({
       ready,
@@ -234,6 +286,8 @@ export function GardenProvider({ children }: { children: ReactNode }) {
             observations: d.observations.filter((o) => o.bedId !== id && !(o.plantId && plantIds.has(o.plantId))),
             applications: d.applications.filter((a) => a.bedId !== id),
             water: d.water.filter((w) => w.bedId !== id),
+            phenoEvents: d.phenoEvents.filter((e) => !plantIds.has(e.plantId)),
+            treatments: d.treatments.filter((t) => t.bedId !== id && !(t.plantId && plantIds.has(t.plantId))),
           };
         });
       },
@@ -245,6 +299,8 @@ export function GardenProvider({ children }: { children: ReactNode }) {
           plants: d.plants.filter((p) => p.id !== id),
           observations: d.observations.filter((o) => o.plantId !== id),
           applications: d.applications.filter((a) => a.plantId !== id),
+          phenoEvents: d.phenoEvents.filter((e) => e.plantId !== id),
+          treatments: d.treatments.filter((t) => t.plantId !== id),
         }));
       },
       saveVarieties: (list) => mutate((d) => ({ ...d, varieties: list.reduce((acc, v) => upsert(acc, v), d.varieties) })),
@@ -326,8 +382,25 @@ export function GardenProvider({ children }: { children: ReactNode }) {
         latest.current = EMPTY_DATA;
         setData(EMPTY_DATA);
       },
+      saveObstacle: (o) => mutate((d) => ({ ...d, obstacles: upsert(d.obstacles, o) })),
+      deleteObstacle: (id) => mutate((d) => ({ ...d, obstacles: d.obstacles.filter((o) => o.id !== id) })),
+      addPhenoEvent: (e) => mutate((d) => ({ ...d, phenoEvents: [...d.phenoEvents.filter((x) => !(x.plantId === e.plantId && x.stage === e.stage)), { ...e, id: uid('ph') }] })),
+      deletePhenoEvent: (id) => mutate((d) => ({ ...d, phenoEvents: d.phenoEvents.filter((x) => x.id !== id) })),
+      addTreatment: (t) => mutate((d) => ({ ...d, treatments: [...d.treatments, { ...t, id: uid('tr') }] })),
+      deleteTreatment: (id) => mutate((d) => ({ ...d, treatments: d.treatments.filter((x) => x.id !== id) })),
+      saveSeed: (lot) => mutate((d) => ({ ...d, seeds: upsert(d.seeds, lot) })),
+      deleteSeed: (id) => mutate((d) => ({ ...d, seeds: d.seeds.filter((x) => x.id !== id) })),
+      setPrice: (speciesId, priceKg) =>
+        mutate((d) => {
+          const prices = { ...d.prices };
+          if (priceKg === undefined) delete prices[speciesId];
+          else prices[speciesId] = priceKg;
+          return { ...d, prices };
+        }),
+      refreshWeather,
+      weatherBusy,
     }),
-    [ready, volatile, data, today, mutate, deletePhotos],
+    [ready, volatile, data, today, mutate, deletePhotos, refreshWeather, weatherBusy],
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

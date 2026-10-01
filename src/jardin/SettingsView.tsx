@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { CLIMATE_IDS, TEXTURES } from './data/climate';
 import { PRODUCT_BY_ID } from './data/products';
+import { PROBLEM_BY_ID, REMEDY_BY_ID } from './data/problems';
 import { SPECIES_BY_ID } from './data/species';
 import type { ClimateId, GardenKind, Practice, Settings, Texture, WaterSetup } from './model';
 import { parseLigneeVarieties, toCSV } from './engine/backup';
@@ -11,6 +12,7 @@ import { useNav } from './nav';
 import { useGarden } from './store';
 import { Button, Card, Chip, Field, INK500, INK700, Notice, Select, TextInput } from './ui';
 import { downloadTextFile, readFileAsText } from '../utils/download';
+import { LocationPicker } from './Weather';
 
 export const KINDS: GardenKind[] = ['vegetable', 'orchard', 'ornamental', 'balcony', 'greenhouse'];
 export const PRACTICES: Practice[] = ['conventional', 'livingSoil', 'permaculture', 'organic', 'soilless'];
@@ -128,13 +130,23 @@ export function SettingsView() {
   };
 
   const csvInputs = () => {
-    const rows: Array<Array<string | number | undefined>> = [[tt('csv.date'), tt('csv.bed'), tt('csv.plant'), tt('csv.product'), tt('csv.amount'), 'N %', 'P₂O₅ %', 'K₂O %', tt('csv.organic')]];
+    const rows: Array<Array<string | number | undefined>> = [[tt('csv.date'), tt('csv.bed'), tt('csv.plant'), tt('csv.product'), tt('csv.amount'), 'N %', 'P₂O₅ %', 'K₂O %', tt('csv.organic'), tt('csv.cost')]];
     for (const a of [...data.applications].sort((x, y) => x.date.localeCompare(y.date))) {
       const pr = PRODUCT_BY_ID[a.productId];
       const p = a.plantId ? data.plants.find((x) => x.id === a.plantId) : undefined;
-      rows.push([a.date, data.beds.find((b) => b.id === a.bedId)?.name, p ? plantTitle(p, lang) : '', pr?.name[lang] ?? a.productId, a.amount, pr?.N, pr?.P2O5, pr?.K2O, pr?.organicOK ? tt('common.yes') : tt('common.no')]);
+      rows.push([a.date, data.beds.find((b) => b.id === a.bedId)?.name, p ? plantTitle(p, lang) : '', pr?.name[lang] ?? a.productId, a.amount, pr?.N, pr?.P2O5, pr?.K2O, pr?.organicOK ? tt('common.yes') : tt('common.no'), a.cost]);
     }
     downloadTextFile(`lignee-jardin-apports-${stamp}.csv`, toCSV(rows), 'text/csv');
+  };
+
+  const csvTreatments = () => {
+    const rows: Array<Array<string | number | undefined>> = [[tt('csv.date'), tt('csv.bed'), tt('csv.plant'), tt('csv.problem'), tt('csv.method'), tt('csv.product'), tt('csv.note')]];
+    for (const t of [...data.treatments].sort((x, y) => x.date.localeCompare(y.date))) {
+      const p = t.plantId ? data.plants.find((x) => x.id === t.plantId) : undefined;
+      const bedId = t.bedId ?? p?.bedId;
+      rows.push([t.date, data.beds.find((b) => b.id === bedId)?.name, p ? plantTitle(p, lang) : '', PROBLEM_BY_ID[t.problemId]?.name[lang] ?? t.problemId, tt(`method.${t.method}` as JKey), t.remedyId ? REMEDY_BY_ID[t.remedyId]?.name[lang] : '', t.note]);
+    }
+    downloadTextFile(`lignee-jardin-interventions-${stamp}.csv`, toCSV(rows), 'text/csv');
   };
 
   const csvPlants = () => {
@@ -157,8 +169,26 @@ export function SettingsView() {
             </div>
             <Field label={tt('settings.planW')}>{(fid) => <TextInput id={fid} type="number" value={s.planW} onChange={(v) => set({ planW: Math.max(2, Math.min(100, Number(v) || 2)) })} />}</Field>
             <Field label={tt('settings.planH')}>{(fid) => <TextInput id={fid} type="number" value={s.planH} onChange={(v) => set({ planH: Math.max(2, Math.min(100, Number(v) || 2)) })} />}</Field>
+            <div className="col-span-2 sm:col-span-4">
+              <Field label={tt('settings.planNorth')}>
+                {(fid) => <Select id={fid} value={String(s.planNorth)} onChange={(v) => set({ planNorth: Number(v) })} options={[0, 90, 180, 270].map((d) => ({ v: String(d), l: tt(`north.${d}` as JKey) }))} />}
+              </Field>
+            </div>
           </div>
           <Block title={tt('onb.where')}>
+            <LocationPicker />
+            <label className="mt-3 flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={s.weather} disabled={s.lat === undefined} onChange={(e) => set({ weather: e.target.checked })} className="mt-1" />
+              <span>
+                <b>{tt('settings.weather')}</b>
+                <span className="block text-xs" style={{ color: INK700 }}>
+                  {tt('settings.weatherHint')}
+                </span>
+              </span>
+            </label>
+            <p className="mb-1.5 mt-3 text-xs font-medium" style={{ color: INK700 }}>
+              {tt('settings.climateRef')}
+            </p>
             <ClimatePicker value={s.climate} onChange={(c) => set({ climate: c })} />
           </Block>
           <Block title={tt('onb.what')}>
@@ -182,7 +212,7 @@ export function SettingsView() {
             <ChoiceChips values={WATER} selected={s.water} onToggle={(v) => set({ water: toggle(s.water, v) })} prefix="waterSetup" />
             <div className="mt-2 max-w-sm">
               <Field label={tt('settings.rainSource')}>
-                {(fid) => <Select id={fid} value={s.rainSource} onChange={(v) => set({ rainSource: v })} options={[{ v: 'average', l: tt('settings.rainAverage') }, { v: 'manual', l: tt('settings.rainManual') }]} />}
+                {(fid) => <Select id={fid} value={s.rainSource} onChange={(v) => set({ rainSource: v })} options={[{ v: 'average', l: tt(s.weather ? 'settings.rainWeather' : 'settings.rainAverage') }, { v: 'manual', l: tt('settings.rainManual') }]} />}
               </Field>
             </div>
           </Block>
@@ -226,6 +256,9 @@ export function SettingsView() {
           </Button>
           <Button small kind="ghost" onClick={csvInputs}>
             {tt('settings.csvInputs')}
+          </Button>
+          <Button small kind="ghost" onClick={csvTreatments}>
+            {tt('settings.csvTreatments')}
           </Button>
         </div>
       </Card>

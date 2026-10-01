@@ -9,11 +9,13 @@
 import { CLIMATES } from '../data/climate';
 import type { GardenData, ISODate, Plant } from '../model';
 import { addDays, dayOfYear, diffDays, weekKey } from './dates';
-import { isActiveOn, speciesOf, stageInfo } from './crop';
+import { isActiveOn, speciesOf } from './crop';
+import { timeline } from './phenology';
+import { weatherAlerts, type AlertKind } from './weather';
 import { nutrientStatus } from './nutrition';
 import { waterAdvice } from './water';
 
-export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'observe' | 'frost' | 'manual';
+export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'observe' | 'frost' | 'alert' | 'manual';
 
 export interface Task {
   key: string;
@@ -63,8 +65,7 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
     }
     if (p.status === 'ended') continue;
 
-    const variety = p.varietyId ? data.varieties.find((v) => v.id === p.varietyId) : undefined;
-    const info = stageInfo(p, today, variety);
+    const info = timeline(p, data, today);
 
     // Repiquage des semis faits à l'abri.
     if (p.indoor && !p.transplantDate && sp.transplantAfter) {
@@ -100,10 +101,34 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
     if (adv.water) tasks.push({ key: `water:${bed.id}:${today}`, kind: 'water', due: today, priority: 1, bedId: bed.id, vars: { bed: bed.name, liters: Math.max(1, Math.round(adv.liters)) } });
   }
 
-  // Gelées tardives (climatologiques) : cultures frileuses déjà en place dehors.
+  // Alertes météo (prévisions locales) : gel, canicule, vent, forte pluie.
+  const weatherOn = data.settings.weather && !!data.weather;
+  if (weatherOn) {
+    for (const a of weatherAlerts(data.weather, today)) {
+      const affected = data.plants.filter((p) => {
+        if (!isActiveOn(p, a.date)) return false;
+        const bed = bedOf(p.bedId);
+        const outdoor = bed?.kind !== 'greenhouse';
+        const sp = speciesOf(p);
+        if (a.kind === 'frost') return outdoor && (sp.frost === 'tender' || (sp.frost === 'half' && a.value <= -3));
+        if (a.kind === 'rain' || a.kind === 'wind') return outdoor;
+        return true;
+      });
+      if (!affected.length) continue;
+      tasks.push({
+        key: `alert:${a.kind}:${a.date}`,
+        kind: 'alert',
+        due: a.date,
+        priority: a.severe || a.kind === 'frost' ? 1 : 2,
+        vars: { alert: a.kind as AlertKind, value: Math.round(a.value), date: a.date, count: affected.length, species: speciesOf(affected[0]).id },
+      });
+    }
+  }
+
+  // Sans météo locale : gelées tardives climatologiques, cultures frileuses déjà en place dehors.
   const clim = CLIMATES[data.settings.climate];
   const doy = dayOfYear(today);
-  if (doy >= clim.lastFrost - 21 && doy <= clim.lastFrost + 10) {
+  if (!weatherOn && doy >= clim.lastFrost - 21 && doy <= clim.lastFrost + 10) {
     const tender = data.plants.filter((p) => {
       const bed = bedOf(p.bedId);
       return isActiveOn(p, today) && speciesOf(p).frost === 'tender' && bed && bed.kind !== 'greenhouse';

@@ -5,6 +5,7 @@ import { useJT } from './i18n';
 import { useGarden } from './store';
 import { ChoiceChips, ClimatePicker, KINDS, PRACTICES, TexturePicker, WATER } from './SettingsView';
 import { Button, Field, INK500, INK700, TextInput } from './ui';
+import { LocationPicker } from './Weather';
 
 const STEPS = ['welcome', 'where', 'what', 'how', 'soil', 'water', 'start'] as const;
 
@@ -20,8 +21,11 @@ export function Onboarding() {
   const [s, setS] = useState<Settings>(store.data.settings);
   const step = STEPS[i];
   const set = (patch: Partial<Settings>) => setS((x) => ({ ...x, ...patch }));
+  const [climateChosen, setClimateChosen] = useState(false);
   const finish = (demo: boolean) => {
-    store.updateSettings({ ...s, onboarded: true });
+    // Lieu et météo sont réglés directement par le sélecteur de lieu ; le climat suggéré reste sauf choix explicite.
+    const cur = store.data.settings;
+    store.updateSettings({ ...s, lat: cur.lat, lon: cur.lon, placeName: cur.placeName, weather: cur.weather, climate: climateChosen ? s.climate : cur.climate, onboarded: true });
     if (demo) store.loadDemo();
   };
 
@@ -51,7 +55,16 @@ export function Onboarding() {
             {step === 'welcome' && <Field label={tt('settings.name')}>{(fid) => <TextInput id={fid} value={s.gardenName} onChange={(v) => set({ gardenName: v })} />}</Field>}
             {step === 'where' && (
               <>
-                <ClimatePicker value={s.climate} onChange={(c) => set({ climate: c })} />
+                <div className="mb-4">
+                  <LocationPicker compact />
+                </div>
+                <ClimatePicker
+                  value={climateChosen ? s.climate : store.data.settings.climate}
+                  onChange={(c) => {
+                    setClimateChosen(true);
+                    set({ climate: c });
+                  }}
+                />
                 <p className="mt-2 text-[11px] leading-snug" style={{ color: INK500 }}>
                   {tt('onb.whereHint')}
                 </p>

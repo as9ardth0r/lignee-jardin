@@ -7,8 +7,35 @@ import { useJT, type JKey } from './i18n';
 import { useNav } from './nav';
 import { useGarden } from './store';
 import { Button, Card, Chip, Empty, INK500, INK700, Sheet } from './ui';
+import { companionsOf, SPECIES_EXTRA } from './data/speciesExtra';
+import { seedState } from './engine/season';
+import { SeedsPanel } from './Seeds';
 
 export function CatalogView() {
+  const { tt } = useJT();
+  const [mode, setMode] = useState<'species' | 'seeds'>('species');
+  return (
+    <>
+      <div className="mb-3 flex gap-1.5">
+        <Chip active={mode === 'species'} onClick={() => setMode('species')}>
+          📖 {tt('catalog.modeSpecies')}
+        </Chip>
+        <Chip active={mode === 'seeds'} onClick={() => setMode('seeds')}>
+          🌰 {tt('catalog.modeSeeds')}
+        </Chip>
+      </div>
+      {mode === 'species' ? (
+        <SpeciesList />
+      ) : (
+        <Card title={tt('seeds.title')}>
+          <SeedsPanel />
+        </Card>
+      )}
+    </>
+  );
+}
+
+function SpeciesList() {
   const { tt, lang } = useJT();
   const nav = useNav();
   const [q, setQ] = useState('');
@@ -98,10 +125,13 @@ function YearCalendar({ rows }: { rows: Array<{ label: string; ranges: MonthRang
 }
 
 export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void }) {
-  const { data } = useGarden();
+  const { data, today } = useGarden();
   const { tt, lang } = useJT();
   const nav = useNav();
   const s = SPECIES_BY_ID[id];
+  const extra = SPECIES_EXTRA[id];
+  const comps = companionsOf(id);
+  const lots = data.seeds.filter((l) => l.speciesId === id);
   if (!s) return null;
   const cal = cropCalendar(s, data.settings.climate);
   const varieties = data.varieties.filter((v) => v.speciesId === s.id);
@@ -170,6 +200,40 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+        {comps.length > 0 && (
+          <section>
+            <h3 className="mb-1 font-display text-base">{tt('sp.companions')}</h3>
+            <ul className="space-y-1 text-sm">
+              {comps.map((c) => (
+                <li key={c.other}>
+                  {c.effect === 'good' ? '👍' : '👎'} <b>{SPECIES_BY_ID[c.other]?.name[lang] ?? c.other}</b>{' '}
+                  <span className="text-xs" style={{ color: INK700 }}>
+                    — {c.why[lang]} <i>({tt(`evidence.${c.evidence}` as JKey)})</i>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {extra && (
+          <section>
+            <h3 className="mb-1 font-display text-base">🌰 {tt('seeds.saving')}</h3>
+            <p className="text-sm leading-relaxed" style={{ color: INK700 }}>
+              {tt('seeds.savingV', { poll: tt(`pollination.${extra.pollination}` as JKey), m: extra.isolation, life: extra.seedLife })}
+            </p>
+            {lots.length > 0 && (
+              <p className="mt-1 text-xs">
+                {tt('sp.myLots')}{' '}
+                {lots.map((l) => `${l.year}${l.varietyName ? ` ${l.varietyName}` : ''} (${tt(`seeds.state.${seedState(l, today).state}` as JKey)})`).join(', ')}
+              </p>
+            )}
+            <div className="mt-2">
+              <Button small kind="ghost" onClick={() => nav.open({ type: 'seed', speciesId: s.id })}>
+                + {tt('seeds.add')}
+              </Button>
+            </div>
           </section>
         )}
         <p className="text-[11px] leading-snug" style={{ color: INK500 }}>

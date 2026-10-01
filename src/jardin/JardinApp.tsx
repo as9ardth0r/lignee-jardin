@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { CatalogView, SpeciesSheet } from './CatalogView';
 import { ObservationSheet, TaskSheet, WaterSheet } from './Forms';
-import { BedSheet, GardenView } from './GardenView';
+import { BedSheet, GardenView, ObstacleSheet } from './GardenView';
+import { DiagnosisSheet } from './Health';
+import { SeedSheet } from './Seeds';
 import { useJT, type JKey } from './i18n';
 import { NavCtx, TABS, type Nav, type SheetRequest, type Tab } from './nav';
 import { Onboarding } from './Onboarding';
@@ -127,6 +129,9 @@ function Shell() {
         {top?.type === 'observe' && <ObservationSheet plantId={top.plantId} bedId={top.bedId} onClose={close} />}
         {top?.type === 'water' && <WaterSheet bedId={top.bedId} kind={top.kind} liters={top.liters} onClose={close} />}
         {top?.type === 'task' && <TaskSheet onClose={close} />}
+        {top?.type === 'obstacle' && <ObstacleSheet key={top.id} id={top.id} onClose={close} />}
+        {top?.type === 'diagnose' && <DiagnosisSheet key={`${top.plantId}-${top.bedId}`} plantId={top.plantId} bedId={top.bedId} onClose={close} />}
+        {top?.type === 'seed' && <SeedSheet key={`${top.id}-${top.speciesId}`} id={top.id} speciesId={top.speciesId} onClose={close} />}
 
         {toastMsg && (
           <div role="status" className="animate-sprout fixed inset-x-0 bottom-20 z-50 mx-auto w-fit max-w-[90vw] rounded-full px-4 py-2 text-sm shadow-lg" style={{ background: 'var(--color-paper-100)', color: 'var(--color-ink-900)' }}>
