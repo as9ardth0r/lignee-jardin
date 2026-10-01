@@ -7,7 +7,7 @@
  * pourra être servie par SQLite (plugin Capacitor) plus tard.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Reading, type Sensor, type PestCount, type SeasonPlan, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent } from './model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Reading, type Sensor, type PestCount, type SeasonPlan, type ShoppingItem, type StockItem, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent } from './model';
 import { mergeWeather, needsRefresh, parseOpenMeteo, weatherURL } from './engine/weather';
 import { demoGarden, parseBackup, serializeBackup, type PhotoExport } from './engine/backup';
 import { todayISO } from './engine/dates';
@@ -138,7 +138,11 @@ export interface GardenStore {
   deletePlant: (id: string) => void;
   saveVarieties: (list: Variety[]) => void;
   deleteVariety: (id: string) => void;
-  addObservation: (obs: Omit<Observation, 'id' | 'photoIds'>, photos: Blob[]) => Promise<void>;
+  addObservation: (obs: Omit<Observation, 'id' | 'photoIds' | 'audioIds'>, photos: Blob[], audio?: Array<{ blob: Blob; duration: number }>) => Promise<void>;
+  saveStock: (s: StockItem) => void;
+  deleteStock: (id: string) => void;
+  saveShopping: (s: ShoppingItem) => void;
+  deleteShopping: (id: string) => void;
   deleteObservation: (id: string) => void;
   addApplication: (app: Omit<Application, 'id'>) => void;
   deleteApplication: (id: string) => void;
@@ -360,7 +364,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       updateSettings: (patch) => mutate((d) => ({ ...d, settings: { ...d.settings, ...patch } })),
       saveBed: (bed) => mutate((d) => ({ ...d, beds: upsert(d.beds, bed) })),
       deleteBed: (id) => {
-        const photoIds = data.observations.filter((o) => o.bedId === id || data.plants.some((p) => p.bedId === id && p.id === o.plantId)).flatMap((o) => o.photoIds);
+        const photoIds = data.observations.filter((o) => o.bedId === id || data.plants.some((p) => p.bedId === id && p.id === o.plantId)).flatMap((o) => [...o.photoIds, ...(o.audioIds ?? [])]);
         void deletePhotos(photoIds);
         mutate((d) => {
           const plantIds = new Set(d.plants.filter((p) => p.bedId === id).map((p) => p.id));
@@ -379,7 +383,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       },
       savePlant: (plant) => mutate((d) => ({ ...d, plants: upsert(d.plants, plant) })),
       deletePlant: (id) => {
-        void deletePhotos(data.observations.filter((o) => o.plantId === id).flatMap((o) => o.photoIds));
+        void deletePhotos(data.observations.filter((o) => o.plantId === id).flatMap((o) => [...o.photoIds, ...(o.audioIds ?? [])]));
         mutate((d) => ({
           ...d,
           plants: d.plants.filter((p) => p.id !== id),
@@ -392,7 +396,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       },
       saveVarieties: (list) => mutate((d) => ({ ...d, varieties: list.reduce((acc, v) => upsert(acc, v), d.varieties) })),
       deleteVariety: (id) => mutate((d) => ({ ...d, varieties: d.varieties.filter((v) => v.id !== id), plants: d.plants.map((p) => (p.varietyId === id ? { ...p, varietyId: undefined } : p)) })),
-      addObservation: async (obs, photos) => {
+      addObservation: async (obs, photos, audio = []) => {
         const photoIds: string[] = [];
         const db = dbRef.current;
         for (const file of photos) {
@@ -406,11 +410,19 @@ export function GardenProvider({ children }: { children: ReactNode }) {
           }
           photoIds.push(id);
         }
-        mutate((d) => ({ ...d, observations: [...d.observations, { ...obs, id: uid('obs'), photoIds }] }));
+        const audioIds: string[] = [];
+        for (const a of audio) {
+          const id = uid('au');
+          const rec: PhotoRecord = { id, meta: { id, date: obs.date, width: 0, height: 0, kind: 'audio', mime: a.blob.type, duration: Math.round(a.duration) }, full: a.blob, thumb: new Blob([]) };
+          if (db) await tx(db, PHOTOS, 'readwrite', (s) => s.put(rec));
+          else urlCache.current.set(`${id}:full`, URL.createObjectURL(a.blob));
+          audioIds.push(id);
+        }
+        mutate((d) => ({ ...d, observations: [...d.observations, { ...obs, id: uid('obs'), photoIds, audioIds: audioIds.length ? audioIds : undefined }] }));
       },
       deleteObservation: (id) => {
         const o = data.observations.find((x) => x.id === id);
-        if (o) void deletePhotos(o.photoIds);
+        if (o) void deletePhotos([...o.photoIds, ...(o.audioIds ?? [])]);
         mutate((d) => ({ ...d, observations: d.observations.filter((x) => x.id !== id) }));
       },
       addApplication: (app) => mutate((d) => ({ ...d, applications: [...d.applications, { ...app, id: uid('app') }] })),
@@ -554,6 +566,10 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       addTankChange: (c) => mutate((d) => ({ ...d, tankChanges: [...d.tankChanges, { ...c, id: uid('tk') }] })),
       setPlan: (p) => mutate((d) => ({ ...d, plan: p })),
       addPlannedPlants: (list) => mutate((d) => ({ ...d, plants: [...d.plants, ...list] })),
+      saveStock: (x) => mutate((d) => ({ ...d, stocks: upsert(d.stocks, x) })),
+      deleteStock: (id) => mutate((d) => ({ ...d, stocks: d.stocks.filter((x) => x.id !== id) })),
+      saveShopping: (x) => mutate((d) => ({ ...d, shopping: upsert(d.shopping, x) })),
+      deleteShopping: (id) => mutate((d) => ({ ...d, shopping: d.shopping.filter((x) => x.id !== id) })),
       addPestCount: (c) => mutate((d) => ({ ...d, pestCounts: [...d.pestCounts, { ...c, id: uid('pc') }] })),
       deletePestCount: (id) => mutate((d) => ({ ...d, pestCounts: d.pestCounts.filter((x) => x.id !== id) })),
       saveSoilTest: (t) => mutate((d) => ({ ...d, soilTests: upsert(d.soilTests, t) })),

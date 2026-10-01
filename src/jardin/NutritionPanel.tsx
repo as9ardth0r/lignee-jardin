@@ -3,6 +3,7 @@ import { PRODUCTS, PRODUCT_BY_ID } from './data/products';
 import type { Plant } from './model';
 import { allowedProducts, bestProduct, doseFor, NUTRIENTS, nutrientStatus, OXIDE_TO_ELEMENT, LEGUME_N_FIXED, NEED_MARGIN, type Nutrient } from './engine/nutrition';
 import { fmtDate, fmtG, fmtNum } from './format';
+import { stockForProduct } from './engine/stock';
 import { useJT, type JKey } from './i18n';
 import { useNav } from './nav';
 import { useGarden } from './store';
@@ -27,6 +28,7 @@ export function NutritionPanel({ plant }: { plant: Plant }) {
   const [amount, setAmount] = useState('');
   const [cost, setCost] = useState('');
   const unit = product?.kind === 'liquid' ? 'mL' : 'g';
+  const stock = product ? stockForProduct(data, product.id) : undefined;
   const noSoilTest = data.settings.pH === undefined;
   const livingSoil = data.settings.practices.some((p) => p === 'livingSoil' || p === 'permaculture');
   const history = data.applications.filter((a) => a.bedId === plant.bedId && (!a.plantId || a.plantId === plant.id)).sort((a, b) => b.date.localeCompare(a.date));
@@ -139,6 +141,16 @@ export function NutritionPanel({ plant }: { plant: Plant }) {
           <p className="mt-1 text-[11px] leading-snug" style={{ color: INK500 }}>
             {product.note[lang]}
           </p>
+          {stock ? (
+            <p className="mt-1 text-[11px]" style={{ color: stock.low ? '#a5532f' : INK700 }}>
+              📦 {tt('nut.inStock', { qty: `${fmtNum(stock.remaining, lang, stock.item.unit === 'kg' || stock.item.unit === 'L' ? 1 : 0)} ${stock.item.unit}` })}
+              {stock.low ? ` · ${tt('stock.low')}` : ''}
+            </p>
+          ) : (
+            <button type="button" className="mt-1 text-[11px] underline" style={{ color: INK500 }} onClick={() => nav.open({ type: 'stock', productId: product.id })}>
+              📦 {tt('nut.trackStock')}
+            </button>
+          )}
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <div className="w-32">
               <Field label={tt('nut.amount', { unit })}>{(fid) => <TextInput id={fid} type="number" value={amount} onChange={setAmount} placeholder={dose ? String(Math.round(dose.amount)) : '0'} />}</Field>

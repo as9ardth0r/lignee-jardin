@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { VoiceRecorder, type VoiceClip } from './Voice';
 import { SPECIES_BY_ID } from './data/species';
 import { uid, type Health } from './model';
 import { bedArea } from './engine/water';
@@ -28,6 +29,7 @@ export function ObservationSheet({ plantId, bedId, onClose }: { plantId?: string
   const [harvest, setHarvest] = useState('');
   const [health, setHealth] = useState<Health | undefined>();
   const [files, setFiles] = useState<File[]>([]);
+  const [clips, setClips] = useState<VoiceClip[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
 
@@ -55,6 +57,7 @@ export function ObservationSheet({ plantId, bedId, onClose }: { plantId?: string
           health,
         },
         files,
+        clips.map((c) => ({ blob: c.blob, duration: c.duration })),
       );
       nav.toast(tt('toast.observed'));
       onClose();
@@ -98,6 +101,10 @@ export function ObservationSheet({ plantId, bedId, onClose }: { plantId?: string
           </p>
         )}
         <Field label={tt('obs.note')}>{(fid) => <TextArea id={fid} value={note} onChange={setNote} placeholder={tt('obs.notePlaceholder')} />}</Field>
+        <div>
+          <p className="mb-1 text-xs font-medium">{tt('voice.title')}</p>
+          <VoiceRecorder clips={clips} onChange={setClips} />
+        </div>
         <div className="grid grid-cols-3 gap-3">
           <Field label={tt('obs.height')}>{(fid) => <TextInput id={fid} type="number" value={height} onChange={setHeight} />}</Field>
           <Field label={tt('obs.fruits')}>{(fid) => <TextInput id={fid} type="number" value={fruits} onChange={setFruits} />}</Field>

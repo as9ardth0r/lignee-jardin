@@ -1,6 +1,6 @@
 # Lignée · Jardin
 
-**Le carnet de bord du potager** — phases 1 à 4 d'une application de suivi du
+**Le carnet de bord du potager** — phases 1 à 5 d'une application de suivi du
 jardin pour jardiniers confirmés et semi-pros : chaque plante, chaque
 planche et chaque apport suivis, avec des conseils d'eau et d'engrais
 chiffrés mais honnêtes sur leurs marges d'erreur. Application web
@@ -168,9 +168,30 @@ dont elle importe les variétés fixées.
   clair dans l'APK ; les capteurs créés avec deviennent des capteurs à
   saisie manuelle.
 
-Pas encore fait : synchronisation automatique par serveur (il faudrait
-un hébergement et un cadre RGPD), capteurs Bluetooth, widget Android,
-notes vocales, stocks, identification par photo (Pl@ntNet).
+## Ce qu'ajoute la phase 5
+
+- **Stocks** (Catalogue → Stocks) : engrais et amendements du catalogue,
+  terreaux, matériel ; quantité au dernier inventaire, les apports notés
+  depuis sont **déduits automatiquement** (g ou mL convertis dans
+  l'unité de l'article), seuil de rachat, prix. Le module nutrition
+  affiche le stock du produit conseillé.
+- **Graines comptées** : un lot peut porter son nombre de graines ; une
+  culture semée avec ce lot en consomme (plants ÷ taux de germination),
+  les cultures prévues sont réservées ; le meilleur lot est proposé à la
+  création d'une culture.
+- **Liste de courses** : stocks sous leur seuil, graines manquantes,
+  trop vieilles ou insuffisantes et plants ou bulbes pour les cultures
+  prévues des 4 prochains mois, produit du chaulage conseillé, plus des
+  lignes libres ; partage ou copie en texte.
+- **Notes vocales** dans le journal (micro de l'appareil, 2 minutes au
+  plus, trois par observation), rangées avec les photos : sauvegarde,
+  fusion et suppression comprises. L'APK demande la permission
+  « micro » seulement au premier enregistrement.
+
+Pas fait (hors du cahier des charges réalisable ici) : synchronisation
+automatique par serveur (hébergement et cadre RGPD), capteurs
+Bluetooth, widget Android, transcription des notes vocales,
+identification par photo (Pl@ntNet).
 
 ### Tests
 
@@ -198,6 +219,9 @@ déduction), correction des besoins et crédit d'azote, planificateur
 (rotation, légumineuse puis gourmande, serre, échelonnement, dérobée,
 capacité), courbe de croissance et récolte cumulée, comptages de
 ravageurs (seuil, tendance, auxiliaires, tâches).
+Phase 5 : stocks (déduction des apports, unités, seuil, inventaire le
+plus récent), graines restantes et réservées, lot conseillé, liste de
+courses automatique, notes vocales dans la sauvegarde.
 
 ## Installation
 
@@ -412,6 +436,7 @@ src/
     │   ├── planner.ts        # Planificateur de saison
     │   ├── growth.ts         # Courbe de croissance, récolte cumulée
     │   ├── pests.ts          # Comptages de ravageurs, seuils, auxiliaires
+    │   ├── stock.ts          # Stocks, graines restantes, liste de courses
     │   ├── notify.ts         # Notifications à programmer (plafond quotidien)
     │   └── report.ts         # Prévisions de récolte, bilan pluriannuel, rapport
     │   └── backup.ts         # Sauvegarde, CSV, import Lignée, jardin d'exemple
@@ -420,7 +445,7 @@ src/
     ├── Onboarding.tsx, TodayView.tsx, GardenView.tsx, PlantsView.tsx
     ├── NutritionPanel.tsx, Forms.tsx, CatalogView.tsx, SettingsView.tsx
     ├── Weather.tsx, Health.tsx, Seeds.tsx, Sensors.tsx, ProSettings.tsx
-    ├── Soil.tsx, Planner.tsx, Growth.tsx, Pests.tsx
+    ├── Soil.tsx, Planner.tsx, Growth.tsx, Pests.tsx, Stocks.tsx, Voice.tsx
     ├── notifications.ts      # Plugin natif ou API du navigateur
     ├── reportPdf.ts          # Rapport de saison (jsPDF, chargé à la demande)
     ├── taskText.ts           # Texte des tâches (écran, notifications)

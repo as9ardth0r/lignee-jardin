@@ -7,6 +7,7 @@ import { SPECIES, SPECIES_BY_ID } from './data/species';
 import { SPECIES_EXTRA } from './data/speciesExtra';
 import { yearOf } from './engine/dates';
 import { germRate, seasonSummary, seedsFor, seedState, type SeedState } from './engine/season';
+import { seedLevel } from './engine/stock';
 import { fmtDate, fmtG, fmtNum, speciesName } from './format';
 import { useJT, type JKey } from './i18n';
 import { uid, type SeedLot } from './model';
@@ -56,6 +57,7 @@ export function SeedsPanel() {
                       <span className="block text-[11px]" style={{ color: INK500 }}>
                         {l.year}
                         {l.quantity ? ` · ${l.quantity}` : ''}
+                        {l.seeds !== undefined ? ` · ${tt('seeds.left', { n: seedLevel(l, data.plants).remaining ?? 0 })}` : ''}
                         {l.germRate !== undefined ? ` · ${tt('seeds.germV', { pct: Math.round(l.germRate * 100) })}` : ''}
                       </span>
                     </span>
@@ -86,6 +88,7 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
   const [variety, setVariety] = useState(editing?.varietyName ?? '');
   const [year, setYear] = useState(String(editing?.year ?? yearOf(today)));
   const [quantity, setQuantity] = useState(editing?.quantity ?? '');
+  const [count, setCount] = useState(editing?.seeds !== undefined ? String(editing.seeds) : '');
   const [source, setSource] = useState(editing?.source ?? '');
   const [sown, setSown] = useState('');
   const [up, setUp] = useState('');
@@ -96,6 +99,7 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
     varietyName: variety.trim() || undefined,
     year: Math.max(1990, Math.min(yearOf(today) + 1, Math.round(Number(year)) || yearOf(today))),
     quantity: quantity.trim() || undefined,
+    seeds: Number(count) > 0 ? Math.round(Number(count)) : undefined,
     source: source.trim() || undefined,
     germRate: editing?.germRate,
     germTested: editing?.germTested,
@@ -127,6 +131,9 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
           <Field label={tt('add.variety')}>{(fid) => <TextInput id={fid} value={variety} onChange={setVariety} placeholder={tt('add.varietyPlaceholder')} />}</Field>
           <Field label={tt('seeds.year')} hint={tt('seeds.yearHint')}>
             {(fid) => <TextInput id={fid} type="number" value={year} onChange={setYear} />}
+          </Field>
+          <Field label={tt('seeds.seedCount')} hint={editing && editing.seeds !== undefined ? tt('seeds.countHint', { used: seedLevel(editing, data.plants).used, reserved: seedLevel(editing, data.plants).reserved }) : tt('seeds.countHintNew')}>
+            {(fid) => <TextInput id={fid} type="number" min={0} value={count} onChange={setCount} />}
           </Field>
           <Field label={tt('seeds.quantity')}>{(fid) => <TextInput id={fid} value={quantity} onChange={setQuantity} placeholder={tt('seeds.quantityPlaceholder')} />}</Field>
           <Field label={tt('seeds.source')}>{(fid) => <TextInput id={fid} value={source} onChange={setSource} placeholder={tt('seeds.sourcePlaceholder')} />}</Field>

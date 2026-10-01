@@ -285,6 +285,8 @@ export interface Plant extends Meta {
   /** Rendement visé (kg/m²) — sinon le milieu de la fourchette du catalogue. */
   yieldTarget?: number;
   note?: string;
+  /** Lot de graines utilisé (pour décompter le stock). */
+  seedLotId?: string;
   createdAt: ISODate;
 }
 
@@ -296,6 +298,8 @@ export interface Observation extends Meta {
   bedId?: string;
   date: ISODate;
   note: string;
+  /** Notes vocales (identifiants dans le magasin des médias). */
+  audioIds?: string[];
   heightCm?: number;
   fruits?: number;
   harvestG?: number;
@@ -374,6 +378,8 @@ export interface SeedLot extends Meta {
   year: number;
   quantity?: string;
   source?: string;
+  /** Nombre de graines du lot (au dernier inventaire), pour suivre ce qu'il en reste. */
+  seeds?: number;
   /** Taux de germination mesuré (0–1) et date du test. */
   germRate?: number;
   germTested?: ISODate;
@@ -407,6 +413,42 @@ export interface PhotoMeta {
   date: ISODate;
   width: number;
   height: number;
+  /** Note vocale (phase 5) : rangée avec les photos, sans vignette. */
+  kind?: 'audio';
+  mime?: string;
+  /** Durée (s) d'une note vocale. */
+  duration?: number;
+}
+
+export type StockUnit = 'g' | 'kg' | 'mL' | 'L' | 'pcs';
+export type StockKind = 'product' | 'substrate' | 'other';
+
+/**
+ * Article en stock (phase 5). Quantité constatée à une date ; pour un
+ * engrais du catalogue, les apports notés ensuite sont déduits
+ * automatiquement (rien n'est réécrit : la fusion de jardins reste simple).
+ */
+export interface StockItem extends Meta {
+  id: string;
+  kind: StockKind;
+  /** Engrais ou amendement du catalogue, le cas échéant. */
+  productId?: string;
+  name: string;
+  qty: number;
+  unit: StockUnit;
+  /** Date du dernier inventaire ou achat (quantité ci-dessus). */
+  since: ISODate;
+  /** Seuil de réapprovisionnement (même unité). */
+  min?: number;
+  priceUnit?: number;
+  note?: string;
+}
+
+/** Ligne libre de la liste de courses. */
+export interface ShoppingItem extends Meta {
+  id: string;
+  label: string;
+  done?: boolean;
 }
 
 export type SensorKind = 'soilMoisture' | 'soilTemp' | 'airTemp' | 'humidity' | 'ec' | 'ph';
@@ -522,6 +564,8 @@ export interface GardenData {
   tankChanges: TankChange[];
   soilTests: SoilTest[];
   pestCounts: PestCount[];
+  stocks: StockItem[];
+  shopping: ShoppingItem[];
   /** Saison en préparation (planificateur). */
   plan?: SeasonPlan;
   /** Enregistrements supprimés (identifiant → date ISO), pour la fusion de jardins. */
@@ -548,6 +592,8 @@ export const EMPTY_DATA: GardenData = {
   tankChanges: [],
   soilTests: [],
   pestCounts: [],
+  stocks: [],
+  shopping: [],
   deleted: {},
 };
 

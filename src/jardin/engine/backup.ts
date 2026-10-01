@@ -3,7 +3,7 @@
  * variétés fixées dans les apps Lignée, et jardin d'exemple.
  */
 import { SPECIES_BY_ID } from '../data/species';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Sensor, type PestCount, type GardenData, type ISODate, type PhotoMeta, type Variety } from '../model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Sensor, type PestCount, type ShoppingItem, type StockItem, type GardenData, type ISODate, type PhotoMeta, type Variety } from '../model';
 import { addDays, isValidISO, yearOf } from './dates';
 
 export const BACKUP_APP = 'lignee-jardin';
@@ -63,6 +63,8 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
         )
       : {},
     pestCounts: arr<PestCount>(d.pestCounts, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.pestId === 'string' && typeof v.value === 'number').map((x) => ({ ...x, beneficials: Array.isArray(x.beneficials) ? x.beneficials : [] })),
+    stocks: arr<StockItem>(d.stocks, (v) => hasId(v) && obj(v) && typeof v.name === 'string' && typeof v.qty === 'number' && isValidISO(v.since)),
+    shopping: arr<ShoppingItem>(d.shopping, (v) => hasId(v) && obj(v) && typeof v.label === 'string'),
     soilTests: arr(d.soilTests, (v) => hasId(v) && obj(v) && isValidISO(v.date)).map((x) => ({ pMethod: 'olsen', ...(x as object) })) as GardenData['soilTests'],
     plan: obj(d.plan) && typeof (d.plan as { year?: unknown }).year === 'number' && Array.isArray((d.plan as { wishes?: unknown }).wishes) ? (d.plan as GardenData['plan']) : undefined,
     tankChanges: arr(d.tankChanges, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.bedId === 'string'),
@@ -202,8 +204,14 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
     seeds: [
       { id: 'demo-s1', speciesId: 'carrot', varietyName: 'Nantaise 2', year: yearOf(today) - 1, quantity: '½ sachet', source: 'Jardinerie' },
       { id: 'demo-s2', speciesId: 'leek', varietyName: 'Bleu de Solaise', year: yearOf(today) - 3, quantity: '1 sachet', source: 'Échange' },
-      { id: 'demo-s3', speciesId: 'tomato', varietyName: 'Cœur de bœuf', year: yearOf(today), quantity: '200 graines', source: 'Mes graines' },
+      { id: 'demo-s3', speciesId: 'tomato', varietyName: 'Cœur de bœuf', year: yearOf(today), quantity: '200 graines', source: 'Mes graines', seeds: 200 },
     ],
     prices: {},
+    // Stocks : un engrais suivi (les apports notés se déduisent), du terreau, et une ligne de courses.
+    stocks: [
+      { id: 'demo-st1', kind: 'product', productId: 'organicNPK', name: 'Engrais organique universel 4-3-6', qty: 2.5, unit: 'kg', since: addDays(today, -60), min: 1.5, priceUnit: 6 },
+      { id: 'demo-st2', kind: 'substrate', name: 'Terreau de semis', qty: 40, unit: 'L', since: addDays(today, -30), min: 20 },
+    ],
+    shopping: [{ id: 'demo-sh1', label: 'Ficelle de palissage' }],
   };
 }

@@ -14,6 +14,7 @@ export type SheetRequest =
   | { type: 'obstacle'; id: string }
   | { type: 'diagnose'; plantId?: string; bedId?: string }
   | { type: 'seed'; id?: string; speciesId?: string }
+  | { type: 'stock'; id?: string; productId?: string }
   | { type: 'pestCount'; plantId?: string; bedId?: string; pestId?: string }
   | { type: 'soil'; id?: string; bedId?: string }
   | { type: 'sensor'; id?: string; bedId?: string; kind?: import('./model').SensorKind };

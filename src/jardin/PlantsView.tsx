@@ -11,6 +11,8 @@ import { SeasonView } from './Seeds';
 import { PlannerView } from './Planner';
 import { GrowthPanel } from './Growth';
 import { PestPanel } from './Pests';
+import { VoicePlayer } from './Voice';
+import { bestLot, seedLevel, seedsUsedBy } from './engine/stock';
 import { addDays, diffDays, monthOf } from './engine/dates';
 import { rotationWarning } from './engine/rotation';
 import { fmtDate, fmtG, fmtNum, monthName, plantTitle, speciesName } from './format';
@@ -201,6 +203,13 @@ export function Journal({ plantId, bedId }: { plantId?: string; bedId?: string }
                 {[o.heightCm ? tt('journal.heightV', { cm: o.heightCm }) : '', o.fruits ? tt('journal.fruitsV', { n: o.fruits }) : '', o.harvestG ? tt('journal.harvestV', { w: fmtG(o.harvestG, lang) }) : ''].filter(Boolean).join(' · ')}
               </p>
             )}
+            {o.audioIds && o.audioIds.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {o.audioIds.map((id, i) => (
+                  <VoicePlayer key={id} id={id} n={i + 1} />
+                ))}
+              </div>
+            )}
             {o.photoIds.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {o.photoIds.map((id) => (
@@ -364,6 +373,7 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
   const [yieldT, setYieldT] = useState(editing?.yieldTarget ? String(editing.yieldTarget) : '');
   const [note, setNote] = useState(editing?.note ?? '');
   const [spQuery, setSpQuery] = useState('');
+  const [lotId, setLotId] = useState<string | undefined>(editing ? editing.seedLotId : undefined);
 
   const cal = cropCalendar(sp, data.settings.climate);
   const varieties = data.varieties.filter((v) => v.speciesId === spId);
@@ -390,6 +400,14 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
     if (next && !editing) setIndoor(Boolean(next.sowIndoor && !next.sowOutdoor && !isPlanted(next)));
   };
 
+  // Lot de graines : le meilleur par défaut pour une nouvelle culture, « aucun » possible.
+  const lots = data.seeds.filter((l) => l.speciesId === spId);
+  const autoLot = editing ? undefined : bestLot(data, spId, today)?.id;
+  const chosenLot = lotId === undefined ? autoLot ?? '' : lotId;
+  const lot = lots.find((l) => l.id === chosenLot);
+  const lotLevel = lot ? seedLevel(lot, data.plants.filter((p) => p.id !== editing?.id)) : undefined;
+  const lotNeed = lot ? seedsUsedBy({ speciesId: spId, count: nCount } as Plant, lot) : 0;
+
   const save = () => {
     if (!bed) return;
     const v = varieties.find((x) => x.id === varietyId);
@@ -408,6 +426,7 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
       endDate: editing?.endDate,
       yieldTarget: Number(yieldT.replace(',', '.')) > 0 ? Number(yieldT.replace(',', '.')) : undefined,
       note: note.trim() || undefined,
+      seedLotId: lots.some((l) => l.id === chosenLot) ? chosenLot || undefined : undefined,
       createdAt: editing?.createdAt ?? today,
     };
     store.savePlant(plant);
@@ -505,6 +524,26 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
             {(fid) => <TextInput id={fid} type="number" step={0.1} value={yieldT} onChange={setYieldT} placeholder={String((sp.yieldM2[0] + sp.yieldM2[1]) / 2)} />}
           </Field>
         </div>
+
+        {lots.length > 0 && (
+          <div>
+            <Field label={tt('add.seedLot')}>
+              {(fid) => (
+                <Select
+                  id={fid}
+                  value={chosenLot}
+                  onChange={(v) => setLotId(v)}
+                  options={[{ v: '', l: tt('add.seedLotNone') }, ...lots.map((l) => ({ v: l.id, l: `${l.year}${l.varietyName ? ` · ${l.varietyName}` : ''}${l.seeds !== undefined ? ` · ${tt('seeds.left', { n: seedLevel(l, data.plants.filter((p) => p.id !== editing?.id)).remaining ?? 0 })}` : ''}` }))]}
+                />
+              )}
+            </Field>
+            {lot && (
+              <p className="mt-1 text-xs" style={{ color: lotLevel?.remaining !== undefined && lotLevel.remaining < lotNeed ? '#a5532f' : INK500 }}>
+                {lotLevel?.remaining !== undefined ? tt('add.seedLotUse', { n: lotNeed, left: Math.max(0, lotLevel.remaining - lotNeed) }) : tt('add.seedLotUseUnknown', { n: lotNeed })}
+              </p>
+            )}
+          </div>
+        )}
 
         {outOfWindow && <Notice tone="warn">{tt('add.outOfWindow', { months: windowsText(windows, lang) })}</Notice>}
         {rot && (

@@ -36,4 +36,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Demandée avec la précédente par la WebView de Capacitor ; la position est de toute façon arrondie à ~1 km. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Micro : seulement pour les notes vocales du journal, enregistrées sur l'appareil. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 </manifest>

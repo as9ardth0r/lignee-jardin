@@ -21,7 +21,7 @@ import { PROBLEMS, REMEDY_BY_ID } from '../src/jardin/data/problems';
 import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
-import { mergeGardens, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
+import { mergeGardens, photoIdsOf, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
 import { addReadings, moistureToFraction, parseDateTime, parseReadingsCSV, tankStatus, tankTarget, toMinutes } from '../src/jardin/engine/sensors';
 import { notificationId, planNotifications } from '../src/jardin/engine/notify';
 import { forecast, forecastByMonth, multiYear, reportData } from '../src/jardin/engine/report';
@@ -29,6 +29,7 @@ import type { Sensor } from '../src/jardin/model';
 import { planCalendar, planSeason, planToPlants, wishesFromYear, windowDate } from '../src/jardin/engine/planner';
 import { growthReport, harvestProgress, referenceHeight, MATURE_HEIGHT } from '../src/jardin/engine/growth';
 import { countablePests, pestStatuses, pestTasks } from '../src/jardin/engine/pests';
+import { autoShopping, bestLot, convert, seedLevel, seedsUsedBy, stockForProduct, stockLevel } from '../src/jardin/engine/stock';
 import { caoApplied, estimateCEC, interpret, limeAdvice, nCredit, phMismatches, soilFor } from '../src/jardin/engine/soil';
 
 let failed = 0;
@@ -836,6 +837,60 @@ test('ravageurs : seuil, tendance, auxiliaires, tâches', () => {
   const w = { ...d, pestCounts: [pc('a', '2026-06-01', 50), pc('b', '2026-06-05', 45, ['ladybird'])] };
   ok(pestTasks(w, '2026-06-06').length === 0 && pestTasks(w, '2026-06-10').some((t) => t.key === 'pestRecount:b'), 'recompter après 5 jours');
   ok(generateTasks(d, '2026-06-06').some((t) => t.kind === 'pest'), 'dans les tâches du jour');
+});
+
+// --- Phase 5 : stocks et notes vocales ---------------------------------------------------
+
+test('stocks : déduction des apports, unités, seuil', () => {
+  ok(convert(2.5, 'kg', 'g') === 2500 && convert(500, 'mL', 'L') === 0.5, 'conversions');
+  const item = { id: 's', kind: 'product' as const, productId: 'organicNPK', name: 'NPK', qty: 2, unit: 'kg' as const, since: '2026-04-01', min: 1 };
+  const apps = [
+    { id: 'a', bedId: 'b1', productId: 'organicNPK', amount: 600, date: '2026-05-01' },
+    { id: 'b', bedId: 'b1', productId: 'organicNPK', amount: 300, date: '2026-03-01' },
+    { id: 'c', bedId: 'b1', productId: 'blood', amount: 100, date: '2026-05-01' },
+  ];
+  const lv = stockLevel(item, { applications: apps });
+  ok(near(lv.used, 0.6) && near(lv.remaining, 1.4) && !lv.low, `restant ${lv.remaining}`);
+  const lv2 = stockLevel(item, { applications: [...apps, { id: 'd', bedId: 'b1', productId: 'organicNPK', amount: 500, date: '2026-06-01' }] });
+  ok(lv2.low && near(lv2.remaining, 0.9), 'sous le seuil');
+  const over = stockLevel(item, { applications: [{ id: 'e', bedId: 'b1', productId: 'organicNPK', amount: 3000, date: '2026-06-01' }] });
+  ok(over.remaining === 0 && over.negative, 'inventaire à refaire');
+  const liquid = stockLevel({ ...item, productId: 'nettle', unit: 'L', qty: 10 }, { applications: [{ id: 'f', bedId: 'b1', productId: 'nettle', amount: 2500, date: '2026-05-01' }] });
+  ok(near(liquid.remaining, 7.5), 'liquide en litres');
+  ok(stockForProduct({ stocks: [item, { ...item, id: 'new', since: '2026-05-15', qty: 5 }], applications: apps }, 'organicNPK')!.item.id === 'new', 'inventaire le plus récent');
+});
+
+test('stocks : graines restantes, lot conseillé, liste de courses', () => {
+  const lot = { id: 'l1', speciesId: 'carrot', year: 2026, seeds: 500, germRate: 0.5 };
+  const sown = plant({ id: 'p1', speciesId: 'carrot', count: 100, seedLotId: 'l1' });
+  const planned = plant({ id: 'p2', speciesId: 'carrot', count: 50, seedLotId: 'l1', status: 'planned', sowDate: '2026-07-01' });
+  ok(seedsUsedBy(sown, lot) === 200 && seedsUsedBy(plant({ speciesId: 'potato', count: 8 }), lot) === 8, 'graines semées');
+  const lv = seedLevel(lot, [sown, planned]);
+  ok(lv.used === 200 && lv.reserved === 100 && lv.remaining === 200, JSON.stringify(lv));
+  ok(seedLevel({ ...lot, seeds: undefined }, [sown]).remaining === undefined, 'nombre inconnu');
+  const lots = [lot, { id: 'l0', speciesId: 'carrot', year: 2020 }, { id: 'l2', speciesId: 'carrot', year: 2026, seeds: 10 }];
+  const best = bestLot({ seeds: lots, plants: [plant({ speciesId: 'carrot', count: 10, seedLotId: 'l2' })] }, 'carrot', '2026-06-01');
+  ok(best?.id === 'l1', `meilleur lot ${best?.id}`);
+  const d = data({
+    beds: [bed()],
+    plants: [plant({ id: 'x1', speciesId: 'leek', count: 30, status: 'planned', sowDate: '2026-07-01' }), plant({ id: 'x2', speciesId: 'garlic', count: 20, status: 'planned', sowDate: '2026-08-01' }), plant({ id: 'x3', speciesId: 'tomato', count: 6, status: 'planned', sowDate: '2027-03-01' })],
+    seeds: [{ id: 'old', speciesId: 'leek', year: 2019 }],
+    stocks: [{ id: 'st', kind: 'substrate', name: 'Terreau', qty: 10, unit: 'L', since: '2026-05-01', min: 20 }],
+  });
+  const shop = autoShopping(d, '2026-06-01');
+  ok(shop.some((l) => l.kind === 'seeds' && l.speciesId === 'leek' && l.reason === 'old'), 'poireau : lot trop vieux');
+  ok(shop.some((l) => l.kind === 'plants' && l.speciesId === 'garlic'), 'ail : caïeux');
+  ok(!shop.some((l) => 'speciesId' in l && l.speciesId === 'tomato'), 'trop loin : pas encore');
+  ok(shop.some((l) => l.kind === 'stock'), 'terreau sous le seuil');
+  const acid = { ...d, plants: [], stocks: [], soilTests: [{ id: 't', date: '2026-01-01', pH: 5.6, pMethod: 'olsen' as const, cec: 12 }] };
+  ok(autoShopping(acid, '2026-06-01').some((l) => l.kind === 'lime'), 'chaux à acheter');
+});
+
+test('notes vocales : sauvegardées et fusionnées avec les photos', () => {
+  const d = data({ observations: [{ id: 'o', plantId: 'p', bedId: 'b1', date: '2026-06-01', note: '', photoIds: ['ph1'], audioIds: ['au1'] }] });
+  const ids = photoIdsOf(d);
+  ok(ids.has('ph1') && ids.has('au1'), 'médias de l’observation');
+  ok(parseBackup(serializeBackup(d, [])).data.observations[0].audioIds?.[0] === 'au1', 'gardées dans la sauvegarde');
 });
 
 if (failed) {

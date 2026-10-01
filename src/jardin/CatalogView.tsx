@@ -10,27 +10,31 @@ import { Button, Card, Chip, Empty, INK500, INK700, Sheet } from './ui';
 import { companionsOf, SPECIES_EXTRA } from './data/speciesExtra';
 import { seedState } from './engine/season';
 import { SeedsPanel } from './Seeds';
+import { StocksView } from './Stocks';
 
 export function CatalogView() {
   const { tt } = useJT();
-  const [mode, setMode] = useState<'species' | 'seeds'>('species');
+  const [mode, setMode] = useState<'species' | 'seeds' | 'stocks'>('species');
   return (
     <>
-      <div className="mb-3 flex gap-1.5">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         <Chip active={mode === 'species'} onClick={() => setMode('species')}>
           📖 {tt('catalog.modeSpecies')}
         </Chip>
         <Chip active={mode === 'seeds'} onClick={() => setMode('seeds')}>
           🌰 {tt('catalog.modeSeeds')}
         </Chip>
+        <Chip active={mode === 'stocks'} onClick={() => setMode('stocks')}>
+          📦 {tt('catalog.modeStocks')}
+        </Chip>
       </div>
-      {mode === 'species' ? (
-        <SpeciesList />
-      ) : (
+      {mode === 'species' && <SpeciesList />}
+      {mode === 'seeds' && (
         <Card title={tt('seeds.title')}>
           <SeedsPanel />
         </Card>
       )}
+      {mode === 'stocks' && <StocksView />}
     </>
   );
 }
