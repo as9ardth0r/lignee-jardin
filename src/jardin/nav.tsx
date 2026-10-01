@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 
-export type Tab = 'today' | 'garden' | 'plants' | 'catalog' | 'settings';
-export const TABS: Tab[] = ['today', 'garden', 'plants', 'catalog', 'settings'];
+export type Tab = 'today' | 'garden' | 'plants' | 'catalog' | 'breeding' | 'settings';
+export const TABS: Tab[] = ['today', 'garden', 'plants', 'catalog', 'breeding', 'settings'];
 
 export type SheetRequest =
   | { type: 'plant'; id: string }

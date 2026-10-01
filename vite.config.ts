@@ -40,6 +40,8 @@ export default defineConfig({
         // chargement pour un fonctionnement hors-ligne complet ensuite.
         // Les données du jardin vivent dans IndexedDB (jamais en cache).
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Les ateliers de sélection (catalogue cannabis ~1,6 Mo) restent disponibles hors ligne.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
     }),
   ],

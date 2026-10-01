@@ -30,6 +30,9 @@ import { planCalendar, planSeason, planToPlants, wishesFromYear, windowDate } fr
 import { growthReport, harvestProgress, referenceHeight, MATURE_HEIGHT } from '../src/jardin/engine/growth';
 import { countablePests, pestStatuses, pestTasks } from '../src/jardin/engine/pests';
 import { autoShopping, bestLot, convert, seedLevel, seedsUsedBy, stockForProduct, stockLevel } from '../src/jardin/engine/stock';
+import { ATELIERS, ATELIER_BY_ID } from '../src/ateliers/registry';
+import { pendingVarieties } from '../src/ateliers/pending';
+import { LIGNEE_CROPS } from '../src/jardin/engine/backup';
 import { caoApplied, estimateCEC, interpret, limeAdvice, nCredit, phMismatches, soilFor } from '../src/jardin/engine/soil';
 
 let failed = 0;
@@ -893,6 +896,23 @@ test('notes vocales : sauvegardées et fusionnées avec les photos', () => {
   const ids = photoIdsOf(d);
   ok(ids.has('ph1') && ids.has('au1'), 'médias de l’observation');
   ok(parseBackup(serializeBackup(d, [])).data.observations[0].audioIds?.[0] === 'au1', 'gardées dans la sauvegarde');
+});
+
+test('ateliers : 13 ateliers, cultures reconnues par l’import du jardin', () => {
+  ok(ATELIERS.length === 13 && new Set(ATELIERS.map((a) => a.id)).size === 13, 'ids');
+  for (const a of ATELIERS) if (a.myVarieties) ok(Boolean(LIGNEE_CROPS[a.myVarieties.crop]) && Boolean(SPECIES_BY_ID[LIGNEE_CROPS[a.myVarieties.crop]]), a.id);
+});
+
+test('ateliers : « Mes lignées » ajoutées au jardin sans doublon', () => {
+  const store: Record<string, string> = { 'lignee.fraise.myvarieties.v1': JSON.stringify([{ id: 'my-1', name: 'Remontante blanche', species: 'ananassa', variants: [] }, { id: 'my-2', name: 'Remontante blanche', variants: [] }, { name: 'Précoce' }]) };
+  (globalThis as unknown as { window: unknown }).window = { localStorage: { getItem: (k: string) => store[k] ?? null } };
+  const first = pendingVarieties(ATELIER_BY_ID.fraise, []);
+  ok(first.length === 2 && first.every((v) => v.speciesId === 'strawberry' && v.origin === 'lignee:fraise'), `${first.length}`);
+  ok(pendingVarieties(ATELIER_BY_ID.fraise, first).length === 0, 'déjà au jardin');
+  ok(pendingVarieties(ATELIER_BY_ID.tomate, []).length === 0, 'rien enregistré');
+  ok(pendingVarieties(ATELIER_BY_ID.cannabis, []).length === 0, 'cannabis : pas d’espèce au jardin');
+  store['lignee.tomato.myvarieties.v1'] = '{corrompu';
+  ok(pendingVarieties(ATELIER_BY_ID.tomate, []).length === 0, 'stockage corrompu ignoré');
 });
 
 if (failed) {

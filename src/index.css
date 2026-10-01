@@ -1,6 +1,15 @@
 @import 'tailwindcss';
 
 @theme {
+  /* Atelier cannabis — une teinte par terpène (chemovar). */
+  --color-terp-myrcene: #9ba53d;
+  --color-terp-limonene: #dd8b35;
+  --color-terp-pinene: #3f8f6b;
+  --color-terp-linalool: #9585c9;
+  --color-terp-caryophyllene: #b1543a;
+  --color-terp-humulene: #8a6a42;
+  --color-terp-terpinolene: #4a7fb0;
+
   /* Palette — planche botanique : canopée sombre, papier de
      catalogue, or résine (trichomes), prune (anthocyanes des
      variétés violettes). Choisie pour ce sujet précis, pas la

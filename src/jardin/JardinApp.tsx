@@ -17,8 +17,10 @@ import { SoilTestSheet } from './Soil';
 import { PestCountSheet } from './Pests';
 import { StockSheet } from './Stocks';
 import { rescheduleNotifications } from './notifications';
+import { AtelierHost, AteliersView } from './Ateliers';
+import type { AtelierId } from '../ateliers/registry';
 
-const TAB_ICON: Record<Tab, string> = { today: '☀', garden: '▦', plants: '🌱', catalog: '📖', settings: '⚙' };
+const TAB_ICON: Record<Tab, string> = { today: '☀', garden: '▦', plants: '🌱', catalog: '📖', breeding: '🧬', settings: '⚙' };
 
 function Shell() {
   const store = useGarden();
@@ -27,6 +29,24 @@ function Shell() {
   const [stack, setStack] = useState<SheetRequest[]>([]);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const terrain = store.data.settings.terrain;
+  const [atelier, setAtelier] = useState<AtelierId | null>(null);
+
+  // Ouvrir un atelier ajoute une entrée d'historique : le bouton « retour »
+  // d'Android (ou du navigateur) ramène au jardin au lieu de quitter l'app.
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => setAtelier((e.state as { atelier?: AtelierId } | null)?.atelier ?? null);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const openAtelier = useCallback((id: AtelierId) => {
+    window.history.pushState({ atelier: id }, '');
+    setAtelier(id);
+  }, []);
+  const closeAtelier = useCallback(() => {
+    if ((window.history.state as { atelier?: AtelierId } | null)?.atelier) window.history.back();
+    else setAtelier(null);
+    window.setTimeout(() => window.scrollTo({ top: 0 }), 0);
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('terrain', terrain);
@@ -77,6 +97,21 @@ function Shell() {
 
   const top = stack[stack.length - 1];
 
+  const toast = toastMsg && (
+    <div role="status" className="animate-sprout fixed inset-x-0 bottom-20 z-50 mx-auto w-fit max-w-[90vw] rounded-full px-4 py-2 text-sm shadow-lg" style={{ background: 'var(--color-paper-100)', color: 'var(--color-ink-900)' }}>
+      {toastMsg}
+    </div>
+  );
+
+  if (atelier) {
+    return (
+      <NavCtx.Provider value={nav}>
+        <AtelierHost id={atelier} onExit={closeAtelier} />
+        {toast}
+      </NavCtx.Provider>
+    );
+  }
+
   return (
     <NavCtx.Provider value={nav}>
       <div className="min-h-screen pb-24">
@@ -126,6 +161,7 @@ function Shell() {
           {tab === 'garden' && <GardenView />}
           {tab === 'plants' && <PlantsView />}
           {tab === 'catalog' && <CatalogView />}
+          {tab === 'breeding' && <AteliersView onOpen={openAtelier} />}
           {tab === 'settings' && <SettingsView />}
           <p className="mt-6 px-2 text-center text-[11px] leading-snug" style={{ color: 'var(--color-paper-300)', opacity: 0.8 }}>
             {tt('app.footer')}
@@ -168,11 +204,7 @@ function Shell() {
         {top?.type === 'sensor' && <SensorSheet key={`${top.id}-${top.bedId}-${top.kind}`} id={top.id} bedId={top.bedId} kind={top.kind} onClose={close} />}
         {top?.type === 'seed' && <SeedSheet key={`${top.id}-${top.speciesId}`} id={top.id} speciesId={top.speciesId} onClose={close} />}
 
-        {toastMsg && (
-          <div role="status" className="animate-sprout fixed inset-x-0 bottom-20 z-50 mx-auto w-fit max-w-[90vw] rounded-full px-4 py-2 text-sm shadow-lg" style={{ background: 'var(--color-paper-100)', color: 'var(--color-ink-900)' }}>
-            {toastMsg}
-          </div>
-        )}
+        {toast}
       </div>
     </NavCtx.Provider>
   );

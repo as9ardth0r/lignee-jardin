@@ -222,6 +222,50 @@ ravageurs (seuil, tendance, auxiliaires, tâches).
 Phase 5 : stocks (déduction des apports, unités, seuil, inventaire le
 plus récent), graines restantes et réservées, lot conseillé, liste de
 courses automatique, notes vocales dans la sauvegarde.
+Ateliers : 13 ateliers et cultures reconnues, « Mes lignées » ajoutées
+au jardin sans doublon (stockage corrompu ignoré).
+
+```bash
+npm run test:ateliers
+```
+
+Lance les tests moteur d'origine de chacun des douze ateliers de
+légumes et fruits (l'app cannabis d'origine n'avait pas de tests).
+
+## Les ateliers de sélection (onglet « Sélection »)
+
+Lignée Jardin est l'app principale : les treize apps Lignée de
+génétique y sont réunies comme **ateliers**, chacun ouvert depuis
+l'onglet 🧬 **Sélection** : tomate, piment et poivron, courge, melon,
+pastèque, haricot, pois, maïs, chou, carotte, pomme de terre, fraise et
+cannabis.
+
+- Chaque atelier est l'app d'origine, **copiée telle quelle** dans
+  `src/ateliers/<id>/` (moteur, interface, textes FR/EN, tests) : mêmes
+  fonctions, mêmes données (clés `lignee.<culture>.*`), même couleur
+  d'accent. Seuls la langue (partagée avec le jardin) et le sélecteur
+  de langue sont branchés sur l'app hôte ; l'atelier cannabis garde son
+  système de traduction, relié à la langue du jardin.
+- **Chargement à la demande** : un atelier n'est chargé qu'à son
+  ouverture (un fichier JS par atelier), mais tout est précaché par la
+  PWA et dans l'APK : tout marche hors ligne.
+- Barre du haut : **← Jardin** pour revenir (le bouton retour d'Android
+  aussi), et **🌱 Au jardin (n)** qui ajoute au catalogue du jardin les
+  variétés enregistrées dans « Mes lignées » de l'atelier, sans
+  doublon. Depuis la liste, « Ajouter toutes mes lignées au jardin » le
+  fait pour tous les ateliers d'un coup. L'atelier cannabis reste une
+  simulation (pas d'espèce correspondante au jardin).
+- Les apps Lignée installées séparément gardent leurs propres données
+  (chaque application Android a son stockage) : pour les reprendre,
+  exporter la planche ou « Mes lignées » depuis l'app séparée et
+  importer le fichier dans l'atelier.
+
+Mettre à jour un atelier : recopier le dossier `src/` de l'app d'origine
+dans `src/ateliers/<id>/` (sans `main.tsx`, `Root.tsx`, `index.css`),
+puis remettre les deux fichiers de raccord `i18n/LanguageContext.tsx` et
+`components/LanguageSwitcher.tsx` (une ligne d'export chacun) ; tests :
+recopier `tests/<culture>-engine.test.ts` dans `tests/ateliers/<id>.test.ts`
+en remplaçant `../src/` par `../../src/ateliers/<id>/`.
 
 ## Installation
 
@@ -410,6 +454,11 @@ machine.
 src/
 ├── Root.tsx, main.tsx, i18n/LanguageContext.tsx, components/LanguageSwitcher.tsx
 ├── utils/download.ts
+├── ateliers/
+│   ├── registry.ts           # Les 13 ateliers : nom, couleur, chargement à la demande, « Mes lignées »
+│   ├── pending.ts            # Variétés d'un atelier pas encore au jardin
+│   └── tomate/, piment/, courge/, melon/, pasteque/, haricot/, pois/,
+│       mais/, chou/, carotte/, patate/, fraise/, cannabis/   # apps d'origine
 └── jardin/
     ├── model.ts              # Types : espèces, produits, réglages, planches, cultures, journal…
     ├── data/
@@ -441,7 +490,7 @@ src/
     │   └── report.ts         # Prévisions de récolte, bilan pluriannuel, rapport
     │   └── backup.ts         # Sauvegarde, CSV, import Lignée, jardin d'exemple
     ├── store.tsx             # IndexedDB (données + photos), état partagé
-    ├── JardinApp.tsx, nav.tsx, ui.tsx, format.ts, i18n.ts
+    ├── JardinApp.tsx, Ateliers.tsx (onglet Sélection), nav.tsx, ui.tsx, format.ts, i18n.ts
     ├── Onboarding.tsx, TodayView.tsx, GardenView.tsx, PlantsView.tsx
     ├── NutritionPanel.tsx, Forms.tsx, CatalogView.tsx, SettingsView.tsx
     ├── Weather.tsx, Health.tsx, Seeds.tsx, Sensors.tsx, ProSettings.tsx
