@@ -10,6 +10,7 @@ import type { Application, CropType, GardenData, ISODate, Plant, Product, Settin
 import { addDays } from './dates';
 import { isActiveOn, plantArea, speciesOf } from './crop';
 import { timeline } from './phenology';
+import { nCredit, soilFor } from './soil';
 
 export type Nutrient = 'N' | 'P2O5' | 'K2O';
 export const NUTRIENTS: Nutrient[] = ['N', 'P2O5', 'K2O'];
@@ -91,6 +92,8 @@ export interface NutrientStatus {
   remaining: NPK;
   /** Excès d'apport par rapport au besoin (P₂O₅ ou K₂O au-delà de 150 %). */
   excess: Nutrient[];
+  /** Correction par l'analyse de sol (si elle existe) : facteurs P/K et azote fourni par le sol (g). */
+  soil?: { date: ISODate; fromLab: boolean; P2O5: number; K2O: number; nCredit: number };
 }
 
 export function expectedYieldKg(plant: Plant): number {
@@ -150,7 +153,17 @@ export function shareOf(app: Application, plant: Plant, plants: Plant[]): number
 export function nutrientStatus(plant: Plant, data: GardenData, today: ISODate): NutrientStatus {
   const sp = speciesOf(plant);
   const info = timeline(plant, data, today);
-  const { need, legume, yieldKg } = seasonNeed(plant);
+  const base = seasonNeed(plant);
+  const { legume, yieldKg } = base;
+  // Analyse de sol : le sol pauvre demande plus, le sol riche moins, la matière organique fournit de l'azote.
+  const reading = soilFor(data, plant.bedId);
+  let need = base.need;
+  let soil: NutrientStatus['soil'];
+  if (reading && (reading.fromLab || reading.nPerYear)) {
+    const credit = nCredit(reading, plant, plantArea(plant), base.need.N);
+    need = { N: Math.max(0, base.need.N - credit), P2O5: base.need.P2O5 * reading.factor.P2O5, K2O: base.need.K2O * reading.factor.K2O };
+    soil = { date: reading.test.date, fromLab: reading.fromLab, P2O5: reading.factor.P2O5, K2O: reading.factor.K2O, nCredit: credit };
+  }
   const stages = info.starts.map((s) => s.stage);
   const weights = Object.fromEntries(NUTRIENTS.map((n) => [n, splitWeights(sp.type, stages, n)])) as Record<Nutrient, number[]>;
   const byStage: StageNeed[] = info.starts.map((s, i) => ({
@@ -194,13 +207,15 @@ export function nutrientStatus(plant: Plant, data: GardenData, today: ISODate): 
     dueNow,
     remaining,
     excess,
+    soil,
   };
 }
 
 /** Produits proposés selon les pratiques du jardin (bio : seulement ceux utilisables en AB). */
 export function allowedProducts(products: Product[], settings: Pick<Settings, 'practices'>): Product[] {
   const organicOnly = settings.practices.some((p) => p === 'organic' || p === 'livingSoil' || p === 'permaculture');
-  return organicOnly ? products.filter((p) => p.organicOK) : products;
+  const ferts = products.filter((p) => p.kind !== 'amendment');
+  return organicOnly ? ferts.filter((p) => p.organicOK) : ferts;
 }
 
 export interface Dose {

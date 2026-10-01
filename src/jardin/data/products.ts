@@ -90,6 +90,27 @@ export const PRODUCTS: Product[] = [
     N: 33.5, P2O5: 0, K2O: 0, nAvail: 1, organicOK: false,
     note: { fr: 'Azote immédiat : petites doses, jamais sur feuillage mouillé.', en: 'Immediate nitrogen: small doses, never on wet leaves.' },
   },
+  // Amendements calcaires (chaulage) : valeur neutralisante en équivalent CaO.
+  {
+    id: 'limestone', name: { fr: 'Calcaire broyé (carbonate de calcium)', en: 'Ground limestone (calcium carbonate)' }, kind: 'amendment',
+    N: 0, P2O5: 0, K2O: 0, nAvail: 0, organicOK: true, cao: 50,
+    note: { fr: 'Action lente et douce ; à épandre en automne ou en hiver, sur sol ressuyé.', en: 'Slow, gentle action; spread in autumn or winter on drained soil.' },
+  },
+  {
+    id: 'dolomite', name: { fr: 'Dolomie (calcaire magnésien)', en: 'Dolomitic limestone' }, kind: 'amendment',
+    N: 0, P2O5: 0, K2O: 0, nAvail: 0, organicOK: true, cao: 52, mgo: 18,
+    note: { fr: 'Remonte le pH et apporte de la magnésie : le bon choix si le magnésium est bas.', en: 'Raises pH and supplies magnesium: the right choice when magnesium is low.' },
+  },
+  {
+    id: 'lithothamne', name: { fr: 'Lithothamne', en: 'Calcified seaweed (lithothamnion)' }, kind: 'amendment',
+    N: 0, P2O5: 0, K2O: 0, nAvail: 0, organicOK: true, cao: 45, mgo: 3,
+    note: { fr: 'Algue calcaire fine et rapide ; plus chère au kilo de CaO.', en: 'Fine, fast-acting calcareous seaweed; dearer per kilo of CaO.' },
+  },
+  {
+    id: 'slakedLime', name: { fr: 'Chaux éteinte', en: 'Slaked lime' }, kind: 'amendment',
+    N: 0, P2O5: 0, K2O: 0, nAvail: 0, organicOK: true, cao: 70,
+    note: { fr: 'Rapide et caustique : gants, jamais avec un fumier frais (pertes d’azote).', en: 'Fast and caustic: wear gloves, never with fresh manure (nitrogen loss).' },
+  },
 ];
 
 export const PRODUCT_BY_ID: Record<string, Product> = Object.fromEntries(PRODUCTS.map((p) => [p.id, p]));

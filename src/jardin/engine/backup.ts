@@ -3,7 +3,7 @@
  * variétés fixées dans les apps Lignée, et jardin d'exemple.
  */
 import { SPECIES_BY_ID } from '../data/species';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type GardenData, type ISODate, type PhotoMeta, type Variety } from '../model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Sensor, type PestCount, type GardenData, type ISODate, type PhotoMeta, type Variety } from '../model';
 import { addDays, isValidISO, yearOf } from './dates';
 
 export const BACKUP_APP = 'lignee-jardin';
@@ -54,7 +54,7 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
     seeds: arr(d.seeds, (v) => hasId(v) && obj(v) && typeof v.speciesId === 'string' && !!SPECIES_BY_ID[v.speciesId as string] && typeof v.year === 'number'),
     prices: obj(d.prices) ? Object.fromEntries(Object.entries(d.prices).filter(([, x]) => typeof x === 'number' && x >= 0)) : {},
     weather: obj(d.weather) && Array.isArray((d.weather as { days?: unknown }).days) ? d.weather : undefined,
-    sensors: arr(d.sensors, (v) => hasId(v) && obj(v) && typeof v.kind === 'string' && typeof v.name === 'string'),
+    sensors: arr<Sensor>(d.sensors, (v) => hasId(v) && obj(v) && typeof v.kind === 'string' && typeof v.name === 'string').map((x) => (x.source === 'ecowitt' ? { ...x, source: 'manual' as const, channel: undefined } : x)),
     readings: obj(d.readings)
       ? Object.fromEntries(
           Object.entries(d.readings)
@@ -62,6 +62,9 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
             .map(([k, r]) => [k, (r as unknown[]).filter((x): x is [number, number] => Array.isArray(x) && x.length === 2 && Number.isFinite(x[0]) && Number.isFinite(x[1]))]),
         )
       : {},
+    pestCounts: arr<PestCount>(d.pestCounts, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.pestId === 'string' && typeof v.value === 'number').map((x) => ({ ...x, beneficials: Array.isArray(x.beneficials) ? x.beneficials : [] })),
+    soilTests: arr(d.soilTests, (v) => hasId(v) && obj(v) && isValidISO(v.date)).map((x) => ({ pMethod: 'olsen', ...(x as object) })) as GardenData['soilTests'],
+    plan: obj(d.plan) && typeof (d.plan as { year?: unknown }).year === 'number' && Array.isArray((d.plan as { wishes?: unknown }).wishes) ? (d.plan as GardenData['plan']) : undefined,
     tankChanges: arr(d.tankChanges, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.bedId === 'string'),
     deleted: obj(d.deleted) ? Object.fromEntries(Object.entries(d.deleted).filter(([, x]) => typeof x === 'string')) : {},
   };
@@ -153,6 +156,11 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
     ],
     varieties: [],
     observations: [
+      { id: 'demo-g0', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -55), note: '', heightCm: 30, photoIds: [] },
+      { id: 'demo-g1', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -40), note: '', heightCm: 90, photoIds: [] },
+      { id: 'demo-g2', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -25), note: '', heightCm: 135, photoIds: [] },
+      { id: 'demo-g3', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -10), note: 'Fleurs au 6e bouquet', heightCm: 150, photoIds: [] },
+      { id: 'demo-h5', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -1), note: '', harvestG: 2600, photoIds: [] },
       { id: 'demo-h1', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -12), note: 'Premières courgettes', harvestG: 1400, photoIds: [] },
       { id: 'demo-h2', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -4), note: '', harvestG: 2100, photoIds: [] },
       { id: 'demo-h3', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -3), note: 'Premières tomates mûres', harvestG: 900, photoIds: [] },
@@ -170,6 +178,13 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
     ],
     tasks: [],
     taskStates: [],
+    // Pucerons sur les courgettes, coccinelles au travail : on attend et on recompte.
+    pestCounts: [
+      { id: 'demo-pc1', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -8), pestId: 'aphids', value: 45, beneficials: [] },
+      { id: 'demo-pc2', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -2), pestId: 'aphids', value: 40, beneficials: ['ladybird', 'mummies'] },
+    ],
+    // Analyse de terre du printemps : sol un peu acide, riche en phosphore, pauvre en magnésie.
+    soilTests: [{ id: 'demo-soil', date: addDays(today, -180), pH: 6.0, om: 2.8, pMethod: 'olsen' as const, P2O5: 120, K2O: 210, MgO: 90, cec: 12, lab: 'Laboratoire (exemple)' }],
     // Une sonde d'humidité relevée chaque matin sur la planche 1.
     sensors: [{ id: 'demo-s1', name: 'Sonde Planche 1', kind: 'soilMoisture', bedId: 'demo-b1', source: 'manual' }],
     readings: {

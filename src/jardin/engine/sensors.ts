@@ -1,13 +1,6 @@
 /**
- * Capteurs (phase 3) : relevés, import CSV, passerelle Ecowitt du réseau
- * local, humidité du sol rapportée à la réserve utile, et suivi EC/pH des
+ * Capteurs (phase 3) : relevés, import CSV, humidité du sol rapportée à la réserve utile, et suivi EC/pH des
  * bacs hydroponiques.
- *
- * Ecowitt : les passerelles GW1100/GW2000 (et les consoles qui les
- * embarquent) répondent en HTTP sur le réseau local à
- * `/get_livedata_info`, en JSON. Le format n'est pas documenté
- * officiellement : la lecture est défensive et n'a pas été testée sur du
- * matériel réel.
  */
 import { SPECIES_BY_ID } from '../data/species';
 import type { GardenData, ISODate, Reading, Sensor, SensorKind, Texture } from '../model';
@@ -128,76 +121,6 @@ export function parseReadingsCSV(text: string, kind: SensorKind, col?: number): 
     readings.push([toMinutes(dt), v]);
   }
   return { readings, skipped, columns, header: hasHeader ? rows[0].map((x) => x.trim().replace(/^"|"$/g, '')) : undefined };
-}
-
-// --- Ecowitt ------------------------------------------------------------------
-
-export function ecowittURL(host: string): string {
-  const h = host.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
-  return `http://${h}/get_livedata_info`;
-}
-
-export interface EcowittLive {
-  outdoor: { temp?: number; humidity?: number };
-  soil: Record<string, number>;
-  soilTemp: Record<string, number>;
-  aisle: Record<string, { temp?: number; humidity?: number }>;
-}
-
-function num(v: unknown): number | undefined {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
-  if (typeof v !== 'string') return undefined;
-  const m = v.match(/-?\d+(\.\d+)?/);
-  return m ? Number(m[0]) : undefined;
-}
-
-function celsius(v: unknown, unit: unknown): number | undefined {
-  const x = num(v);
-  if (x === undefined) return undefined;
-  const u = typeof unit === 'string' ? unit : typeof v === 'string' && /F/.test(v) ? 'F' : 'C';
-  return /F/i.test(u) ? Math.round(((x - 32) * 5) / 9 * 10) / 10 : x;
-}
-
-const list = (x: unknown): Array<Record<string, unknown>> => (Array.isArray(x) ? x.filter((e): e is Record<string, unknown> => !!e && typeof e === 'object') : []);
-
-/** Lit la réponse JSON de `/get_livedata_info`. */
-export function parseEcowitt(json: unknown): EcowittLive {
-  const j = (json && typeof json === 'object' ? json : {}) as Record<string, unknown>;
-  const out: EcowittLive = { outdoor: {}, soil: {}, soilTemp: {}, aisle: {} };
-  for (const e of list(j.common_list)) {
-    // 0x02 : température extérieure ; 0x07 : humidité extérieure.
-    if (e.id === '0x02') out.outdoor.temp = celsius(e.val, e.unit);
-    if (e.id === '0x07') out.outdoor.humidity = num(e.val);
-  }
-  for (const e of list(j.ch_soil)) {
-    const v = num(e.humidity);
-    if (e.channel !== undefined && v !== undefined) out.soil[String(e.channel)] = v;
-  }
-  for (const e of list(j.ch_temp)) {
-    const v = celsius(e.temp, e.unit);
-    if (e.channel !== undefined && v !== undefined) out.soilTemp[String(e.channel)] = v;
-  }
-  for (const e of list(j.ch_aisle)) {
-    if (e.channel === undefined) continue;
-    out.aisle[String(e.channel)] = { temp: celsius(e.temp, e.unit), humidity: num(e.humidity) };
-  }
-  return out;
-}
-
-/** Relevés à enregistrer pour les capteurs Ecowitt déclarés. */
-export function readingsFromEcowitt(live: EcowittLive, sensors: Sensor[], at: number): Array<[string, Reading]> {
-  const out: Array<[string, Reading]> = [];
-  for (const s of sensors) {
-    if (s.source !== 'ecowitt' || !s.channel) continue;
-    const ch = s.channel;
-    let v: number | undefined;
-    if (s.kind === 'soilMoisture') v = live.soil[ch];
-    else if (s.kind === 'soilTemp') v = live.soilTemp[ch];
-    else if (s.kind === 'airTemp') v = ch === 'outdoor' ? live.outdoor.temp : live.aisle[ch.replace(/^aisle/, '')]?.temp;
-    else if (s.kind === 'humidity') v = ch === 'outdoor' ? live.outdoor.humidity : live.aisle[ch.replace(/^aisle/, '')]?.humidity;
-    if (v !== undefined) out.push([s.id, [at, v]]);
-  }
-  return out;
 }
 
 // --- Humidité du sol → réserve utile ---------------------------------------------

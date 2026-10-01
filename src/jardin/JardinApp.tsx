@@ -13,6 +13,8 @@ import { SettingsView } from './SettingsView';
 import { GardenProvider, useGarden } from './store';
 import { TodayView } from './TodayView';
 import { SensorSheet } from './Sensors';
+import { SoilTestSheet } from './Soil';
+import { PestCountSheet } from './Pests';
 import { rescheduleNotifications } from './notifications';
 
 const TAB_ICON: Record<Tab, string> = { today: '☀', garden: '▦', plants: '🌱', catalog: '📖', settings: '⚙' };
@@ -159,6 +161,8 @@ function Shell() {
         {top?.type === 'task' && <TaskSheet onClose={close} />}
         {top?.type === 'obstacle' && <ObstacleSheet key={top.id} id={top.id} onClose={close} />}
         {top?.type === 'diagnose' && <DiagnosisSheet key={`${top.plantId}-${top.bedId}`} plantId={top.plantId} bedId={top.bedId} onClose={close} />}
+        {top?.type === 'pestCount' && <PestCountSheet key={`${top.plantId}-${top.bedId}-${top.pestId}`} plantId={top.plantId} bedId={top.bedId} pestId={top.pestId} onClose={close} />}
+        {top?.type === 'soil' && <SoilTestSheet key={`${top.id}-${top.bedId}`} id={top.id} bedId={top.bedId} onClose={close} />}
         {top?.type === 'sensor' && <SensorSheet key={`${top.id}-${top.bedId}-${top.kind}`} id={top.id} bedId={top.bedId} kind={top.kind} onClose={close} />}
         {top?.type === 'seed' && <SeedSheet key={`${top.id}-${top.speciesId}`} id={top.id} speciesId={top.speciesId} onClose={close} />}
 

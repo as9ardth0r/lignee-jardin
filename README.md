@@ -1,6 +1,6 @@
 # Lignée · Jardin
 
-**Le carnet de bord du potager** — phases 1, 2 et 3 d'une application de suivi du
+**Le carnet de bord du potager** — phases 1 à 4 d'une application de suivi du
 jardin pour jardiniers confirmés et semi-pros : chaque plante, chaque
 planche et chaque apport suivis, avec des conseils d'eau et d'engrais
 chiffrés mais honnêtes sur leurs marges d'erreur. Application web
@@ -119,9 +119,7 @@ dont elle importe les variétés fixées.
 - **Capteurs** : humidité et température du sol, température et
   humidité de l'air, EC, pH ; saisie à la main, import CSV de
   n'importe quel enregistreur (séparateur, virgule décimale, en-tête et
-  colonne détectés), ou passerelle **Ecowitt** du réseau local
-  (`/get_livedata_info`, sondes WH51, WN34, WH31, capteur extérieur),
-  lue à l'ouverture puis toutes les 15 minutes. Une sonde d'humidité
+  colonne détectés). Une sonde d'humidité
   (étalonnable sol sec / sol ressuyé) **recale le bilan hydrique** de sa
   planche.
 - **Bacs hydroponiques** : nouveau type de planche, plages EC/pH par
@@ -138,10 +136,41 @@ dont elle importe les variétés fixées.
   (Drive, e-mail, « Enregistrer dans Fichiers »). Les CSV utilisent le
   point-virgule et la virgule décimale (tableurs en français).
 
+## Ce qu'ajoute la phase 4 (agronomie)
+
+- **Analyse de sol** (par planche ou pour tout le jardin) : pH, matière
+  organique, P₂O₅ (Olsen, Joret-Hébert ou Dyer), K₂O, MgO, CEC
+  (estimée d'après l'argile et la MO si absente). Niveaux faible /
+  satisfaisant / élevé / très élevé, **correction des doses** de P et K
+  (×1,5, ×1, ×0,5, impasse) et **crédit d'azote** du sol (≈ 4 g N/m²
+  par an et par point de MO, plafonné à 70 % du besoin) dans le module
+  nutrition.
+- **Chaulage** : CaO à apporter pour atteindre pH 6,5 (≈ 18 g/m² par
+  unité de pH et par point de CEC), 200 g CaO/m² au plus par apport,
+  dolomie si la magnésie est basse, déduction des amendements déjà
+  notés, tâche d'octobre à mars ; cultures hors de leur plage de pH.
+- **Planificateur de saison** : liste d'envies (espèce, surface, semis
+  échelonnés), proposition planche par planche avec ses raisons et ses
+  avertissements (rotation, gourmande après légumineuse, soleil, serre
+  pour les cultures de chaleur, voisinage, pH), cultures dérobées
+  rapides avant une plantation tardive, dates calées sur le calendrier
+  du climat (semis à l'abri calé en arrière de la mise en place),
+  calendrier des gestes, puis ajout au jardin en cultures prévues.
+- **Courbe de croissance** : hauteurs du journal comparées à une courbe
+  en S sur l'âge en degrés-jours (hauteurs adultes de référence par
+  espèce), « en avance / dans la norme / en retard » ; récolte cumulée
+  comparée à la récolte attendue sur la fenêtre prévue.
+- **Comptages de ravageurs** (pucerons, aleurodes, acariens, thrips,
+  altises, limaces, chenilles, doryphores) avec seuils indicatifs,
+  tendance et **auxiliaires vus** : intervenir, attendre que les
+  auxiliaires travaillent, ou recompter dans 5 jours (tâches).
+- **Lecture Ecowitt retirée**, et avec elle l'autorisation du HTTP en
+  clair dans l'APK ; les capteurs créés avec deviennent des capteurs à
+  saisie manuelle.
+
 Pas encore fait : synchronisation automatique par serveur (il faudrait
-un hébergement et un cadre RGPD), capteurs Bluetooth (non testables
-sans matériel), widget Android, notes vocales, identification par
-photo (Pl@ntNet).
+un hébergement et un cadre RGPD), capteurs Bluetooth, widget Android,
+notes vocales, stocks, identification par photo (Pl@ntNet).
 
 ### Tests
 
@@ -161,10 +190,14 @@ degrés-jours et recalage, eau avec météo (report, goutte-à-goutte),
 tâches d'alerte, position du soleil et ombres, diagnostic, graines,
 bilan de saison.
 Phase 3 : horodatage et fusion de jardins (idempotente, suppressions,
-conflits), CSV de relevés, passerelle Ecowitt (°F, canaux, réponse
-invalide), humidité du sol et bilan hydrique, bacs hydroponiques,
+conflits), CSV de relevés, humidité du sol et bilan hydrique, bacs hydroponiques,
 notifications (matin, veille de gel, sauvegarde, plafond), prévisions
 et bilan pluriannuel.
+Phase 4 : interprétation d'analyse, chaulage (dose, plafond, dolomie,
+déduction), correction des besoins et crédit d'azote, planificateur
+(rotation, légumineuse puis gourmande, serre, échelonnement, dérobée,
+capacité), courbe de croissance et récolte cumulée, comptages de
+ravageurs (seuil, tendance, auxiliaires, tâches).
 
 ## Installation
 
@@ -374,7 +407,11 @@ src/
     │   ├── diagnosis.ts      # Classement des hypothèses
     │   ├── season.ts         # Graines, bilan de saison
     │   ├── sync.ts           # Horodatage, traces de suppression, fusion de jardins
-    │   ├── sensors.ts        # Relevés, CSV, Ecowitt, humidité du sol, EC/pH
+    │   ├── sensors.ts        # Relevés, CSV, humidité du sol, EC/pH
+    │   ├── soil.ts           # Analyse de sol, chaulage, correction des doses
+    │   ├── planner.ts        # Planificateur de saison
+    │   ├── growth.ts         # Courbe de croissance, récolte cumulée
+    │   ├── pests.ts          # Comptages de ravageurs, seuils, auxiliaires
     │   ├── notify.ts         # Notifications à programmer (plafond quotidien)
     │   └── report.ts         # Prévisions de récolte, bilan pluriannuel, rapport
     │   └── backup.ts         # Sauvegarde, CSV, import Lignée, jardin d'exemple
@@ -383,6 +420,7 @@ src/
     ├── Onboarding.tsx, TodayView.tsx, GardenView.tsx, PlantsView.tsx
     ├── NutritionPanel.tsx, Forms.tsx, CatalogView.tsx, SettingsView.tsx
     ├── Weather.tsx, Health.tsx, Seeds.tsx, Sensors.tsx, ProSettings.tsx
+    ├── Soil.tsx, Planner.tsx, Growth.tsx, Pests.tsx
     ├── notifications.ts      # Plugin natif ou API du navigateur
     ├── reportPdf.ts          # Rapport de saison (jsPDF, chargé à la demande)
     ├── taskText.ts           # Texte des tâches (écran, notifications)
@@ -457,10 +495,12 @@ nuages ; les degrés-jours partent d'une courbe de référence calée sur
 des normales parisiennes et d'hypothèses (abri 22/15 °C, serre +4 °C)
 que vos stades observés corrigent peu à peu.
 
-Phase 3 : la lecture Ecowitt suit le format observé de
-`/get_livedata_info`, non documenté officiellement et non testé ici sur
-une vraie passerelle ; l'APK autorise pour cela le HTTP en clair
-(`res/xml/network_security_config.xml`). Les notifications d'un
+Phase 4 : seuils d'analyse, chaulage, hauteurs adultes et seuils de
+ravageurs sont des ordres de grandeur ; l'interprétation de votre
+laboratoire et votre œil priment. Le planificateur propose un brouillon
+à relire, il ne connaît ni vos goûts ni vos contraintes de temps.
+
+Phase 3 : les notifications d'un
 navigateur ne partent que si l'app est ouverte. La fusion de jardins
 garde la version la plus récente d'une fiche modifiée des deux côtés :
 l'autre version est perdue (l'app le signale).

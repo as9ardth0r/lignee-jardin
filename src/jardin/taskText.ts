@@ -1,4 +1,6 @@
 import type { Task } from './engine/tasks';
+import { PRODUCT_BY_ID } from './data/products';
+import { PROBLEM_BY_ID } from './data/problems';
 import { fmtDate, fmtNum, speciesName } from './format';
 import type { JKey, TT } from './i18n';
 
@@ -12,6 +14,13 @@ export function taskText(task: Task, tt: TT, lang: 'fr' | 'en'): string {
   if (task.kind === 'tank') {
     const n = (x: string | number | undefined, d = 1) => (typeof x === 'number' ? fmtNum(x, lang, d) : String(x ?? ''));
     return tt(`task.tank.${task.vars.what}` as JKey, { ...task.vars, value: n(task.vars.value), lo: n(task.vars.lo), hi: n(task.vars.hi) });
+  }
+  if (task.kind === 'pest') {
+    const where = species || String(task.vars.bed ?? '');
+    return tt(`task.pest.${task.vars.what}` as JKey, { pest: PROBLEM_BY_ID[String(task.vars.pest)]?.name[lang] ?? '', where, value: task.vars.value, threshold: task.vars.threshold });
+  }
+  if (task.kind === 'lime') {
+    return tt('task.lime', { ...task.vars, product: PRODUCT_BY_ID[String(task.vars.product)]?.name[lang] ?? '', total: fmtNum(Number(task.vars.total), lang, 1) });
   }
   return tt(`task.${task.kind}` as JKey, { ...task.vars, name, species });
 }

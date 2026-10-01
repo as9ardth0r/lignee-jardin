@@ -8,11 +8,6 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
-    // Requêtes HTTP par la couche native : nécessaire pour lire une
-    // passerelle Ecowitt du réseau local (http://192.168.x.x, sans CORS).
-    CapacitorHttp: {
-      enabled: true,
-    },
     LocalNotifications: {
       smallIcon: 'ic_stat_notify',
       iconColor: '#4a7f36',

@@ -15,8 +15,10 @@ import { weatherAlerts, type AlertKind } from './weather';
 import { nutrientStatus } from './nutrition';
 import { waterAdvice } from './water';
 import { readingDate, tankStatus } from './sensors';
+import { limeAdvice, limeSeason, soilFor } from './soil';
+import { pestTasks } from './pests';
 
-export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'observe' | 'frost' | 'alert' | 'tank' | 'manual';
+export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual';
 
 export interface Task {
   key: string;
@@ -114,6 +116,27 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
       }
     }
     if (st.renewDue) tasks.push({ key: `tank:${bed.id}:renew:${st.lastChange ?? 'none'}`, kind: 'tank', due: today, priority: 2, bedId: bed.id, vars: { bed: bed.name, what: 'renew', days: st.daysSinceChange ?? 0 } });
+  }
+
+  // Chaulage conseillé par une analyse de sol, en saison (octobre à mars).
+  if (limeSeason(today)) {
+    const done = new Set<string>();
+    for (const bed of data.beds) {
+      if (bed.kind === 'hydro' || bed.kind === 'pot') continue;
+      const reading = soilFor(data, bed.id);
+      const adv = limeAdvice(reading, data, bed);
+      if (!adv || !reading) continue;
+      const key = `lime:${bed.id}:${reading.test.id}:${today.slice(0, 4)}`;
+      if (done.has(key)) continue;
+      done.add(key);
+      tasks.push({ key, kind: 'lime', due: today, priority: 3, bedId: bed.id, vars: { bed: bed.name, grams: Math.round(adv.productPerM2 / 10) * 10, product: adv.product.id, total: Math.round(adv.productTotal / 100) / 10 } });
+    }
+  }
+
+  // Comptages de ravageurs : intervenir au-delà du seuil, ou recompter.
+  for (const t of pestTasks(data, today)) {
+    const p = t.plantId ? data.plants.find((x) => x.id === t.plantId) : undefined;
+    tasks.push({ key: t.key, kind: 'pest', due: t.due, priority: t.priority, plantId: t.plantId, bedId: t.bedId ?? p?.bedId, vars: { what: t.advice, pest: t.pestId, species: p?.speciesId ?? '', bed: bedOf(t.bedId ?? p?.bedId ?? '')?.name ?? '', value: t.value, threshold: t.threshold } });
   }
 
   // Alertes météo (prévisions locales) : gel, canicule, vent, forte pluie.

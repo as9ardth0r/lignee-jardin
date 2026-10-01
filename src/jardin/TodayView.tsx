@@ -26,6 +26,8 @@ const TASK_ICON: Record<Task['kind'], string> = {
   frost: '❄',
   alert: '⚠',
   tank: '🧪',
+  lime: '🪨',
+  pest: '🐞',
   manual: '✎',
 };
 

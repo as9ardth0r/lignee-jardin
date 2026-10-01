@@ -50,14 +50,6 @@ export function SensorsCard() {
   const { data } = store;
   const { tt, lang } = useJT();
   const nav = useNav();
-  const [busy, setBusy] = useState(false);
-  const ecowitt = data.sensors.some((s) => s.source === 'ecowitt');
-  const poll = async () => {
-    setBusy(true);
-    const r = await store.pollEcowitt();
-    setBusy(false);
-    nav.toast(tt(`ecowitt.result.${r}` as JKey));
-  };
   return (
     <Card
       title={`📡 ${tt('sensors.title')}`}
@@ -99,14 +91,6 @@ export function SensorsCard() {
             );
           })}
         </ul>
-      )}
-      {ecowitt && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs" style={{ color: INK700 }}>
-          <Button small kind="ghost" onClick={() => void poll()} disabled={busy}>
-            {busy ? '…' : `↻ ${tt('ecowitt.poll')}`}
-          </Button>
-          {store.ecowittAt && <span>{tt('ecowitt.lastPoll', { when: new Date(store.ecowittAt).toLocaleTimeString(locale(lang), { hour: '2-digit', minute: '2-digit' }) })}</span>}
-        </div>
       )}
       <p className="mt-3 text-[11px] leading-snug" style={{ color: INK500 }}>
         {tt('sensors.note')}
@@ -152,7 +136,7 @@ export function SensorSheet({ id, bedId, kind, onClose }: { id?: string; bedId?:
 
   const save = () => {
     const name = s.name.trim() || `${tt(`sensorKind.${s.kind}` as JKey)}${bed ? ` · ${bed.name}` : ''}`;
-    store.saveSensor({ ...s, name, channel: s.source === 'ecowitt' ? s.channel || (s.kind === 'airTemp' || s.kind === 'humidity' ? 'outdoor' : '1') : undefined });
+    store.saveSensor({ ...s, name, channel: undefined, source: s.source === 'csv' ? 'csv' : 'manual' });
     return name;
   };
   const addValue = () => {
@@ -188,25 +172,8 @@ export function SensorSheet({ id, bedId, kind, onClose }: { id?: string; bedId?:
           <Field label={tt('sensors.where')}>
             {(fid) => <Select id={fid} value={s.bedId ?? ''} onChange={(v) => set({ bedId: v || undefined })} options={[{ v: '', l: tt('sensors.wholeGarden') }, ...data.beds.map((b: Bed) => ({ v: b.id, l: b.name }))]} />}
           </Field>
-          <Field label={tt('sensors.source')}>{(fid) => <Select id={fid} value={s.source} onChange={(v) => set({ source: v as SensorSource })} options={(['manual', 'csv', 'ecowitt'] as const).map((k) => ({ v: k, l: tt(`sensorSource.${k}` as JKey) }))} />}</Field>
+          <Field label={tt('sensors.source')}>{(fid) => <Select id={fid} value={s.source === 'csv' ? 'csv' : 'manual'} onChange={(v) => set({ source: v as SensorSource })} options={(['manual', 'csv'] as const).map((k) => ({ v: k, l: tt(`sensorSource.${k}` as JKey) }))} />}</Field>
         </div>
-
-        {s.source === 'ecowitt' && (
-          <section className="rounded px-3 py-2" style={{ background: 'var(--color-paper-200)' }}>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label={tt('ecowitt.host')} hint={tt('ecowitt.hostHint')}>
-                {(fid) => <TextInput id={fid} value={data.settings.ecowittHost ?? ''} onChange={(v) => store.updateSettings({ ecowittHost: v.trim() || undefined })} placeholder="192.168.1.50" />}
-              </Field>
-              <Field label={tt('ecowitt.channel')} hint={tt(s.kind === 'airTemp' || s.kind === 'humidity' ? 'ecowitt.channelAir' : 'ecowitt.channelSoil')}>
-                {(fid) => <TextInput id={fid} value={s.channel ?? ''} onChange={(v) => set({ channel: v.trim() })} placeholder={s.kind === 'airTemp' || s.kind === 'humidity' ? 'outdoor' : '1'} />}
-              </Field>
-            </div>
-            {!['soilMoisture', 'soilTemp', 'airTemp', 'humidity'].includes(s.kind) && <p className="mt-2 text-xs" style={{ color: '#a5532f' }}>{tt('ecowitt.unsupportedKind')}</p>}
-            <p className="mt-2 text-[11px] leading-snug" style={{ color: INK500 }}>
-              {tt('ecowitt.note')}
-            </p>
-          </section>
-        )}
 
         {s.kind === 'soilMoisture' && (
           <Why label={tt('sensors.calibrate')}>

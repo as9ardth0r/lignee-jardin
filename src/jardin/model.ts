@@ -116,7 +116,8 @@ export interface SpeciesExtra {
   priceKg: number;
 }
 
-export type ProductKind = 'organic' | 'mineral' | 'liquid';
+/** « amendment » : amendement calcaire (chaulage), sans N-P-K. */
+export type ProductKind = 'organic' | 'mineral' | 'liquid' | 'amendment';
 
 export interface Product {
   id: string;
@@ -132,6 +133,10 @@ export interface Product {
   organicOK: boolean;
   /** Densité (kg/L) pour les produits liquides. */
   density?: number;
+  /** Valeur neutralisante (% d'équivalent CaO) d'un amendement calcaire. */
+  cao?: number;
+  /** Teneur en magnésie (% MgO). */
+  mgo?: number;
   note: Txt;
 }
 
@@ -188,8 +193,6 @@ export interface Settings {
   notifyMax: number;
   /** Date de la dernière sauvegarde exportée (rappel mensuel). */
   lastBackup?: ISODate;
-  /** Passerelle Ecowitt du réseau local (adresse IP ou nom), facultative. */
-  ecowittHost?: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -408,6 +411,7 @@ export interface PhotoMeta {
 
 export type SensorKind = 'soilMoisture' | 'soilTemp' | 'airTemp' | 'humidity' | 'ec' | 'ph';
 export const SENSOR_KINDS: SensorKind[] = ['soilMoisture', 'soilTemp', 'airTemp', 'humidity', 'ec', 'ph'];
+/** Origine des relevés (« ecowitt » : ancienne lecture réseau, retirée en phase 4, lue comme saisie manuelle). */
 export type SensorSource = 'manual' | 'csv' | 'ecowitt';
 
 /** Capteur (ou point de mesure manuel) rattaché à une planche ou au jardin. */
@@ -417,7 +421,7 @@ export interface Sensor extends Meta {
   kind: SensorKind;
   bedId?: string;
   source: SensorSource;
-  /** Ecowitt : canal de la sonde (ch_soil 1 à 16) ou « outdoor ». */
+  /** Ancien canal Ecowitt (ignoré). */
   channel?: string;
   /**
    * Humidité du sol : lectures brutes « sol sec » et « sol ressuyé après
@@ -430,6 +434,61 @@ export interface Sensor extends Meta {
 
 /** Relevé : [minutes depuis 1970 (UTC), valeur]. Compact, les capteurs en produisent beaucoup. */
 export type Reading = [number, number];
+
+/** Comptage d'un ravageur (et auxiliaires vus), pour la lutte intégrée. */
+export interface PestCount extends Meta {
+  id: string;
+  plantId?: string;
+  bedId?: string;
+  date: ISODate;
+  /** Problème du catalogue de diagnostic (ravageur). */
+  pestId: string;
+  /** Valeur dans l'unité du ravageur (%, par piège, par plant). */
+  value: number;
+  beneficials: string[];
+  note?: string;
+}
+
+/** Envie pour la saison à planifier : espèce, surface, semis échelonnés. */
+export interface Wish {
+  speciesId: string;
+  /** Surface voulue (m²) : pour des semis échelonnés, surface totale de tous les semis. */
+  area: number;
+  /** Nombre de semis échelonnés (1 = un seul). */
+  sowings: number;
+  varietyName?: string;
+}
+
+export interface SeasonPlan {
+  year: number;
+  wishes: Wish[];
+}
+
+export type PMethod = 'olsen' | 'joretHebert' | 'dyer';
+
+/**
+ * Analyse de terre (laboratoire) : pour une planche ou tout le jardin.
+ * Unités usuelles des bulletins français : P₂O₅, K₂O et MgO en mg/kg de
+ * terre fine, CEC en cmol+/kg (= méq/100 g), matière organique en %.
+ */
+export interface SoilTest extends Meta {
+  id: string;
+  /** Planche analysée ; absent = tout le jardin. */
+  bedId?: string;
+  date: ISODate;
+  pH?: number;
+  /** Matière organique (%). */
+  om?: number;
+  pMethod: PMethod;
+  P2O5?: number;
+  K2O?: number;
+  MgO?: number;
+  cec?: number;
+  /** Argile (%), si le bulletin la donne. */
+  clay?: number;
+  lab?: string;
+  note?: string;
+}
 
 /** Renouvellement de la solution d'un bac hydroponique. */
 export interface TankChange extends Meta {
@@ -461,6 +520,10 @@ export interface GardenData {
   /** Relevés par capteur, triés par date. */
   readings: Record<string, Reading[]>;
   tankChanges: TankChange[];
+  soilTests: SoilTest[];
+  pestCounts: PestCount[];
+  /** Saison en préparation (planificateur). */
+  plan?: SeasonPlan;
   /** Enregistrements supprimés (identifiant → date ISO), pour la fusion de jardins. */
   deleted: Record<string, string>;
 }
@@ -483,6 +546,8 @@ export const EMPTY_DATA: GardenData = {
   sensors: [],
   readings: {},
   tankChanges: [],
+  soilTests: [],
+  pestCounts: [],
   deleted: {},
 };
 

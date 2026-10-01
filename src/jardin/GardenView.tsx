@@ -13,6 +13,7 @@ import { useNav } from './nav';
 import { useGarden } from './store';
 import { Button, Card, Chip, Empty, Field, INK500, INK700, Meter, Notice, Select, Sheet, TextInput, Why } from './ui';
 import { BedSensors, SensorsCard } from './Sensors';
+import { BedSoil, SoilCard } from './Soil';
 
 const BED_FILL: Record<BedKind, { fill: string; stroke: string }> = {
   bed: { fill: '#8a6a44', stroke: '#5a4329' },
@@ -314,6 +315,7 @@ export function GardenView() {
           </ul>
         )}
       </Card>
+      <SoilCard />
       <SensorsCard />
     </div>
   );
@@ -526,6 +528,7 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
         )}
         <BedSensors bed={bed} />
+        <BedSoil bed={bed} />
 
         {bed.kind !== 'hydro' && (
         <section>

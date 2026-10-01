@@ -22,10 +22,14 @@ import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
 import { mergeGardens, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
-import { addReadings, ecowittURL, moistureToFraction, parseDateTime, parseEcowitt, parseReadingsCSV, readingsFromEcowitt, tankStatus, tankTarget, toMinutes } from '../src/jardin/engine/sensors';
+import { addReadings, moistureToFraction, parseDateTime, parseReadingsCSV, tankStatus, tankTarget, toMinutes } from '../src/jardin/engine/sensors';
 import { notificationId, planNotifications } from '../src/jardin/engine/notify';
 import { forecast, forecastByMonth, multiYear, reportData } from '../src/jardin/engine/report';
 import type { Sensor } from '../src/jardin/model';
+import { planCalendar, planSeason, planToPlants, wishesFromYear, windowDate } from '../src/jardin/engine/planner';
+import { growthReport, harvestProgress, referenceHeight, MATURE_HEIGHT } from '../src/jardin/engine/growth';
+import { countablePests, pestStatuses, pestTasks } from '../src/jardin/engine/pests';
+import { caoApplied, estimateCEC, interpret, limeAdvice, nCredit, phMismatches, soilFor } from '../src/jardin/engine/soil';
 
 let failed = 0;
 function test(name: string, fn: () => void) {
@@ -204,7 +208,8 @@ test('nutrition : produit conseillé', () => {
 
 test('nutrition : produits bio seulement en pratique bio', () => {
   ok(allowedProducts(PRODUCTS, { practices: ['organic'] }).every((p) => p.organicOK), 'bio');
-  ok(allowedProducts(PRODUCTS, { practices: ['conventional'] }).length === PRODUCTS.length, 'conventionnel');
+  ok(allowedProducts(PRODUCTS, { practices: ['conventional'] }).length === PRODUCTS.filter((p) => p.kind !== 'amendment').length, 'conventionnel : tous les engrais');
+  ok(!allowedProducts(PRODUCTS, { practices: ['conventional'] }).some((p) => p.kind === 'amendment'), 'pas d’amendement calcaire dans les engrais');
 });
 
 // --- Eau ------------------------------------------------------------------------
@@ -592,6 +597,8 @@ test('partage : fusion, la plus récente gagne, suppressions comprises', () => {
 test('partage : la sauvegarde garde capteurs, relevés et traces', () => {
   const d = data({ sensors: [{ id: 's', name: 'Sonde', kind: 'soilMoisture', source: 'manual', bedId: 'b1' }], readings: { s: [[1, 20], [2, 'x' as unknown as number]] }, deleted: { z: '2026-01-01T00:00:00Z' }, tankChanges: [{ id: 't', bedId: 'b1', date: '2026-09-01' }] });
   const back = parseBackup(serializeBackup(d, [])).data;
+  const legacy = parseBackup(serializeBackup(data({ sensors: [{ id: 'e', name: 'E', kind: 'soilMoisture', source: 'ecowitt', channel: '1' }] }), [])).data;
+  ok(legacy.sensors[0].source === 'manual' && legacy.sensors[0].channel === undefined, 'ancien capteur Ecowitt lu comme saisie manuelle');
   ok(back.sensors.length === 1 && back.readings.s.length === 1 && back.deleted.z && back.tankChanges.length === 1, JSON.stringify(back.readings));
 });
 
@@ -616,27 +623,6 @@ test('capteurs : série (doublons, écart minimal, ordre)', () => {
   const r = addReadings([[100, 1]], [[105, 2], [130, 3], [90, 0], [130, 9]]);
   ok(r.list.map((x) => x[0]).join() === '90,130' || r.list.map((x) => x[0]).join() === '90,100,130', r.list.map((x) => x[0]).join());
   ok(r.list.every((x, i) => i === 0 || x[0] - r.list[i - 1][0] >= 10), 'écart de 10 min');
-});
-
-test('capteurs : passerelle Ecowitt (lecture défensive, °F, canaux)', () => {
-  ok(ecowittURL('http://192.168.1.5/') === 'http://192.168.1.5/get_livedata_info', 'URL');
-  const live = parseEcowitt({
-    common_list: [{ id: '0x02', val: '68.0', unit: 'F' }, { id: '0x07', val: '65%' }],
-    ch_soil: [{ channel: '1', name: '', battery: '5', humidity: '38%' }, { channel: '2', humidity: 'n/a' }],
-    ch_temp: [{ channel: '1', temp: '16.4', unit: 'C' }],
-    ch_aisle: [{ channel: '1', temp: '21.0', unit: 'C', humidity: '60%' }],
-  });
-  ok(live.outdoor.temp === 20 && live.outdoor.humidity === 65, JSON.stringify(live.outdoor));
-  ok(live.soil['1'] === 38 && live.soil['2'] === undefined && live.soilTemp['1'] === 16.4 && live.aisle['1'].humidity === 60, JSON.stringify(live));
-  const sensors: Sensor[] = [
-    { id: 'a', name: 'a', kind: 'soilMoisture', source: 'ecowitt', channel: '1' },
-    { id: 'b', name: 'b', kind: 'airTemp', source: 'ecowitt', channel: 'outdoor' },
-    { id: 'c', name: 'c', kind: 'humidity', source: 'ecowitt', channel: 'aisle1' },
-    { id: 'd', name: 'd', kind: 'soilMoisture', source: 'manual', channel: '1' },
-  ];
-  const got = readingsFromEcowitt(live, sensors, 1000);
-  ok(got.map(([id, r]) => `${id}=${r[1]}`).join() === 'a=38,b=20,c=60', got.join(';'));
-  ok(parseEcowitt(null).soil && Object.keys(parseEcowitt('x').soil).length === 0, 'réponse invalide');
 });
 
 test('capteurs : humidité du sol → réserve utile, recalage du bilan hydrique', () => {
@@ -726,6 +712,130 @@ test('mode pro : récoltes prévues, répartition par mois, bilan pluriannuel, r
   ok(my.years.join() === '2025,2026' && my.inputs[2025] === 3 && my.rows.find((r) => r.year === 2025)?.grams === 4000, JSON.stringify(my));
   const r = reportData(d, 2026, '2026-06-21');
   ok(r.season.grams === 500 && r.forecast.length === 1 && r.applications.length === 0, 'rapport 2026');
+});
+
+// --- Phase 4 : analyse de sol ---------------------------------------------------------
+
+test('sol : niveaux P/K/Mg, CEC estimée, facteurs de correction', () => {
+  ok(near(estimateCEC(20, 3), 16), 'CEC estimée');
+  const r = interpret({ id: 't', date: '2026-03-01', pH: 6.0, om: 3, pMethod: 'olsen', P2O5: 30, K2O: 250, MgO: 400, cec: 12 }, 'loam');
+  ok(r.P?.level === 'low' && r.factor.P2O5 === 1.5, `P ${r.P?.level}`);
+  ok(r.K?.level === 'ok' && r.factor.K2O === 1, `K ${r.K?.level} ${r.K?.range}`);
+  ok(r.Mg?.level === 'high', `Mg ${r.Mg?.level}`);
+  ok(r.nPerYear === 12 && r.ph?.state === 'acid', 'azote et pH');
+  const rich = interpret({ id: 't', date: '2026-03-01', pMethod: 'joretHebert', P2O5: 900, K2O: 900, cec: 12 }, 'loam');
+  ok(rich.factor.P2O5 === 0 && rich.factor.K2O === 0, 'très riche : impasse');
+  const est = interpret({ id: 't', date: '2026-03-01', pMethod: 'olsen', om: 2 }, 'clay');
+  ok(est.cecEstimated && near(est.cec, 26.5), `CEC argileuse ${est.cec}`);
+});
+
+test('sol : chaulage (dose, plafond, produit, déduction des apports)', () => {
+  const b = bed({ id: 'b1', w: 5, h: 2 });
+  const d = data({ beds: [b], soilTests: [{ id: 's', date: '2026-02-01', pH: 5.8, pMethod: 'olsen', MgO: 50, cec: 15 }] });
+  const r = soilFor(d, 'b1')!;
+  const lime = limeAdvice(r, d, b)!;
+  ok(near(lime.caoPerM2, 18.2 * 0.7 * 15, 1e-6), `CaO ${lime.caoPerM2}`);
+  ok(lime.nowPerM2 === 191.1 || near(lime.nowPerM2, 191.1, 0.01), `maintenant ${lime.nowPerM2}`);
+  ok(lime.product.id === 'dolomite', 'magnésie basse : dolomie');
+  ok(near(lime.productTotal, (lime.nowPerM2 / 0.52) * 10, 1e-6), 'quantité pour la planche');
+  const limed = { ...d, applications: [{ id: 'a', bedId: 'b1', productId: 'dolomite', amount: 3000, date: '2026-03-01' }] };
+  ok(near(caoApplied(limed, '2026-02-01', 'b1'), 156, 1e-6), 'CaO apporté');
+  ok(near(limeAdvice(soilFor(limed, 'b1'), limed, b)!.caoPerM2, 191.1 - 156, 0.01), 'déduit');
+  const ok65 = data({ beds: [b], soilTests: [{ id: 's', date: '2026-02-01', pH: 6.5, pMethod: 'olsen' }] });
+  ok(limeAdvice(soilFor(ok65, 'b1'), ok65, b) === null, 'pH correct : rien');
+  ok(soilFor(data({ beds: [b], soilTests: [{ id: 'g', date: '2026-01-01', pH: 7, pMethod: 'olsen' }, { id: 'p', bedId: 'b1', date: '2025-01-01', pH: 5.5, pMethod: 'olsen' }] }), 'b1')!.test.id === 'p', 'analyse de la planche d’abord');
+  const tasks = generateTasks({ ...d, plants: [] }, '2026-11-05');
+  ok(tasks.some((t) => t.kind === 'lime'), 'tâche de chaulage en automne');
+  ok(!generateTasks({ ...d, plants: [] }, '2026-06-05').some((t) => t.kind === 'lime'), 'pas en été');
+});
+
+test('sol : correction des besoins de la culture, crédit d’azote, pH des cultures', () => {
+  const p = plant({ id: 'p', speciesId: 'tomato', count: 6, sowDate: '2026-03-01' });
+  const plain = data({ beds: [bed()], plants: [p] });
+  const tested = { ...plain, soilTests: [{ id: 's', date: '2026-02-01', pMethod: 'olsen' as const, om: 3, P2O5: 120, K2O: 100, cec: 12 }] };
+  const a = nutrientStatus(p, plain, '2026-05-01');
+  const b2 = nutrientStatus(p, tested, '2026-05-01');
+  ok(b2.soil && near(b2.need.P2O5, a.need.P2O5 * 0.5) && near(b2.need.K2O, a.need.K2O * 1.5), 'P riche ×0,5, K pauvre ×1,5');
+  ok(b2.need.N < a.need.N && b2.need.N >= a.need.N * 0.3 - 1e-9 && near(b2.soil.nCredit, a.need.N - b2.need.N), `azote ${a.need.N} → ${b2.need.N}`);
+  ok(nCredit(interpret({ id: 'x', date: '2026-01-01', pMethod: 'olsen' }, 'loam'), p, 2, 10) === 0, 'sans MO : pas de crédit');
+  ok(!nutrientStatus(p, { ...plain, settings: { ...plain.settings, pH: 6.2 } }, '2026-05-01').soil, 'pH seul : pas de correction');
+  const acid = interpret({ id: 'x', date: '2026-01-01', pMethod: 'olsen', pH: 5.2 }, 'loam');
+  ok(phMismatches(acid, [plant({ speciesId: 'cabbage' })]).length === 1, 'chou hors pH');
+});
+
+// --- Phase 4 : planificateur -------------------------------------------------------------
+
+test('planificateur : rotation, succession des exigences, serre, échelonnement, dérobée', () => {
+  ok(windowDate([3, 4], 2027, 0) === '2027-03-01' && windowDate([3, 4], 2027, 1) === '2027-04-30', 'fenêtre');
+  const b1 = bed({ id: 'b1', w: 4, h: 1 });
+  const b2 = bed({ id: 'b2', w: 4, h: 1, x: 5 });
+  const gh = bed({ id: 'gh', kind: 'greenhouse', w: 3, h: 2, x: 0, y: 3 });
+  const past = [
+    plant({ id: 'old1', speciesId: 'tomato', bedId: 'b1', sowDate: '2026-03-01', status: 'ended', endDate: '2026-10-01' }),
+    plant({ id: 'old2', speciesId: 'bean', bedId: 'b2', sowDate: '2026-05-01', status: 'ended', endDate: '2026-09-01' }),
+  ];
+  const d = data({ beds: [b1, b2, gh], plants: past });
+  const r = planSeason(d, { year: 2027, wishes: [{ speciesId: 'potato', area: 3, sowings: 1 }, { speciesId: 'tomato', area: 2, sowings: 1 }, { speciesId: 'lettuce', area: 1.5, sowings: 3 }] });
+  const potato = r.crops.find((c) => c.speciesId === 'potato')!;
+  ok(potato.bedId === 'b2' && potato.reasons.some((n) => n.code === 'afterLegume'), `pomme de terre après haricot : ${potato.bedId}`);
+  const tomato = r.crops.find((c) => c.speciesId === 'tomato' && c.role === 'main')!;
+  ok(tomato.bedId === 'gh' && tomato.indoor && tomato.transplantDate! >= '2027-05-01', `tomate sous serre, plantée après les gelées : ${tomato.bedId} ${tomato.transplantDate}`);
+  ok(!r.crops.some((c) => c.speciesId === 'potato' && c.bedId === 'b1'), 'pas de solanacée derrière la tomate');
+  const lettuces = r.crops.filter((c) => c.speciesId === 'lettuce' && c.role === 'succession');
+  ok(lettuces.length === 3 && lettuces[0].sowDate < lettuces[1].sowDate && lettuces[1].sowDate < lettuces[2].sowDate && near(lettuces.reduce((s, c) => s + c.area, 0), 1.5, 0.02), 'trois semis échelonnés');
+  ok(r.crops.some((c) => c.role === 'catch' && c.bedId === 'gh'), 'dérobée avant la tomate');
+  ok(r.usage.every((u) => u.used <= u.area + 1e-9), 'capacité respectée');
+  const cal = planCalendar(r);
+  ok(cal.every((a, i) => i === 0 || a.date >= cal[i - 1].date) && cal.some((a) => a.kind === 'transplant'), 'calendrier trié');
+  let n = 0;
+  const pl = planToPlants(r, '2026-10-01', (p) => `${p}${n++}`);
+  ok(pl.length === r.crops.length && pl.every((p) => p.status === 'planned' && p.count >= 1), 'cultures prévues');
+  const big = planSeason(d, { year: 2027, wishes: [{ speciesId: 'squash', area: 40, sowings: 1 }] });
+  ok(big.unplaced.length === 1 && big.unplaced[0].area > 20, 'trop grand : signalé');
+  const w = wishesFromYear(d, 2026);
+  ok(w.length === 2 && w.find((x) => x.speciesId === 'bean')?.sowings === 3, 'envies reprises de l’an dernier');
+});
+
+// --- Phase 4 : croissance --------------------------------------------------------------
+
+test('croissance : courbe de référence, avance ou retard, récolte cumulée', () => {
+  ok(SPECIES.every((sp) => MATURE_HEIGHT[sp.id] > 0), 'hauteur pour chaque espèce');
+  ok(referenceHeight('tomato', 0) < 4 && near(referenceHeight('tomato', 1e4), 160, 0.01), 'courbe en S');
+  ok(referenceHeight('tomato', 40) < referenceHeight('tomato', 60), 'croissante');
+  const p = plant({ id: 'p', speciesId: 'lettuce', count: 10, sowDate: '2026-04-01' });
+  const obs = (id: string, date: string, extra: object) => ({ id, plantId: 'p', bedId: 'b1', date, note: '', photoIds: [], ...extra });
+  const base = data({ beds: [bed()], plants: [p] });
+  const refAt = growthReport(p, { ...base, observations: [obs('a', '2026-05-10', { heightCm: 10 })] }, '2026-05-10').latest!.reference;
+  const tall = growthReport(p, { ...base, observations: [obs('a', '2026-05-10', { heightCm: refAt * 1.5 })] }, '2026-05-10');
+  const short = growthReport(p, { ...base, observations: [obs('a', '2026-05-10', { heightCm: refAt * 0.5 })] }, '2026-05-10');
+  const fine = growthReport(p, { ...base, observations: [obs('a', '2026-05-10', { heightCm: refAt * 1.05 })] }, '2026-05-10');
+  ok(tall.latest?.state === 'ahead' && short.latest?.state === 'behind' && fine.latest?.state === 'normal', 'états');
+  ok(tall.curve.length > 3 && tall.curve[0].date === '2026-04-01', 'courbe datée');
+  ok(harvestProgress(p, base, '2026-04-20') === null, 'avant la récolte : rien');
+  const tl = timeline(p, base, '2026-07-01');
+  const mid = addDays(tl.harvestFrom, Math.round(diffDays(tl.harvestFrom, tl.harvestTo) / 2));
+  const hp = harvestProgress(p, { ...base, observations: [obs('h', tl.harvestFrom, { harvestG: 100 })] }, mid)!;
+  ok(near(hp.harvestedKg, 0.1) && hp.dueKg > 0 && hp.state === 'behind', `récolte en retard ${hp.dueKg}`);
+});
+
+// --- Phase 4 : ravageurs ----------------------------------------------------------------
+
+test('ravageurs : seuil, tendance, auxiliaires, tâches', () => {
+  ok(countablePests('solanaceae').includes('coloradoBeetle') && !countablePests('brassicaceae').includes('coloradoBeetle'), 'selon la famille');
+  const pc = (id: string, date: string, value: number, beneficials: string[] = [], pestId = 'aphids') => ({ id, plantId: 'p', bedId: 'b1', date, pestId, value, beneficials });
+  const st = (list: ReturnType<typeof pc>[]) => pestStatuses(list, { plantId: 'p' })[0];
+  ok(st([pc('a', '2026-06-01', 10), pc('b', '2026-06-05', 20)]).advice === 'watch', 'monte sous le seuil : surveiller');
+  ok(st([pc('a', '2026-06-01', 20), pc('b', '2026-06-05', 45)]).advice === 'act', 'au-delà : intervenir');
+  ok(st([pc('a', '2026-06-01', 50), pc('b', '2026-06-05', 45, ['ladybird'])]).advice === 'beneficials', 'auxiliaires présents : attendre');
+  ok(st([pc('a', '2026-06-01', 20), pc('b', '2026-06-05', 60, ['ladybird'])]).advice === 'act', 'auxiliaires débordés');
+  ok(st([pc('a', '2026-06-01', 3, ['ladybird'], 'slugs'), pc('b', '2026-06-05', 6, ['groundBeetle'], 'slugs')]).advice === 'act', 'limaces : auxiliaires ne suffisent pas');
+  ok(st([pc('a', '2026-06-01', 12, [], 'whitefly'), pc('b', '2026-06-08', 30, [], 'whitefly')]).over, 'piège : population qui double');
+  const d = data({ beds: [bed()], plants: [plant({ id: 'p', speciesId: 'zucchini' })], pestCounts: [pc('a', '2026-06-01', 20), pc('b', '2026-06-05', 45)] });
+  ok(pestTasks(d, '2026-06-06').some((t) => t.key === 'pest:b'), 'tâche intervenir');
+  ok(pestTasks(d, '2026-06-30').length === 0, 'comptage trop ancien');
+  const w = { ...d, pestCounts: [pc('a', '2026-06-01', 50), pc('b', '2026-06-05', 45, ['ladybird'])] };
+  ok(pestTasks(w, '2026-06-06').length === 0 && pestTasks(w, '2026-06-10').some((t) => t.key === 'pestRecount:b'), 'recompter après 5 jours');
+  ok(generateTasks(d, '2026-06-06').some((t) => t.kind === 'pest'), 'dans les tâches du jour');
 });
 
 if (failed) {

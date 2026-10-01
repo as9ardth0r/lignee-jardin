@@ -7,12 +7,12 @@
  * pourra être servie par SQLite (plugin Capacitor) plus tard.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Reading, type Sensor, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent } from './model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Reading, type Sensor, type PestCount, type SeasonPlan, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent } from './model';
 import { mergeWeather, needsRefresh, parseOpenMeteo, weatherURL } from './engine/weather';
 import { demoGarden, parseBackup, serializeBackup, type PhotoExport } from './engine/backup';
 import { todayISO } from './engine/dates';
 import { mergeGardens, photoIdsOf, pruneDeleted, stampChanges, type MergeStats } from './engine/sync';
-import { addReadings, ecowittURL, parseEcowitt, readingsFromEcowitt } from './engine/sensors';
+import { addReadings } from './engine/sensors';
 
 const DB_NAME = 'lignee-jardin';
 const DB_VERSION = 1;
@@ -66,11 +66,15 @@ function tx<T>(db: IDBDatabase, store: string, mode: IDBTransactionMode, run: (s
 
 /** Complète des données lues sur disque (anciennes versions, champs manquants). */
 function normalize(d: Partial<GardenData> | undefined): GardenData {
-  return {
+  const out = {
     ...EMPTY_DATA,
     ...(d ?? {}),
     settings: { ...DEFAULT_SETTINGS, ...(d?.settings ?? {}) },
   } as GardenData;
+  // Lecture Ecowitt retirée (phase 4) : ses capteurs deviennent des capteurs à saisie manuelle.
+  if (out.sensors.some((x) => x.source === 'ecowitt')) out.sensors = out.sensors.map((x) => (x.source === 'ecowitt' ? { ...x, source: 'manual', channel: undefined } : x));
+  delete (out.settings as { ecowittHost?: string }).ecowittHost;
+  return out;
 }
 
 // --- Photos ----------------------------------------------------------------
@@ -173,10 +177,14 @@ export interface GardenStore {
   addReadings: (sensorId: string, list: Reading[]) => number;
   deleteReading: (sensorId: string, t: number) => void;
   addTankChange: (c: Omit<TankChange, 'id'>) => void;
+  saveSoilTest: (t: SoilTest) => void;
+  addPestCount: (c: Omit<PestCount, 'id'>) => void;
+  deletePestCount: (id: string) => void;
+  setPlan: (p: SeasonPlan | undefined) => void;
+  /** Ajoute au jardin les cultures prévues d'un plan. */
+  addPlannedPlants: (list: Plant[]) => void;
+  deleteSoilTest: (id: string) => void;
   deleteTankChange: (id: string) => void;
-  /** Lit la passerelle Ecowitt du réseau local. */
-  pollEcowitt: () => Promise<'ok' | 'noHost' | 'error' | 'noSensor'>;
-  ecowittAt?: string;
 }
 
 const Ctx = createContext<GardenStore | null>(null);
@@ -193,7 +201,6 @@ export function GardenProvider({ children }: { children: ReactNode }) {
   const [weatherBusy, setWeatherBusy] = useState(false);
   const [index, setIndex] = useState<GardenIndex>({ active: MAIN_ID, list: [{ id: MAIN_ID, name: DEFAULT_SETTINGS.gardenName }] });
   const indexRef = useRef(index);
-  const [ecowittAt, setEcowittAt] = useState<string | undefined>();
 
   useEffect(() => {
     let cancelled = false;
@@ -344,37 +351,6 @@ export function GardenProvider({ children }: { children: ReactNode }) {
     };
   }, [ready, weatherOn, data.settings.lat, data.settings.lon, refreshWeather]);
 
-  const pollEcowitt = useCallback(async (): Promise<'ok' | 'noHost' | 'error' | 'noSensor'> => {
-    const { settings, sensors } = latest.current;
-    if (!settings.ecowittHost) return 'noHost';
-    const mine = sensors.filter((x) => x.source === 'ecowitt');
-    if (!mine.length) return 'noSensor';
-    try {
-      const res = await fetch(ecowittURL(settings.ecowittHost));
-      if (!res.ok) return 'error';
-      const live = parseEcowitt(await res.json());
-      const at = Math.floor(Date.now() / 60_000);
-      mutate((d) => {
-        let readings = d.readings;
-        for (const [sensorId, r] of readingsFromEcowitt(live, d.sensors, at)) readings = { ...readings, [sensorId]: addReadings(readings[sensorId] ?? [], [r]).list };
-        return { ...d, readings };
-      }, false);
-      setEcowittAt(new Date().toISOString());
-      return 'ok';
-    } catch {
-      return 'error';
-    }
-  }, [mutate]);
-
-  // Passerelle Ecowitt : lecture à l'ouverture puis toutes les 15 minutes tant que l'app est ouverte.
-  const ecowittOn = ready && !!data.settings.ecowittHost && data.sensors.some((x) => x.source === 'ecowitt');
-  useEffect(() => {
-    if (!ecowittOn) return;
-    void pollEcowitt();
-    const t = window.setInterval(() => void pollEcowitt(), 15 * 60_000);
-    return () => window.clearInterval(t);
-  }, [ecowittOn, data.settings.ecowittHost, pollEcowitt]);
-
   const store = useMemo<GardenStore>(
     () => ({
       ready,
@@ -397,6 +373,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
             water: d.water.filter((w) => w.bedId !== id),
             phenoEvents: d.phenoEvents.filter((e) => !plantIds.has(e.plantId)),
             treatments: d.treatments.filter((t) => t.bedId !== id && !(t.plantId && plantIds.has(t.plantId))),
+            pestCounts: d.pestCounts.filter((c) => c.bedId !== id && !(c.plantId && plantIds.has(c.plantId))),
           };
         });
       },
@@ -410,6 +387,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
           applications: d.applications.filter((a) => a.plantId !== id),
           phenoEvents: d.phenoEvents.filter((e) => e.plantId !== id),
           treatments: d.treatments.filter((t) => t.plantId !== id),
+          pestCounts: d.pestCounts.filter((c) => c.plantId !== id),
         }));
       },
       saveVarieties: (list) => mutate((d) => ({ ...d, varieties: list.reduce((acc, v) => upsert(acc, v), d.varieties) })),
@@ -574,11 +552,15 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       },
       deleteReading: (sensorId, t) => mutate((d) => ({ ...d, readings: { ...d.readings, [sensorId]: (d.readings[sensorId] ?? []).filter((r) => r[0] !== t) } }), false),
       addTankChange: (c) => mutate((d) => ({ ...d, tankChanges: [...d.tankChanges, { ...c, id: uid('tk') }] })),
+      setPlan: (p) => mutate((d) => ({ ...d, plan: p })),
+      addPlannedPlants: (list) => mutate((d) => ({ ...d, plants: [...d.plants, ...list] })),
+      addPestCount: (c) => mutate((d) => ({ ...d, pestCounts: [...d.pestCounts, { ...c, id: uid('pc') }] })),
+      deletePestCount: (id) => mutate((d) => ({ ...d, pestCounts: d.pestCounts.filter((x) => x.id !== id) })),
+      saveSoilTest: (t) => mutate((d) => ({ ...d, soilTests: upsert(d.soilTests, t) })),
+      deleteSoilTest: (id) => mutate((d) => ({ ...d, soilTests: d.soilTests.filter((x) => x.id !== id) })),
       deleteTankChange: (id) => mutate((d) => ({ ...d, tankChanges: d.tankChanges.filter((x) => x.id !== id) })),
-      pollEcowitt,
-      ecowittAt,
     }),
-    [ready, volatile, data, today, mutate, deletePhotos, refreshWeather, weatherBusy, index, writeNow, saveIndex, loadGarden, pollEcowitt, ecowittAt],
+    [ready, volatile, data, today, mutate, deletePhotos, refreshWeather, weatherBusy, index, writeNow, saveIndex, loadGarden],
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

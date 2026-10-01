@@ -8,6 +8,9 @@ import { companionsOf } from './data/speciesExtra';
 import { useBedSun } from './GardenView';
 import { PhenoPanel, TreatmentList } from './Health';
 import { SeasonView } from './Seeds';
+import { PlannerView } from './Planner';
+import { GrowthPanel } from './Growth';
+import { PestPanel } from './Pests';
 import { addDays, diffDays, monthOf } from './engine/dates';
 import { rotationWarning } from './engine/rotation';
 import { fmtDate, fmtG, fmtNum, monthName, plantTitle, speciesName } from './format';
@@ -21,22 +24,29 @@ const STATUS_FILTERS: PlantStatus[] = ['growing', 'planned', 'ended'];
 
 export function PlantsView() {
   const { tt } = useJT();
-  const [mode, setMode] = useState<'crops' | 'harvests'>('crops');
+  const [mode, setMode] = useState<'crops' | 'harvests' | 'plan'>('crops');
   return (
     <>
-      <div className="mb-3 flex gap-1.5">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         <Chip active={mode === 'crops'} onClick={() => setMode('crops')}>
           🌱 {tt('plants.modeCrops')}
         </Chip>
         <Chip active={mode === 'harvests'} onClick={() => setMode('harvests')}>
           🧺 {tt('plants.modeHarvests')}
         </Chip>
+        <Chip active={mode === 'plan'} onClick={() => setMode('plan')}>
+          🗓 {tt('plants.modePlan')}
+        </Chip>
       </div>
-      {mode === 'crops' ? (
-        <CropList />
-      ) : (
+      {mode === 'crops' && <CropList />}
+      {mode === 'harvests' && (
         <Card title={tt('season.title')}>
           <SeasonView />
+        </Card>
+      )}
+      {mode === 'plan' && (
+        <Card title={tt('plan.title')}>
+          <PlannerView />
         </Card>
       )}
     </>
@@ -280,6 +290,8 @@ export function PlantSheet({ id, onClose }: { id: string; onClose: () => void })
           {p.note && <p className="mt-2 text-sm italic" style={{ color: INK700 }}>{p.note}</p>}
         </section>
 
+        <GrowthPanel plant={p} />
+
         <NutritionPanel plant={p} />
 
         <section>
@@ -290,6 +302,7 @@ export function PlantSheet({ id, onClose }: { id: string; onClose: () => void })
             </Button>
           </div>
           <TreatmentList plantId={p.id} />
+          <PestPanel plantId={p.id} />
         </section>
 
         <section>
