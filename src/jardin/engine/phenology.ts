@@ -21,7 +21,8 @@
  */
 import type { GardenData, ISODate, Plant, Species, StageId } from '../model';
 import { addDays, diffDays } from './dates';
-import { isPlanted, speciesOf, varietyScale, type StageInfo, type StageState } from './crop';
+import { isPlanted, shiftWindows, speciesOf, varietyScale, type StageInfo, type StageState } from './crop';
+import { ORCHARD_MONTHS } from '../data/orchard';
 import { activeWeather, normalDay, tempsOn } from './weather';
 
 /** Températures supposées pour un semis à l'abri (maison, serre chauffée). */
@@ -258,14 +259,34 @@ export function timeline(plant: Plant, data: GardenData, today: ISODate): Timeli
   }
   const { factor, n } = factorOf(plant.speciesId, data);
   const raw = rawCurve(plant, data);
+  // Vivaces (fruitiers, aromatiques, fleurs vivaces) : la récolte revient chaque année.
+  let harvestFrom = dateWhen(plant, data, sp.daysToHarvest[0] * scale);
+  let harvestTo = dateWhen(plant, data, sp.daysToHarvest[1] * scale);
+  const months = sp.type === 'orchard' ? ORCHARD_MONTHS[sp.id] : undefined;
+  if (months && plant.status !== 'planned') {
+    // Fruitier : première récolte l'année calculée, puis chaque année aux mois de récolte (décalés selon le climat).
+    const [m0, m1] = shiftWindows([months], data.settings.climate)[0];
+    const win = (y: number): [ISODate, ISODate] => {
+      const y1 = m1 < m0 ? y + 1 : y;
+      const last = new Date(Date.UTC(y1, m1, 0)).getUTCDate();
+      return [`${y}-${String(m0).padStart(2, '0')}-01`, `${y1}-${String(m1).padStart(2, '0')}-${String(last).padStart(2, '0')}`];
+    };
+    let y = Math.max(Number(harvestFrom.slice(0, 4)), Number(today.slice(0, 4)));
+    if (today > win(y)[1]) y++;
+    [harvestFrom, harvestTo] = win(y);
+  } else if (sp.life === 'perennial' && plant.status !== 'planned' && today > harvestTo) {
+    const k = Math.ceil(diffDays(harvestTo, today) / 365);
+    harvestFrom = addDays(harvestFrom, 365 * k);
+    harvestTo = addDays(harvestTo, 365 * k);
+  }
   return {
     stage,
     age,
     eqAge: eq,
     progress: plant.status === 'planned' ? 0 : Math.max(0, Math.min(1, eq / season)),
     starts,
-    harvestFrom: dateWhen(plant, data, sp.daysToHarvest[0] * scale),
-    harvestTo: dateWhen(plant, data, sp.daysToHarvest[1] * scale),
+    harvestFrom,
+    harvestTo,
     seasonEnd: dateWhen(plant, data, season),
     scale,
     factor,

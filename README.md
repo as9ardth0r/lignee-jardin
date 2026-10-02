@@ -271,6 +271,20 @@ cueillette, sa multiplication (boutures, division ou graines) et ses
 pièges : menthe envahissante, estragon français sans graines,
 confusions mortelles de l'ail des ours avec le muguet et le colchique.
 
+## Fruitiers et petits fruits
+
+17 fruitiers (onglet « Fruitiers » du catalogue) : framboisier, mûrier
+sans épines, groseilliers à grappes et à maquereau, cassissier,
+myrtillier, kiwi, vigne de table, pommier, poirier, prunier, cerisier,
+pêcher, abricotier, figuier, cognassier, noisetier. Chaque fiche donne la
+taille, la pollinisation (variété pollinisatrice ou autofertile), les
+maladies et la multiplication (bouture, marcotte, greffe). La première
+récolte vient l'été suivant pour les petits fruits, 2 à 4 ans après la
+plantation pour les arbres ; ensuite l'app propose la récolte chaque
+année aux bons mois (décalés selon le climat). Plus généralement, toutes
+les vivaces (rhubarbe, fraisier, aromatiques, fleurs vivaces) retrouvent
+leur fenêtre de récolte ou de floraison d'une année sur l'autre.
+
 ## Les fleurs
 
 Le catalogue compte **141 fleurs** à côté des 42 légumes : annuelles

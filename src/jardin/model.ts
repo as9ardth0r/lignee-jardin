@@ -64,7 +64,13 @@ export type Family =
   | 'cannaceae'
   | 'araceae'
   | 'colchicaceae'
-  | 'lauraceae';
+  | 'lauraceae'
+  | 'grossulariaceae'
+  | 'ericaceae'
+  | 'actinidiaceae'
+  | 'vitaceae'
+  | 'moraceae'
+  | 'betulaceae';
 
 export const FAMILIES: Family[] = [
   'solanaceae',
@@ -118,11 +124,17 @@ export const FAMILIES: Family[] = [
   'araceae',
   'colchicaceae',
   'lauraceae',
+  'grossulariaceae',
+  'ericaceae',
+  'actinidiaceae',
+  'vitaceae',
+  'moraceae',
+  'betulaceae',
 ];
 
 /** Type de culture : décide la répartition des besoins par stade. */
-export type CropType = 'fruit' | 'leaf' | 'root' | 'legume' | 'bulb' | 'herb' | 'perennial' | 'flower';
-export const CROP_TYPES: CropType[] = ['fruit', 'leaf', 'root', 'legume', 'bulb', 'herb', 'perennial', 'flower'];
+export type CropType = 'fruit' | 'leaf' | 'root' | 'legume' | 'bulb' | 'herb' | 'perennial' | 'orchard' | 'flower';
+export const CROP_TYPES: CropType[] = ['fruit', 'leaf', 'root', 'legume', 'bulb', 'herb', 'perennial', 'orchard', 'flower'];
 
 export type StageId = 'germination' | 'vegetative' | 'flowering' | 'fruiting' | 'bulking' | 'harvest';
 export const STAGE_IDS: StageId[] = ['germination', 'vegetative', 'flowering', 'fruiting', 'bulking', 'harvest'];

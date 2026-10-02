@@ -67,6 +67,12 @@ const SPLIT: Record<CropType, Record<Nutrient, Partial<Record<StageId, number>>>
     P2O5: { vegetative: 0.45, flowering: 0.25, fruiting: 0.3, harvest: 0.55 },
     K2O: { vegetative: 0.3, flowering: 0.2, fruiting: 0.5, harvest: 0.7 },
   },
+  // Fruitiers : réserves au débourrement, potasse pour le grossissement des fruits.
+  orchard: {
+    N: { vegetative: 0.5, flowering: 0.2, fruiting: 0.3, harvest: 0.3 },
+    P2O5: { vegetative: 0.45, flowering: 0.25, fruiting: 0.3, harvest: 0.3 },
+    K2O: { vegetative: 0.25, flowering: 0.15, fruiting: 0.6, harvest: 0.6 },
+  },
   // Fleurs : l'azote pour le feuillage, la potasse pour la floraison.
   flower: {
     N: { germination: 0.03, vegetative: 0.62, flowering: 0.35 },

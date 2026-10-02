@@ -14,6 +14,7 @@ import { SPECIES_BY_ID } from '../data/species';
 import { speciesWithType } from '../data/speciesTypes';
 import { FLOWER_INFO } from '../data/flowers';
 import { HERB_HEIGHT } from '../data/herbs';
+import { ORCHARD_HEIGHT } from '../data/orchard';
 import type { GardenData, ISODate, Plant } from '../model';
 import { addDays, diffDays } from './dates';
 import { expectedYieldKg } from './nutrition';
@@ -27,6 +28,7 @@ export const MATURE_HEIGHT: Record<string, number> = {
   celeriac: 50, fennel: 60, parsley: 35, onion: 50, shallot: 40, garlic: 50, leek: 60, basil: 40, strawberry: 20, rhubarb: 70,
   sweetpotato: 40, beet: 40, chives: 30,
   ...HERB_HEIGHT,
+  ...ORCHARD_HEIGHT,
   // Fleurs : milieu de la fourchette de hauteur du catalogue.
   ...Object.fromEntries(Object.entries(FLOWER_INFO).map(([id, f]) => [id, Math.round((f.height[0] + f.height[1]) / 2)])),
 };
