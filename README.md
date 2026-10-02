@@ -225,6 +225,9 @@ courses automatique, notes vocales dans la sauvegarde.
 Types de culture : calendriers et durées cohérents, ail d'automne
 récolté en juin-juillet et ail rose en juillet, type proposé selon la
 saison, titre et sauvegarde.
+Lune : phases sur des éclipses connues, déclinaison maximale de
+l'arrêt lunaire de 2025, alternance montante / descendante (~13,7 j),
+option désactivée par défaut.
 Ateliers : 13 ateliers et cultures reconnues, « Mes lignées » ajoutées
 au jardin sans doublon (stockage corrompu ignoré).
 
@@ -255,6 +258,20 @@ saison / de conservation ; radis de tous les mois / d'hiver
   fenêtres, la durée, les stades, les degrés-jours, les tâches et les
   rappels de la culture. « Non précisé » garde le calendrier général de
   l'espèce.
+
+## La Lune (option, tradition jardinière)
+
+Réglages → Affichage → « Afficher la Lune » (désactivé par défaut) :
+l'écran « Aujourd'hui » montre la phase, la fraction éclairée, la lune
+montante ou descendante et la date du prochain changement, les
+prochaines nouvelle et pleine lunes, et les conseils de la tradition
+(semer en lune montante, planter et travailler le sol en lune
+descendante). Calcul hors ligne (séries abrégées de Meeus,
+`src/jardin/engine/moon.ts`), vérifié sur des éclipses connues.
+
+Aucune étude contrôlée n'a montré d'effet de la Lune sur les cultures :
+la carte le dit, et l'app ne s'en sert jamais pour ses dates, ses
+tâches ni ses conseils.
 
 ## Les ateliers de sélection (onglet « Sélection »)
 

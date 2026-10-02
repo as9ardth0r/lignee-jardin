@@ -207,6 +207,8 @@ export interface Settings {
   planW: number;
   planH: number;
   terrain: boolean;
+  /** Afficher la Lune (calendrier lunaire traditionnel, à titre d'information). */
+  moon: boolean;
   /** Nom de la personne qui saisit (jardin partagé). */
   author?: string;
   /** Notifications locales : activées, heure du résumé du matin, plafond quotidien. */
@@ -231,6 +233,7 @@ export const DEFAULT_SETTINGS: Settings = {
   planW: 12,
   planH: 8,
   terrain: false,
+  moon: false,
   notify: false,
   notifyHour: 8,
   notifyMax: 3,

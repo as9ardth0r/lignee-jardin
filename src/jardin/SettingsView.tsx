@@ -230,6 +230,15 @@ export function SettingsView() {
             </span>
           </span>
         </label>
+        <label className="mt-3 flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={s.moon} onChange={(e) => set({ moon: e.target.checked })} className="mt-1" />
+          <span>
+            <b>🌙 {tt('settings.moon')}</b>
+            <span className="block text-xs" style={{ color: INK700 }}>
+              {tt('settings.moonHint')}
+            </span>
+          </span>
+        </label>
       </Card>
 
       <NotificationsCard />

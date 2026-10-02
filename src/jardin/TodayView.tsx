@@ -12,6 +12,7 @@ import { useGarden } from './store';
 import { waterText } from './GardenView';
 import { WeatherCard } from './Weather';
 import { timeline } from './engine/phenology';
+import { moonDay, PHASE_EMOJI } from './engine/moon';
 import { Button, Card, Empty, INK500, INK700, Meter } from './ui';
 import { taskText } from './taskText';
 
@@ -116,6 +117,8 @@ export function TodayView() {
       </Card>
 
       <WeatherCard />
+
+      {data.settings.moon && <MoonCard today={today} />}
 
       {data.beds.length === 0 ? (
         <Card title={tt('today.emptyTitle')}>
@@ -235,5 +238,46 @@ export function TodayView() {
         </>
       )}
     </div>
+  );
+}
+
+/** Calendrier lunaire traditionnel : information seulement, sans effet sur les conseils de l'app. */
+function MoonCard({ today }: { today: string }) {
+  const { tt, lang } = useJT();
+  const m = useMemo(() => moonDay(today), [today]);
+  return (
+    <Card>
+      <div className="flex items-start gap-3">
+        <span className="text-3xl leading-none" aria-hidden="true">
+          {PHASE_EMOJI[m.phase]}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] uppercase tracking-wider" style={{ color: INK500 }}>
+            {tt('moon.title')}
+          </p>
+          <p className="font-display text-lg leading-tight">
+            {tt(`moon.phase.${m.phase}` as JKey)} · {Math.round(m.illum * 100)} %
+          </p>
+          <p className="mt-0.5 text-sm">
+            <b>{tt(m.ascending ? 'moon.ascending' : 'moon.descending')}</b> {tt('moon.until', { date: fmtDate(m.turnDate, lang) })}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: INK700 }}>
+            {tt(m.ascending ? 'moon.adviceAscending' : 'moon.adviceDescending')}
+          </p>
+          <p className="mt-1 text-[11px]" style={{ color: INK500 }}>
+            {[
+              { d: m.nextNew, l: `🌑 ${tt('moon.phase.new')}` },
+              { d: m.nextFull, l: `🌕 ${tt('moon.phase.full')}` },
+            ]
+              .sort((x, y) => x.d.localeCompare(y.d))
+              .map((x) => `${x.l} ${fmtDate(x.d, lang)}`)
+              .join(' · ')}
+          </p>
+          <p className="mt-2 text-[11px] italic leading-snug" style={{ color: INK500 }}>
+            {tt('moon.note')}
+          </p>
+        </div>
+      </div>
+    </Card>
   );
 }

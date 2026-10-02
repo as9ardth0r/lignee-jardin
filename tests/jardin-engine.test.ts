@@ -34,6 +34,7 @@ import { ATELIERS, ATELIER_BY_ID } from '../src/ateliers/registry';
 import { SPECIES_TYPES, speciesWithType } from '../src/jardin/data/speciesTypes';
 import { seasonalType, speciesOf } from '../src/jardin/engine/crop';
 import { plantTitle } from '../src/jardin/format';
+import { moonDay, moonPosition } from '../src/jardin/engine/moon';
 import { pendingVarieties } from '../src/ateliers/pending';
 import { LIGNEE_CROPS } from '../src/jardin/engine/backup';
 import { caoApplied, estimateCEC, interpret, limeAdvice, nCredit, phMismatches, soilFor } from '../src/jardin/engine/soil';
@@ -961,6 +962,31 @@ test('types de culture : titre et sauvegarde', () => {
   ok(plantTitle({ ...p, varietyName: 'Lautrec' }, 'fr') === 'Ail · Lautrec', 'variété prioritaire');
   const back = parseBackup(serializeBackup(data({ beds: [bed()], plants: [p] }), []));
   ok(back.data.plants[0].typeId === 'spring', 'typeId conservé');
+});
+
+test('Lune : phases et lune montante (calcul hors ligne)', () => {
+  // Éclipses connues : nouvelle lune 8/4/2024 18 h 21 UTC, pleine lune 14/3/2025 6 h 55 UTC, nouvelle lune 12/8/2026 17 h 37 UTC.
+  const off = (iso: string, target: number) => {
+    const e = moonPosition(Date.parse(iso)).elong;
+    return Math.min(Math.abs(e - target), 360 - Math.abs(e - target));
+  };
+  ok(off('2024-04-08T18:21:00Z', 0) < 1 && off('2025-03-14T06:55:00Z', 180) < 1 && off('2026-08-12T17:37:00Z', 0) < 1, 'éclipses');
+  ok(moonDay('2026-08-01').nextNew === '2026-08-12' && moonDay('2026-03-01').nextFull === '2026-03-03', 'prochaines phases');
+  ok(moonDay('2025-03-14').phase === 'full' && moonDay('2026-08-12').phase === 'new', 'nom de la phase');
+  let max = 0;
+  for (let t = Date.parse('2025-01-01'); t < Date.parse('2026-01-01'); t += 6 * 3600e3) max = Math.max(max, Math.abs(moonPosition(t).dec));
+  ok(max > 28 && max < 29.2, `déclinaison max 2025 ${max.toFixed(2)}° (arrêt lunaire majeur)`);
+  // Montante puis descendante, en alternance d'environ 13,7 jours.
+  const turns: string[] = [];
+  let d = '2026-01-01';
+  for (let k = 0; k < 6; k++) {
+    d = moonDay(d).turnDate;
+    turns.push(d);
+  }
+  const gaps = turns.slice(1).map((x, k) => diffDays(turns[k], x));
+  ok(gaps.every((g) => g >= 12 && g <= 15), gaps.join(','));
+  ok(moonDay(turns[0]).ascending !== moonDay(turns[1]).ascending, 'alternance');
+  ok(DEFAULT_SETTINGS.moon === false, 'désactivé par défaut');
 });
 
 if (failed) {
