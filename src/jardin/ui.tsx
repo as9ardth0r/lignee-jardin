@@ -170,7 +170,7 @@ export function Sheet({ title, onClose, children, closeLabel }: { title: ReactNo
     };
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-40 flex justify-center overflow-y-auto sm:p-6" style={{ background: 'rgba(8, 14, 10, 0.72)' }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto sm:p-6" style={{ background: 'rgba(8, 14, 10, 0.72)' }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" className="specimen-card min-h-full w-full max-w-2xl p-4 outline-none sm:my-auto sm:min-h-0 sm:p-6">
         <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-3 flex items-start justify-between gap-3 px-4 pb-2 pt-4 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6" style={{ background: 'var(--color-paper-100)' }}>
           <h2 className="font-display text-xl leading-tight sm:text-2xl">{title}</h2>
