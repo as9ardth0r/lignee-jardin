@@ -31,6 +31,9 @@ import { growthReport, harvestProgress, referenceHeight, MATURE_HEIGHT } from '.
 import { countablePests, pestStatuses, pestTasks } from '../src/jardin/engine/pests';
 import { autoShopping, bestLot, convert, seedLevel, seedsUsedBy, stockForProduct, stockLevel } from '../src/jardin/engine/stock';
 import { ATELIERS, ATELIER_BY_ID } from '../src/ateliers/registry';
+import { SPECIES_TYPES, speciesWithType } from '../src/jardin/data/speciesTypes';
+import { seasonalType, speciesOf } from '../src/jardin/engine/crop';
+import { plantTitle } from '../src/jardin/format';
 import { pendingVarieties } from '../src/ateliers/pending';
 import { LIGNEE_CROPS } from '../src/jardin/engine/backup';
 import { caoApplied, estimateCEC, interpret, limeAdvice, nCredit, phMismatches, soilFor } from '../src/jardin/engine/soil';
@@ -913,6 +916,51 @@ test('ateliers : « Mes lignées » ajoutées au jardin sans doublon', () => {
   ok(pendingVarieties(ATELIER_BY_ID.cannabis, []).length === 0, 'cannabis : pas d’espèce au jardin');
   store['lignee.tomato.myvarieties.v1'] = '{corrompu';
   ok(pendingVarieties(ATELIER_BY_ID.tomate, []).length === 0, 'stockage corrompu ignoré');
+});
+
+test('types de culture : valeurs cohérentes', () => {
+  for (const [id, list] of Object.entries(SPECIES_TYPES)) {
+    ok(Boolean(SPECIES_BY_ID[id]), `${id} : espèce inconnue`);
+    ok(new Set(list.map((t) => t.id)).size === list.length, `${id} : types en double`);
+    for (const t of list) {
+      ok(Boolean(t.sowIndoor || t.sowOutdoor || t.plantOut), `${id}/${t.id} : pas de calendrier`);
+      ok(t.stages[0][1] === 0, `${id}/${t.id} : premier stade`);
+      for (let i = 1; i < t.stages.length; i++) ok(t.stages[i][1] > t.stages[i - 1][1], `${id}/${t.id} : stades non triés`);
+      ok(t.stages[t.stages.length - 1][1] <= t.daysToHarvest[0] && t.daysToHarvest[0] <= t.daysToHarvest[1] && t.daysToHarvest[1] <= t.season, `${id}/${t.id} : durées`);
+      if (t.sowIndoor) ok(Boolean(t.plantOut), `${id}/${t.id} : semis à l'abri sans plantation`);
+      ok(Boolean(t.name.fr && t.name.en && t.note.fr && t.note.en), `${id}/${t.id} : textes`);
+    }
+  }
+});
+
+test('types de culture : l’ail d’automne et l’ail de printemps', () => {
+  const autumn = plant({ speciesId: 'garlic', typeId: 'autumn', count: 30, sowDate: '2026-10-20' });
+  const spring = plant({ id: 'p2', speciesId: 'garlic', typeId: 'spring', count: 30, sowDate: '2027-02-15' });
+  const d = data({ beds: [bed()], plants: [autumn, spring] });
+  const ha = timeline(autumn, d, '2026-11-01').harvestFrom;
+  const hs = timeline(spring, d, '2027-03-01').harvestFrom;
+  ok(ha >= '2027-05-15' && ha <= '2027-07-31', `ail d'automne récolté ${ha}`);
+  ok(hs >= '2027-06-15' && hs <= '2027-08-15', `ail rose récolté ${hs}`);
+  ok(speciesOf(autumn).plantOut?.[0][0] === 10 && speciesOf(spring).plantOut?.[0][0] === 1, 'calendriers');
+  ok(speciesOf({ speciesId: 'garlic' }) === SPECIES_BY_ID.garlic && speciesOf({ speciesId: 'garlic', typeId: 'licorne' }) === SPECIES_BY_ID.garlic, 'sans type : espèce telle quelle');
+  ok(speciesWithType(SPECIES_BY_ID.garlic, 'autumn') === speciesWithType(SPECIES_BY_ID.garlic, 'autumn'), 'objet stable (caches)');
+});
+
+test('types de culture : type proposé selon la saison', () => {
+  ok(seasonalType('garlic', '2026-10-02', 'parisian') === 'autumn', 'ail en octobre');
+  ok(seasonalType('garlic', '2027-02-01', 'parisian') === 'spring', 'ail en février');
+  ok(seasonalType('onion', '2026-10-02', 'parisian') === 'winterSets', 'oignon en octobre');
+  ok(seasonalType('onion', '2027-03-10', 'parisian') === 'springSets', 'oignon en mars');
+  ok(seasonalType('shallot', '2026-06-15', 'parisian') !== '', 'hors saison : le prochain type');
+  ok(seasonalType('tomato', '2026-04-01', 'parisian') === '', 'espèce sans types');
+});
+
+test('types de culture : titre et sauvegarde', () => {
+  const p = plant({ speciesId: 'garlic', typeId: 'spring' });
+  ok(plantTitle(p, 'fr') === 'Ail rose (de printemps)', plantTitle(p, 'fr'));
+  ok(plantTitle({ ...p, varietyName: 'Lautrec' }, 'fr') === 'Ail · Lautrec', 'variété prioritaire');
+  const back = parseBackup(serializeBackup(data({ beds: [bed()], plants: [p] }), []));
+  ok(back.data.plants[0].typeId === 'spring', 'typeId conservé');
 });
 
 if (failed) {

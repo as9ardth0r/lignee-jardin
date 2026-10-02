@@ -19,10 +19,9 @@
  *
  *   GDD(jour) = max(0, (min(Tmax, 30) + Tmin) / 2 − Tbase)
  */
-import { SPECIES_BY_ID } from '../data/species';
 import type { GardenData, ISODate, Plant, Species, StageId } from '../model';
 import { addDays, diffDays } from './dates';
-import { isPlanted, varietyScale, type StageInfo, type StageState } from './crop';
+import { isPlanted, speciesOf, varietyScale, type StageInfo, type StageState } from './crop';
 import { activeWeather, normalDay, tempsOn } from './weather';
 
 /** Températures supposées pour un semis à l'abri (maison, serre chauffée). */
@@ -59,7 +58,8 @@ const refCache = new Map<string, Float64Array>();
 
 /** Degrés-jours cumulés de la courbe de référence, jour par jour (cum[0] = 0). */
 export function referenceCurve(sp: Species): Float64Array {
-  const hit = refCache.get(sp.id);
+  const key = sp.typeId ? `${sp.id}:${sp.typeId}` : sp.id;
+  const hit = refCache.get(key);
   if (hit) return hit;
   const { date, indoorDays } = referenceStart(sp);
   const n = Math.ceil(sp.season * 2.2) + 2;
@@ -69,7 +69,7 @@ export function referenceCurve(sp: Species): Float64Array {
     const t = i - 1 < indoorDays ? INDOOR : normalDay('parisian', d);
     cum[i] = cum[i - 1] + gddDay(t.tmax, t.tmin, sp.tBase);
   }
-  refCache.set(sp.id, cum);
+  refCache.set(key, cum);
   return cum;
 }
 
@@ -121,7 +121,7 @@ function rawCurve(plant: Plant, data: GardenData): RawCurve {
   }
   const hit = byPlant.get(plant.id);
   if (hit) return hit;
-  const sp = SPECIES_BY_ID[plant.speciesId];
+  const sp = speciesOf(plant);
   const variety = plant.varietyId ? data.varieties.find((v) => v.id === plant.varietyId) : undefined;
   const scale = varietyScale(sp, variety);
   const bed = data.beds.find((b) => b.id === plant.bedId);
@@ -172,11 +172,11 @@ function refDayOfStage(sp: Species, stage: StageId, scale: number): number | nul
  * exactement à sa date.
  */
 export function speciesFactor(speciesId: string, data: GardenData): { factor: number; n: number } {
-  const sp = SPECIES_BY_ID[speciesId];
   const ratios: number[] = [];
   for (const ev of data.phenoEvents ?? []) {
     const p = data.plants.find((x) => x.id === ev.plantId);
     if (!p || p.speciesId !== speciesId) continue;
+    const sp = speciesOf(p);
     const variety = p.varietyId ? data.varieties.find((v) => v.id === p.varietyId) : undefined;
     const scale = varietyScale(sp, variety);
     const ref = refDayOfStage(sp, ev.stage, scale);
@@ -208,7 +208,7 @@ function factorOf(speciesId: string, data: GardenData) {
 
 /** Âge équivalent (jours de la courbe de référence) d'une culture à une date. */
 export function eqAge(plant: Plant, data: GardenData, date: ISODate): number {
-  const sp = SPECIES_BY_ID[plant.speciesId];
+  const sp = speciesOf(plant);
   const { factor } = factorOf(plant.speciesId, data);
   return refDayFor(referenceCurve(sp), gAt(rawCurve(plant, data), date) * factor);
 }
@@ -226,7 +226,7 @@ export interface Timeline extends StageInfo {
 /** Première date où l'âge équivalent atteint `day` (recherche jour par jour, bornée). */
 function dateWhen(plant: Plant, data: GardenData, day: number): ISODate {
   if (day <= 0) return plant.sowDate;
-  const sp = SPECIES_BY_ID[plant.speciesId];
+  const sp = speciesOf(plant);
   const limit = Math.ceil(sp.season * 3) + 60;
   // Recherche dichotomique : l'âge équivalent ne décroît jamais.
   let lo = 0;
@@ -242,7 +242,7 @@ function dateWhen(plant: Plant, data: GardenData, day: number): ISODate {
 
 /** Stades, fenêtre de récolte et avancement d'une culture, par degrés-jours. */
 export function timeline(plant: Plant, data: GardenData, today: ISODate): Timeline {
-  const sp = SPECIES_BY_ID[plant.speciesId];
+  const sp = speciesOf(plant);
   const variety = plant.varietyId ? data.varieties.find((v) => v.id === plant.varietyId) : undefined;
   const scale = varietyScale(sp, variety);
   const age = diffDays(plant.sowDate, today);

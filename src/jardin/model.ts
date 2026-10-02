@@ -102,6 +102,28 @@ export interface Species {
   /** Années minimales avant de revenir sur la même planche avec la même famille. */
   returnYears: number;
   note: Txt;
+  /** Type de culture appliqué (voir SpeciesType), quand l'espèce a été précisée. */
+  typeId?: string;
+}
+
+/**
+ * Type de culture d'une espèce (ail d'automne ou de printemps, oignon de
+ * printemps ou d'hiver…) : il remplace le calendrier et la durée de culture
+ * de l'espèce. Les autres caractéristiques restent celles de l'espèce.
+ */
+export interface SpeciesType {
+  id: string;
+  name: Txt;
+  note: Txt;
+  /** Exemples de variétés de ce type. */
+  examples?: string;
+  sowIndoor?: MonthRange[];
+  sowOutdoor?: MonthRange[];
+  plantOut?: MonthRange[];
+  transplantAfter?: number;
+  daysToHarvest: [number, number];
+  season: number;
+  stages: Array<[StageId, number]>;
 }
 
 /** Données complémentaires d'une espèce (phase 2), dans data/speciesExtra.ts. */
@@ -268,6 +290,8 @@ export type PlantStatus = 'planned' | 'growing' | 'ended';
 export interface Plant extends Meta {
   id: string;
   speciesId: string;
+  /** Type de culture (ail d'automne, oignon d'hiver…), s'il y en a pour l'espèce. */
+  typeId?: string;
   varietyId?: string;
   varietyName?: string;
   bedId: string;

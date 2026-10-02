@@ -222,6 +222,9 @@ ravageurs (seuil, tendance, auxiliaires, tâches).
 Phase 5 : stocks (déduction des apports, unités, seuil, inventaire le
 plus récent), graines restantes et réservées, lot conseillé, liste de
 courses automatique, notes vocales dans la sauvegarde.
+Types de culture : calendriers et durées cohérents, ail d'automne
+récolté en juin-juillet et ail rose en juillet, type proposé selon la
+saison, titre et sauvegarde.
 Ateliers : 13 ateliers et cultures reconnues, « Mes lignées » ajoutées
 au jardin sans doublon (stockage corrompu ignoré).
 
@@ -231,6 +234,27 @@ npm run test:ateliers
 
 Lance les tests moteur d'origine de chacun des douze ateliers de
 légumes et fruits (l'app cannabis d'origine n'avait pas de tests).
+
+## Types de culture
+
+Pour douze espèces, la période de semis ou de plantation dépend du
+**type** : ail blanc ou violet (automne) / ail rose (printemps) ; oignon
+de printemps (bulbilles ou semis) / oignon d'hiver (bulbilles ou semis) ;
+échalote grise / de Jersey ; pois rond / ridé ; fève de printemps /
+d'automne ; laitue de saison / d'hiver ; épinard de printemps /
+d'automne ; chou d'été / d'automne / d'hiver ; poireau d'été / d'hiver ;
+carotte primeur / de saison / de garde ; pomme de terre primeur / de
+saison / de conservation ; radis de tous les mois / d'hiver
+(`src/jardin/data/speciesTypes.ts`).
+
+- La fiche d'espèce du catalogue montre chaque type avec son calendrier
+  (décalé selon le climat), des exemples de variétés et un bouton
+  « Cultiver ».
+- En ajoutant une culture, le type de la saison est proposé d'office
+  (l'ail d'automne en octobre, l'ail rose en février) ; il fixe les
+  fenêtres, la durée, les stades, les degrés-jours, les tâches et les
+  rappels de la culture. « Non précisé » garde le calendrier général de
+  l'espèce.
 
 ## Les ateliers de sélection (onglet « Sélection »)
 

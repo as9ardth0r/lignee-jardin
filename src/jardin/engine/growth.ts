@@ -11,6 +11,7 @@
  * plutôt qu'un chiffre.
  */
 import { SPECIES_BY_ID } from '../data/species';
+import { speciesWithType } from '../data/speciesTypes';
 import type { GardenData, ISODate, Plant } from '../model';
 import { addDays, diffDays } from './dates';
 import { expectedYieldKg } from './nutrition';
@@ -26,16 +27,16 @@ export const MATURE_HEIGHT: Record<string, number> = {
 };
 
 /** Jour (âge équivalent) où la plante atteint la moitié de sa hauteur adulte. */
-export function halfHeightDay(speciesId: string): number {
-  const sp = SPECIES_BY_ID[speciesId];
+export function halfHeightDay(speciesId: string, typeId?: string): number {
+  const sp = speciesWithType(SPECIES_BY_ID[speciesId], typeId);
   const fl = sp.stages.find(([s]) => s === 'flowering');
   return Math.max(10, fl ? fl[1] : sp.daysToHarvest[0] * 0.45);
 }
 
 /** Hauteur de référence (cm) à un âge équivalent donné. */
-export function referenceHeight(speciesId: string, age: number): number {
+export function referenceHeight(speciesId: string, age: number, typeId?: string): number {
   const h = MATURE_HEIGHT[speciesId] ?? 50;
-  const t50 = halfHeightDay(speciesId);
+  const t50 = halfHeightDay(speciesId, typeId);
   // Pente : de 2 % à 98 % de la hauteur adulte entre la levée et deux fois t50.
   const k = 4 / t50;
   return h / (1 + Math.exp(-k * (age - t50)));
@@ -64,11 +65,11 @@ export function growthReport(plant: Plant, data: GardenData, today: ISODate): Gr
   const tl = timeline(plant, data, today);
   const end = tl.seasonEnd < addDays(plant.sowDate, 400) ? tl.seasonEnd : addDays(plant.sowDate, 400);
   const curve: GrowthReport['curve'] = [];
-  for (let d = plant.sowDate; d <= end; d = addDays(d, 7)) curve.push({ date: d, reference: referenceHeight(plant.speciesId, eqAge(plant, data, d)) });
+  for (let d = plant.sowDate; d <= end; d = addDays(d, 7)) curve.push({ date: d, reference: referenceHeight(plant.speciesId, eqAge(plant, data, d), plant.typeId) });
   const points = data.observations
     .filter((o) => o.plantId === plant.id && o.heightCm && o.heightCm > 0 && o.date >= plant.sowDate)
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((o) => ({ date: o.date, measured: o.heightCm!, reference: referenceHeight(plant.speciesId, eqAge(plant, data, o.date)) }));
+    .map((o) => ({ date: o.date, measured: o.heightCm!, reference: referenceHeight(plant.speciesId, eqAge(plant, data, o.date), plant.typeId) }));
   const last = points[points.length - 1];
   let latest: GrowthReport['latest'];
   if (last && last.reference >= 5) {

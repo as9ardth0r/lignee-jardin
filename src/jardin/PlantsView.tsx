@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
+import { speciesWithType, typeOf, typesOf } from './data/speciesTypes';
 import { uid, type Plant, type PlantStatus } from './model';
-import { cropCalendar, inWindow, isActiveOn, isPlanted, plantArea, plantsForArea } from './engine/crop';
+import { cropCalendar, inWindow, isActiveOn, isPlanted, plantArea, plantsForArea, seasonalType } from './engine/crop';
 import { timeline } from './engine/phenology';
 import { sunMismatch } from './engine/sun';
 import { companionsOf } from './data/speciesExtra';
@@ -254,7 +255,8 @@ export function PlantSheet({ id, onClose }: { id: string; onClose: () => void })
       <div className="space-y-5">
         <section>
           <p className="text-sm" style={{ color: INK700 }}>
-            <i>{sp.latin}</i> · {bed?.name ?? '—'} · {p.count} {tt('plants.feet')} · {fmtNum(plantArea(p), lang, 1)} m²
+            <i>{sp.latin}</i>
+            {p.typeId && p.varietyName && typeOf(p.speciesId, p.typeId) ? ` · ${typeOf(p.speciesId, p.typeId)!.name[lang]}` : ''} · {bed?.name ?? '—'} · {p.count} {tt('plants.feet')} · {fmtNum(plantArea(p), lang, 1)} m²
             {p.indoor ? ` · ${tt('plant.indoor')}` : ''}
           </p>
           <p className="mt-1 text-sm">
@@ -354,14 +356,20 @@ function windowsText(ranges: Array<[number, number]>, lang: 'fr' | 'en'): string
   return ranges.map(([a, b]) => (a === b ? monthName(a, lang) : `${monthName(a, lang)} – ${monthName(b, lang)}`)).join(', ');
 }
 
-export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: string; speciesId?: string; editId?: string; onClose: () => void }) {
+export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, onClose }: { bedId?: string; speciesId?: string; typeId?: string; editId?: string; onClose: () => void }) {
   const store = useGarden();
   const { data, today } = store;
   const { tt, lang } = useJT();
   const nav = useNav();
   const editing = editId ? data.plants.find((p) => p.id === editId) : undefined;
   const [spId, setSpId] = useState(editing?.speciesId ?? speciesId ?? 'tomato');
-  const sp = SPECIES_BY_ID[spId];
+  const types = typesOf(spId);
+  // Type par défaut : celui dont c'est la saison de semis ou de plantation.
+  const [typeId, setTypeId] = useState(editing ? editing.typeId ?? '' : initialType ?? seasonalType(speciesId ?? 'tomato', today, data.settings.climate));
+  const sp = speciesWithType(SPECIES_BY_ID[spId], typeId || undefined);
+  const typeInfo = typeOf(spId, typeId || undefined);
+  // Exemple de variété : celles du type choisi, sinon l'exemple générique (tomates).
+  const varietyHint = typeInfo?.examples ?? (types[0]?.examples ? types.map((t) => t.examples?.split(',')[0]).join(', ') : spId === 'tomato' ? tt('add.varietyPlaceholder') : '');
   const [bed, setBed] = useState(editing?.bedId ?? bedId ?? data.beds[0]?.id ?? '');
   const [varietyId, setVarietyId] = useState(editing?.varietyId ?? '');
   const [varietyName, setVarietyName] = useState(editing?.varietyName ?? '');
@@ -396,8 +404,16 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
 
   const pickSpecies = (id: string) => {
     setSpId(id);
-    const next = SPECIES_BY_ID[id];
+    const t = editing ? '' : seasonalType(id, today, data.settings.climate);
+    setTypeId(t);
+    const next = SPECIES_BY_ID[id] ? speciesWithType(SPECIES_BY_ID[id], t || undefined) : undefined;
     if (next && !editing) setIndoor(Boolean(next.sowIndoor && !next.sowOutdoor && !isPlanted(next)));
+  };
+
+  const pickType = (t: string) => {
+    setTypeId(t);
+    const next = speciesWithType(SPECIES_BY_ID[spId], t || undefined);
+    if (!editing) setIndoor(Boolean(next.sowIndoor && !next.sowOutdoor && !isPlanted(next)));
   };
 
   // Lot de graines : le meilleur par défaut pour une nouvelle culture, « aucun » possible.
@@ -414,6 +430,7 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
     const plant: Plant = {
       id: editing?.id ?? uid('pl'),
       speciesId: spId,
+      typeId: typeInfo?.id,
       varietyId: v?.id,
       varietyName: v ? v.name : varietyName.trim() || undefined,
       bedId: bed,
@@ -471,8 +488,24 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
           )}
         </Field>
 
+        {types.length > 0 && (
+          <Field label={tt('add.type')} hint={tt('add.typeHint')}>
+            {(fid) => (
+              <div>
+                <Select id={fid} value={typeId} onChange={pickType} options={[{ v: '', l: tt('add.typeAll') }, ...types.map((t) => ({ v: t.id, l: t.name[lang] }))]} />
+                {typeInfo && (
+                  <p className="mt-1 text-xs leading-relaxed" style={{ color: INK700 }}>
+                    {typeInfo.note[lang]}
+                    {typeInfo.examples && <span style={{ color: INK500 }}> — {tt('types.examples', { list: typeInfo.examples })}</span>}
+                  </p>
+                )}
+              </div>
+            )}
+          </Field>
+        )}
+
         <Notice>
-          {sp.emoji} <b>{sp.name[lang]}</b> — {tt('add.calendar')}{' '}
+          {sp.emoji} <b>{typeInfo ? typeInfo.name[lang] : sp.name[lang]}</b> — {tt('add.calendar')}{' '}
           {[
             cal.sowIndoor.length ? `${tt('cal.sowIndoor')} ${windowsText(cal.sowIndoor, lang)}` : '',
             cal.sowOutdoor.length ? `${tt('cal.sowOutdoor')} ${windowsText(cal.sowOutdoor, lang)}` : '',
@@ -490,12 +523,12 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
               varieties.length ? (
                 <Select id={fid} value={varietyId} onChange={setVarietyId} options={[{ v: '', l: tt('add.varietyFree') }, ...varieties.map((v) => ({ v: v.id, l: v.name }))]} />
               ) : (
-                <TextInput id={fid} value={varietyName} onChange={setVarietyName} placeholder={tt('add.varietyPlaceholder')} />
+                <TextInput id={fid} value={varietyName} onChange={setVarietyName} placeholder={varietyHint} />
               )
             }
           </Field>
           {varieties.length > 0 && !varietyId && (
-            <Field label={tt('add.varietyName')}>{(fid) => <TextInput id={fid} value={varietyName} onChange={setVarietyName} placeholder={tt('add.varietyPlaceholder')} />}</Field>
+            <Field label={tt('add.varietyName')}>{(fid) => <TextInput id={fid} value={varietyName} onChange={setVarietyName} placeholder={varietyHint} />}</Field>
           )}
           <Field label={tt('add.count')} hint={tt('add.countHint', { n: defaultCount })}>
             {(fid) => <TextInput id={fid} type="number" min={1} value={count} onChange={setCount} placeholder={String(defaultCount)} />}
@@ -521,7 +554,7 @@ export function AddPlantSheet({ bedId, speciesId, editId, onClose }: { bedId?: s
             </Field>
           )}
           <Field label={tt('add.yield')} hint={tt('add.yieldHint', { lo: sp.yieldM2[0], hi: sp.yieldM2[1] })}>
-            {(fid) => <TextInput id={fid} type="number" step={0.1} value={yieldT} onChange={setYieldT} placeholder={String((sp.yieldM2[0] + sp.yieldM2[1]) / 2)} />}
+            {(fid) => <TextInput id={fid} type="number" step={0.1} value={yieldT} onChange={setYieldT} placeholder={fmtNum((sp.yieldM2[0] + sp.yieldM2[1]) / 2, lang, 1)} />}
           </Field>
         </div>
 

@@ -4,13 +4,15 @@
  */
 import { CLIMATES, springShiftDays } from '../data/climate';
 import { SPECIES_BY_ID } from '../data/species';
+import { speciesWithType, typesOf } from '../data/speciesTypes';
 import type { ClimateId, ISODate, MonthRange, Plant, Species, StageId, Variety } from '../model';
 import { addDays, diffDays } from './dates';
 
-export function speciesOf(plant: Pick<Plant, 'speciesId'>): Species {
+/** L'espèce d'une culture, avec le calendrier et la durée de son type s'il est précisé. */
+export function speciesOf(plant: Pick<Plant, 'speciesId'> & { typeId?: string }): Species {
   const s = SPECIES_BY_ID[plant.speciesId];
   if (!s) throw new Error(`espèce inconnue : ${plant.speciesId}`);
-  return s;
+  return speciesWithType(s, plant.typeId);
 }
 
 // --- Calendrier ----------------------------------------------------------
@@ -51,6 +53,33 @@ export function cropCalendar(sp: Species, climate: ClimateId): CropCalendar {
     sowOutdoor: shiftWindows(sp.sowOutdoor, climate),
     plantOut: shiftWindows(sp.plantOut, climate),
   };
+}
+
+/**
+ * Type de culture conseillé à une date : celui dont une fenêtre de semis ou
+ * de plantation (décalée selon le climat) contient le mois ; sinon celui
+ * dont la prochaine fenêtre arrive le plus tôt. Chaîne vide sans types.
+ */
+export function seasonalType(speciesId: string, today: ISODate, climate: ClimateId): string {
+  const sp = SPECIES_BY_ID[speciesId];
+  const types = typesOf(speciesId);
+  if (!sp || !types.length) return '';
+  const month = Number(today.slice(5, 7));
+  let best = '';
+  let bestWait = 99;
+  for (const t of types) {
+    const cal = cropCalendar(speciesWithType(sp, t.id), climate);
+    const windows = [...cal.sowIndoor, ...cal.sowOutdoor, ...cal.plantOut];
+    if (inWindow(month, windows)) return t.id;
+    for (const [a] of windows) {
+      const wait = (a - month + 12) % 12;
+      if (wait < bestWait) {
+        bestWait = wait;
+        best = t.id;
+      }
+    }
+  }
+  return best;
 }
 
 /** Une espèce mise en place par plants, bulbes ou tubercules (sans semis). */

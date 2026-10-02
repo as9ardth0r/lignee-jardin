@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
 import { CROP_TYPES, type CropType, type Family, type MonthRange } from './model';
-import { cropCalendar, inWindow } from './engine/crop';
+import { cropCalendar, inWindow, isPlanted } from './engine/crop';
 import { monthName } from './format';
 import { useJT, type JKey } from './i18n';
 import { useNav } from './nav';
 import { useGarden } from './store';
 import { Button, Card, Chip, Empty, INK500, INK700, Sheet } from './ui';
 import { companionsOf, SPECIES_EXTRA } from './data/speciesExtra';
+import { speciesWithType, typesOf } from './data/speciesTypes';
 import { seedState } from './engine/season';
 import { SeedsPanel } from './Seeds';
 import { StocksView } from './Stocks';
@@ -97,10 +98,10 @@ function YearCalendar({ rows }: { rows: Array<{ label: string; ranges: MonthRang
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[420px] border-separate text-[10px]" style={{ borderSpacing: 2 }}>
+      <table className="w-full table-fixed border-separate text-[10px]" style={{ borderSpacing: 2 }}>
         <thead>
           <tr>
-            <th />
+            <th style={{ width: '4.75rem' }} />
             {months.map((m) => (
               <th key={m} className="font-normal" style={{ color: INK500 }}>
                 {monthName(m, lang, 'narrow')}
@@ -113,7 +114,7 @@ function YearCalendar({ rows }: { rows: Array<{ label: string; ranges: MonthRang
             .filter((r) => r.ranges.length)
             .map((r) => (
               <tr key={r.label}>
-                <th className="whitespace-nowrap pr-2 text-left text-[11px] font-medium" style={{ color: INK700 }}>
+                <th className="pr-1 text-left text-[11px] font-medium leading-tight" style={{ color: INK700 }}>
                   {r.label}
                 </th>
                 {months.map((m) => {
@@ -180,6 +181,50 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
             ]}
           />
         </section>
+        {typesOf(s.id).length > 0 && (
+          <section>
+            <h3 className="mb-1 font-display text-base">{tt('types.title')}</h3>
+            <p className="mb-2 text-xs leading-relaxed" style={{ color: INK700 }}>
+              {tt('types.lead')}
+            </p>
+            <ul className="space-y-3">
+              {typesOf(s.id).map((t) => {
+                const ts = speciesWithType(s, t.id);
+                const tc = cropCalendar(ts, data.settings.climate);
+                return (
+                  <li key={t.id} className="rounded p-2.5" style={{ boxShadow: 'inset 0 0 0 1px var(--color-paper-300)' }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium">{t.name[lang]}</p>
+                      <Button small kind="ghost" onClick={() => nav.open({ type: 'addPlant', speciesId: s.id, typeId: t.id })}>
+                        + {tt('types.grow')}
+                      </Button>
+                    </div>
+                    <p className="mt-0.5 text-xs leading-relaxed" style={{ color: INK700 }}>
+                      {t.note[lang]}
+                    </p>
+                    {t.examples && (
+                      <p className="mt-0.5 text-[11px] italic" style={{ color: INK500 }}>
+                        {tt('types.examples', { list: t.examples })}
+                      </p>
+                    )}
+                    <div className="mt-1.5">
+                      <YearCalendar
+                        rows={[
+                          { label: tt('cal.sowIndoor'), ranges: tc.sowIndoor, color: '#c89b3c' },
+                          { label: tt('cal.sowOutdoor'), ranges: tc.sowOutdoor, color: '#6c9256' },
+                          { label: tt('cal.plantOut'), ranges: tc.plantOut, color: '#4a7f36' },
+                        ]}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px]" style={{ color: INK500 }}>
+                      {tt(isPlanted(ts) ? 'types.harvestPlanted' : 'types.harvestSown', { lo: t.daysToHarvest[0], hi: t.daysToHarvest[1] })}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
         <section>
           <h3 className="mb-1 font-display text-base">{tt('sp.stages')}</h3>
           <p className="text-xs" style={{ color: INK700 }}>

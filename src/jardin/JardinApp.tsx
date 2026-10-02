@@ -192,7 +192,7 @@ function Shell() {
         {top?.type === 'plant' && <PlantSheet key={top.id} id={top.id} onClose={close} />}
         {top?.type === 'bed' && <BedSheet key={top.id} id={top.id} onClose={close} />}
         {top?.type === 'species' && <SpeciesSheet key={top.id} id={top.id} onClose={close} />}
-        {top?.type === 'addPlant' && <AddPlantSheet key={`${top.editId}-${top.bedId}-${top.speciesId}`} bedId={top.bedId} speciesId={top.speciesId} editId={top.editId} onClose={close} />}
+        {top?.type === 'addPlant' && <AddPlantSheet key={`${top.editId}-${top.bedId}-${top.speciesId}-${top.typeId}`} bedId={top.bedId} speciesId={top.speciesId} typeId={top.typeId} editId={top.editId} onClose={close} />}
         {top?.type === 'observe' && <ObservationSheet plantId={top.plantId} bedId={top.bedId} onClose={close} />}
         {top?.type === 'water' && <WaterSheet bedId={top.bedId} kind={top.kind} liters={top.liters} onClose={close} />}
         {top?.type === 'task' && <TaskSheet onClose={close} />}

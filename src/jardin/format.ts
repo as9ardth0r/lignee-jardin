@@ -1,4 +1,5 @@
 import { SPECIES_BY_ID } from './data/species';
+import { typeOf } from './data/speciesTypes';
 import type { ISODate, Lang, Plant, Txt } from './model';
 
 export const locale = (lang: Lang) => (lang === 'fr' ? 'fr-FR' : 'en-GB');
@@ -41,5 +42,7 @@ export function speciesName(id: string, lang: Lang): string {
 
 export function plantTitle(p: Plant, lang: Lang): string {
   const n = speciesName(p.speciesId, lang);
-  return p.varietyName ? `${n} · ${p.varietyName}` : n;
+  if (p.varietyName) return `${n} · ${p.varietyName}`;
+  // Sans variété, le nom du type (« Ail rose (de printemps) ») est plus précis que l'espèce.
+  return typeOf(p.speciesId, p.typeId)?.name[lang] ?? n;
 }

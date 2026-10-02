@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { CONTEXTS, ORGANS, PROBLEM_BY_ID, REMEDY_BY_ID, SIGNS, type Context, type Organ, type Remedy, type Sign } from './data/problems';
 import { SPECIES_BY_ID } from './data/species';
 import { diagnose } from './engine/diagnosis';
+import { speciesOf } from './engine/crop';
 import { gddSince, timeline } from './engine/phenology';
 import { recentContext } from './engine/weather';
 import { fmtDate, fmtNum, plantTitle } from './format';
@@ -34,7 +35,7 @@ const CAT_COLOR: Record<Remedy['category'], string> = {
 
 /** Stades que l'on peut noter (ceux qui servent au recalage). */
 function observableStages(plant: Plant): StageId[] {
-  const sp = SPECIES_BY_ID[plant.speciesId];
+  const sp = speciesOf(plant);
   const list = sp.stages.filter(([, d]) => d >= 10).map(([s]) => s);
   if (!list.includes('harvest')) list.push('harvest');
   return list;

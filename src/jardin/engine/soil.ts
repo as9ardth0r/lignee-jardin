@@ -22,6 +22,7 @@ import { SPECIES_BY_ID } from '../data/species';
 import type { Bed, GardenData, ISODate, PMethod, Plant, Product, SoilTest, Texture } from '../model';
 import { diffDays, monthOf } from './dates';
 import { bedArea } from './water';
+import { speciesOf } from './crop';
 
 export type Level = 'low' | 'ok' | 'high' | 'veryHigh';
 
@@ -119,7 +120,7 @@ export function soilFor(data: Pick<GardenData, 'soilTests' | 'settings' | 'beds'
 /** Crédit d'azote du sol pour une culture (g), plafonné à 70 % de son besoin. */
 export function nCredit(reading: SoilReading | null, plant: Plant, area: number, needN: number): number {
   if (!reading?.nPerYear) return 0;
-  const sp = SPECIES_BY_ID[plant.speciesId];
+  const sp = speciesOf(plant);
   const share = Math.min(1, (sp.season / 365) * 1.4); // la minéralisation se fait surtout à la belle saison
   return Math.min(needN * MAX_N_CREDIT_SHARE, reading.nPerYear * share * area);
 }
