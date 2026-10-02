@@ -17,8 +17,9 @@ import { waterAdvice } from './water';
 import { readingDate, tankStatus } from './sensors';
 import { limeAdvice, limeSeason, soilFor } from './soil';
 import { pestTasks } from './pests';
+import { FLOWER_INFO } from '../data/flowers';
 
-export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual';
+export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual';
 
 export interface Task {
   key: string;
@@ -76,9 +77,24 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
       if (due <= horizon) tasks.push({ ...base, key: `transplant:${p.id}`, kind: 'transplant', due, priority: due <= today ? 1 : 2 });
     }
 
-    // Récolte : chaque semaine de la fenêtre de récolte.
-    if (today >= addDays(info.harvestFrom, -LOOKAHEAD) && today <= info.harvestTo) {
-      tasks.push({ ...base, key: `harvest:${p.id}:${weekKey(today)}`, kind: 'harvest', due: today < info.harvestFrom ? info.harvestFrom : today, priority: 2 });
+    const fl = sp.type === 'flower' ? FLOWER_INFO[sp.id] : undefined;
+    if (!fl) {
+      // Récolte : chaque semaine de la fenêtre de récolte.
+      if (today >= addDays(info.harvestFrom, -LOOKAHEAD) && today <= info.harvestTo) {
+        tasks.push({ ...base, key: `harvest:${p.id}:${weekKey(today)}`, kind: 'harvest', due: today < info.harvestFrom ? info.harvestFrom : today, priority: 2 });
+      }
+    } else if (fl.deadhead && today >= info.harvestFrom && today <= info.harvestTo) {
+      // Fleurs : couper les fleurs fanées chaque semaine de la floraison.
+      tasks.push({ ...base, key: `bloom:${p.id}:${weekKey(today)}`, kind: 'bloom', due: today, priority: 3 });
+    }
+    // Bulbes et tubercules gélifs : à rentrer avant les premières gelées.
+    if (fl?.lift && isActiveOn(p, today)) {
+      const clim = CLIMATES[data.settings.climate];
+      const frostDay = clim.firstFrost;
+      const doy = dayOfYear(today);
+      if (doy >= frostDay - 21 && doy <= frostDay + 30 && diffDays(p.sowDate, today) > 60) {
+        tasks.push({ ...base, key: `lift:${p.id}:${today.slice(0, 4)}`, kind: 'lift', due: today, priority: doy >= frostDay - 7 ? 1 : 2 });
+      }
     }
 
     // Fertilisation : seulement si la culture est en place et qu'il y a vraiment quelque chose à apporter.

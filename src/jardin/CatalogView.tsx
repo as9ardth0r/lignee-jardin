@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
 import { CROP_TYPES, type CropType, type Family, type MonthRange } from './model';
-import { cropCalendar, inWindow, isPlanted } from './engine/crop';
+import { cropCalendar, inWindow, isPlanted, shiftWindows } from './engine/crop';
 import { monthName } from './format';
 import { useJT, type JKey } from './i18n';
 import { useNav } from './nav';
 import { useGarden } from './store';
-import { Button, Card, Chip, Empty, INK500, INK700, Sheet } from './ui';
+import { Button, Card, Chip, Empty, INK500, INK700, Notice, Sheet } from './ui';
 import { companionsOf, SPECIES_EXTRA } from './data/speciesExtra';
 import { speciesWithType, typesOf } from './data/speciesTypes';
+import { COLOR_HEX, FLOWER_INFO, isFlower } from './data/flowers';
 import { seedState } from './engine/season';
 import { SeedsPanel } from './Seeds';
 import { StocksView } from './Stocks';
@@ -75,8 +76,11 @@ function SpeciesList() {
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{s.name[lang]}</span>
-                    <span className="block truncate text-[11px]" style={{ color: INK500 }}>
-                      {tt(`family.${s.family}` as JKey)}
+                    <span className="flex items-center gap-1 truncate text-[11px]" style={{ color: INK500 }}>
+                      {isFlower(s) && FLOWER_INFO[s.id]
+                        ? FLOWER_INFO[s.id].colors.slice(0, 4).map((c) => <span key={c} className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: COLOR_HEX[c], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.2)' }} />)
+                        : null}
+                      <span className="truncate">{tt(`family.${s.family}` as JKey)}</span>
                     </span>
                   </span>
                 </button>
@@ -140,6 +144,7 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
   if (!s) return null;
   const cal = cropCalendar(s, data.settings.climate);
   const varieties = data.varieties.filter((v) => v.speciesId === s.id);
+  const fl = isFlower(s) ? FLOWER_INFO[s.id] : undefined;
   const rows: Array<[string, string]> = [
     [tt('sp.family'), tt(`family.${s.family as Family}` as JKey)],
     [tt('sp.type'), `${tt(`type.${s.type}` as JKey)} · ${tt(`life.${s.life}` as JKey)}`],
@@ -148,9 +153,16 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
     [tt('sp.temp'), tt('sp.tempV', { lo: s.tOpt[0], hi: s.tOpt[1], base: s.tBase })],
     [tt('sp.pH'), `${s.pH[0]} – ${s.pH[1]}`],
     [tt('sp.spacing'), tt('add.spacing', { row: s.spacing.row, inRow: s.spacing.inRow })],
-    [tt('sp.harvest'), tt('sp.harvestV', { lo: s.daysToHarvest[0], hi: s.daysToHarvest[1] })],
-    [tt('sp.yield'), tt('sp.yieldV', { lo: s.yieldM2[0], hi: s.yieldM2[1] })],
-    [tt('sp.exports'), tt('sp.exportsV', { n: s.exports.N, p: s.exports.P2O5, k: s.exports.K2O })],
+    ...(fl
+      ? ([
+          [tt('sp.height'), tt('sp.heightV', { lo: fl.height[0], hi: fl.height[1] })],
+          [tt('sp.bloomDays'), tt(isPlanted(s) ? 'sp.bloomDaysPlanted' : 'sp.bloomDaysSown', { lo: s.daysToHarvest[0], hi: s.daysToHarvest[1] })],
+        ] as Array<[string, string]>)
+      : ([
+          [tt('sp.harvest'), tt('sp.harvestV', { lo: s.daysToHarvest[0], hi: s.daysToHarvest[1] })],
+          [tt('sp.yield'), tt('sp.yieldV', { lo: s.yieldM2[0], hi: s.yieldM2[1] })],
+          [tt('sp.exports'), tt('sp.exportsV', { n: s.exports.N, p: s.exports.P2O5, k: s.exports.K2O })],
+        ] as Array<[string, string]>)),
     [tt('sp.feeding'), tt(`feeding.${s.feeding}` as JKey)],
     [tt('sp.kc'), `${s.kc[0]} → ${s.kc[1]} → ${s.kc[2]}`],
     [tt('sp.root'), `${Math.round(s.rootDepth * 100)} cm`],
@@ -178,9 +190,36 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
               { label: tt('cal.sowIndoor'), ranges: cal.sowIndoor, color: '#c89b3c' },
               { label: tt('cal.sowOutdoor'), ranges: cal.sowOutdoor, color: '#6c9256' },
               { label: tt('cal.plantOut'), ranges: cal.plantOut, color: '#4a7f36' },
+              ...(fl ? [{ label: tt('cal.bloom'), ranges: shiftWindows(fl.bloom, data.settings.climate), color: '#c8547e' }] : []),
             ]}
           />
         </section>
+        {fl && (
+          <section className="space-y-2">
+            {fl.toxic && <Notice tone="warn">☠ {fl.toxic[lang]}</Notice>}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              {fl.colors.map((c) => (
+                <span key={c} className="flex items-center gap-1 rounded-full px-2 py-0.5" style={{ background: 'var(--color-paper-200)' }}>
+                  <span className="inline-block h-3 w-3 rounded-full" style={{ background: COLOR_HEX[c], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.2)' }} />
+                  {tt(`color.${c}` as JKey)}
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-1.5 text-xs">
+              {fl.uses.map((u) => (
+                <span key={u} className="rounded-full px-2 py-0.5" style={{ background: '#e6efdc', color: '#2f4a22' }} title={tt(`use.${u}.hint` as JKey)}>
+                  {tt(`use.${u}` as JKey)}
+                </span>
+              ))}
+            </div>
+            {(fl.deadhead || fl.lift) && (
+              <p className="text-xs leading-relaxed" style={{ color: INK700 }}>
+                {fl.deadhead && `✂ ${tt('flower.deadhead')} `}
+                {fl.lift && `❄ ${tt('flower.lift')}`}
+              </p>
+            )}
+          </section>
+        )}
         {typesOf(s.id).length > 0 && (
           <section>
             <h3 className="mb-1 font-display text-base">{tt('types.title')}</h3>
@@ -270,8 +309,25 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
           <section>
             <h3 className="mb-1 font-display text-base">🌰 {tt('seeds.saving')}</h3>
             <p className="text-sm leading-relaxed" style={{ color: INK700 }}>
-              {tt('seeds.savingV', { poll: tt(`pollination.${extra.pollination}` as JKey), m: extra.isolation, life: extra.seedLife })}
+              {extra.pollination === 'vegetative'
+                ? tt('seeds.vegetativeV')
+                : tt('seeds.savingV', { poll: tt(`pollination.${extra.pollination}` as JKey), m: extra.isolation, life: extra.seedLife })}
             </p>
+            {extra.trueToSeed && extra.pollination !== 'vegetative' && (
+              <p className="mt-1 text-sm" style={{ color: INK700 }}>
+                <b>{tt(`seeds.true.${extra.trueToSeed}` as JKey)}</b>
+              </p>
+            )}
+            {extra.seedTip && (
+              <p className="mt-1 text-sm leading-relaxed" style={{ color: INK700 }}>
+                💡 {extra.seedTip[lang]}
+              </p>
+            )}
+            {extra.f1Common && (
+              <div className="mt-2">
+                <Notice tone="warn">{tt('seeds.f1Warning')}</Notice>
+              </div>
+            )}
             {lots.length > 0 && (
               <p className="mt-1 text-xs">
                 {tt('sp.myLots')}{' '}

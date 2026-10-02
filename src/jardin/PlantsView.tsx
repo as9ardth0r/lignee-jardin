@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
 import { speciesWithType, typeOf, typesOf } from './data/speciesTypes';
 import { uid, type Plant, type PlantStatus } from './model';
-import { cropCalendar, inWindow, isActiveOn, isPlanted, plantArea, plantsForArea, seasonalType } from './engine/crop';
+import { cropCalendar, inWindow, isActiveOn, isPlanted, plantArea, plantsForArea, seasonalType, speciesOf } from './engine/crop';
 import { timeline } from './engine/phenology';
 import { sunMismatch } from './engine/sun';
 import { companionsOf } from './data/speciesExtra';
@@ -150,7 +150,7 @@ function StageTimeline({ plant }: { plant: Plant }) {
       <figcaption className="flex justify-between text-[11px]" style={{ color: INK500 }}>
         <span>{fmtDate(plant.sowDate, lang)}</span>
         <span>
-          {tt('plant.harvestWindow', { from: fmtDate(info.harvestFrom, lang, yr(info.harvestFrom)), to: fmtDate(info.harvestTo, lang, yr(info.harvestTo)) })}
+          {tt(speciesOf(plant).type === 'flower' ? 'plant.bloomWindow' : 'plant.harvestWindow', { from: fmtDate(info.harvestFrom, lang, yr(info.harvestFrom)), to: fmtDate(info.harvestTo, lang, yr(info.harvestTo)) })}
         </span>
         <span>{fmtDate(info.seasonEnd, lang, yr(info.seasonEnd))}</span>
       </figcaption>
@@ -553,9 +553,11 @@ export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, o
               {(fid) => <TextInput id={fid} type="date" value={transplant} onChange={setTransplant} />}
             </Field>
           )}
-          <Field label={tt('add.yield')} hint={tt('add.yieldHint', { lo: sp.yieldM2[0], hi: sp.yieldM2[1] })}>
-            {(fid) => <TextInput id={fid} type="number" step={0.1} value={yieldT} onChange={setYieldT} placeholder={fmtNum((sp.yieldM2[0] + sp.yieldM2[1]) / 2, lang, 1)} />}
-          </Field>
+          {sp.type !== 'flower' && (
+            <Field label={tt('add.yield')} hint={tt('add.yieldHint', { lo: sp.yieldM2[0], hi: sp.yieldM2[1] })}>
+              {(fid) => <TextInput id={fid} type="number" step={0.1} value={yieldT} onChange={setYieldT} placeholder={fmtNum((sp.yieldM2[0] + sp.yieldM2[1]) / 2, lang, 1)} />}
+            </Field>
+          )}
         </div>
 
         {lots.length > 0 && (

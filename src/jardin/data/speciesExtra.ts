@@ -9,6 +9,7 @@
  * (France, légumes de saison) — modifiables dans l'app.
  */
 import type { SpeciesExtra } from '../model';
+import { FLOWER_EXTRA } from './flowers';
 
 const e = (seedLife: number, pollination: SpeciesExtra['pollination'], isolation: number, priceKg: number): SpeciesExtra => ({ seedLife, pollination, isolation, priceKg });
 
@@ -55,6 +56,7 @@ export const SPECIES_EXTRA: Record<string, SpeciesExtra> = {
   sweetpotato: e(1, 'vegetative', 0, 3),
   beet: e(5, 'wind', 1000, 2),
   chives: e(2, 'insect', 100, 20),
+  ...FLOWER_EXTRA,
 };
 
 /** Associations de voisinage. « tradition » : savoir jardinier sans preuve solide ; « some » : quelques résultats publiés. */
@@ -81,6 +83,21 @@ export const COMPANIONS: Companion[] = [
   { a: 'cucumber', b: 'potato', effect: 'bad', evidence: 'tradition', why: { fr: 'Concurrence pour l’eau et maladies favorisées ; observation de jardiniers.', en: 'Competition for water and disease; a gardeners’ observation.' } },
   { a: 'fennel', b: 'tomato', effect: 'bad', evidence: 'tradition', why: { fr: 'Le fenouil passe pour un mauvais voisin de la plupart des légumes.', en: 'Fennel is reputed to be a poor neighbour to most vegetables.' } },
   { a: 'beet', b: 'chard', effect: 'bad', evidence: 'some', why: { fr: 'Même espèce : se croisent par le vent si vous gardez des graines, mêmes maladies.', en: 'Same species: they cross by wind if you save seed, and share diseases.' } },
+  // --- Fleurs et potager ---------------------------------------------------------
+  { a: 'nasturtium', b: 'broadbean', effect: 'good', evidence: 'some', why: { fr: 'Plante-piège : les pucerons noirs s’installent d’abord sur la capucine, à arracher quand elle est envahie.', en: 'A trap plant: black aphids settle on the nasturtium first; pull it out once infested.' } },
+  { a: 'nasturtium', b: 'bean', effect: 'good', evidence: 'some', why: { fr: 'Détourne une partie des pucerons noirs des haricots.', en: 'Draws part of the black aphids away from beans.' } },
+  { a: 'nasturtium', b: 'cabbage', effect: 'good', evidence: 'tradition', why: { fr: 'Attirerait la piéride loin des choux ; effet variable.', en: 'Said to draw cabbage whites away from cabbages; results vary.' } },
+  { a: 'frenchmarigold', b: 'tomato', effect: 'good', evidence: 'some', why: { fr: 'Ses racines réduisent certains nématodes du sol en plantation dense ; effet sur les aleurodes incertain.', en: 'Its roots reduce some soil nematodes when planted densely; effect on whitefly uncertain.' } },
+  { a: 'calendula', b: 'tomato', effect: 'good', evidence: 'some', why: { fr: 'Attire syrphes et coccinelles, prédateurs des pucerons.', en: 'Draws hoverflies and ladybirds, aphid predators.' } },
+  { a: 'borage', b: 'strawberry', effect: 'good', evidence: 'tradition', why: { fr: 'Attire les bourdons : fraises mieux pollinisées, moins déformées.', en: 'Draws bumblebees: better-pollinated, less misshapen strawberries.' } },
+  { a: 'borage', b: 'squash', effect: 'good', evidence: 'tradition', why: { fr: 'Plus de pollinisateurs autour des fleurs de courge.', en: 'More pollinators around squash flowers.' } },
+  { a: 'phacelia', b: 'zucchini', effect: 'good', evidence: 'some', why: { fr: 'Très mellifère : plus d’abeilles pour polliniser les courgettes.', en: 'A top bee plant: more bees to pollinate courgettes.' } },
+  { a: 'alyssum', b: 'lettuce', effect: 'good', evidence: 'some', why: { fr: 'Ses fleurs nourrissent les syrphes ; en bordure de laitues, moins de pucerons dans les essais.', en: 'Its flowers feed hoverflies; edging lettuce, fewer aphids in trials.' } },
+  { a: 'alyssum', b: 'cabbage', effect: 'good', evidence: 'some', why: { fr: 'Syrphes et guêpes parasitoïdes contre le puceron cendré du chou.', en: 'Hoverflies and parasitoid wasps against cabbage aphid.' } },
+  { a: 'yarrow', b: 'cabbage', effect: 'good', evidence: 'tradition', why: { fr: 'Ombelles qui attirent les auxiliaires près des choux.', en: 'Flat flower heads that draw beneficials near cabbages.' } },
+  { a: 'petunia', b: 'tomato', effect: 'bad', evidence: 'some', why: { fr: 'Même famille : mêmes virus et même mildiou, à ne pas planter côte à côte.', en: 'Same family: same viruses and blight, do not plant side by side.' } },
+  { a: 'wallflower', b: 'cabbage', effect: 'bad', evidence: 'some', why: { fr: 'Famille des choux : héberge la hernie et les altises.', en: 'Cabbage family: hosts clubroot and flea beetles.' } },
+  { a: 'ornamentalallium', b: 'pea', effect: 'bad', evidence: 'tradition', why: { fr: 'Même réputation que l’ail près des pois.', en: 'Same reputation as garlic near peas.' } },
 ];
 
 export function companionsOf(speciesId: string): Array<Companion & { other: string }> {

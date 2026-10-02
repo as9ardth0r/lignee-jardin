@@ -23,6 +23,8 @@ const TASK_ICON: Record<Task['kind'], string> = {
   water: '💧',
   feed: '🧺',
   harvest: '🧺',
+  bloom: '✂',
+  lift: '🪣',
   observe: '📷',
   frost: '❄',
   alert: '⚠',

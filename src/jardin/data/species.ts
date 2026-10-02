@@ -14,8 +14,10 @@
  * Chaque valeur est à vérifier et sourcer fiche par fiche (voir README).
  */
 import type { Species } from '../model';
+import { FLOWERS } from './flowers';
 
-export const SPECIES: Species[] = [
+/** Légumes, petits fruits et aromatiques. */
+export const VEGETABLES: Species[] = [
   // --- Solanacées ---------------------------------------------------------
   {
     id: 'tomato', name: { fr: 'Tomate', en: 'Tomato' }, latin: 'Solanum lycopersicum', emoji: '🍅',
@@ -624,5 +626,8 @@ export const SPECIES: Species[] = [
     },
   },
 ];
+
+/** Tout le catalogue : potager puis fleurs (data/flowers.ts). */
+export const SPECIES: Species[] = [...VEGETABLES, ...FLOWERS];
 
 export const SPECIES_BY_ID: Record<string, Species> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));

@@ -27,7 +27,18 @@ export type Family =
   | 'rosaceae'
   | 'polygonaceae'
   | 'caprifoliaceae'
-  | 'convolvulaceae';
+  | 'convolvulaceae'
+  | 'tropaeolaceae'
+  | 'ranunculaceae'
+  | 'papaveraceae'
+  | 'boraginaceae'
+  | 'plantaginaceae'
+  | 'malvaceae'
+  | 'violaceae'
+  | 'caryophyllaceae'
+  | 'liliaceae'
+  | 'iridaceae'
+  | 'paeoniaceae';
 
 export const FAMILIES: Family[] = [
   'solanaceae',
@@ -44,11 +55,22 @@ export const FAMILIES: Family[] = [
   'polygonaceae',
   'caprifoliaceae',
   'convolvulaceae',
+  'tropaeolaceae',
+  'ranunculaceae',
+  'papaveraceae',
+  'boraginaceae',
+  'plantaginaceae',
+  'malvaceae',
+  'violaceae',
+  'caryophyllaceae',
+  'liliaceae',
+  'iridaceae',
+  'paeoniaceae',
 ];
 
 /** Type de culture : décide la répartition des besoins par stade. */
-export type CropType = 'fruit' | 'leaf' | 'root' | 'legume' | 'bulb' | 'herb' | 'perennial';
-export const CROP_TYPES: CropType[] = ['fruit', 'leaf', 'root', 'legume', 'bulb', 'herb', 'perennial'];
+export type CropType = 'fruit' | 'leaf' | 'root' | 'legume' | 'bulb' | 'herb' | 'perennial' | 'flower';
+export const CROP_TYPES: CropType[] = ['fruit', 'leaf', 'root', 'legume', 'bulb', 'herb', 'perennial', 'flower'];
 
 export type StageId = 'germination' | 'vegetative' | 'flowering' | 'fruiting' | 'bulking' | 'harvest';
 export const STAGE_IDS: StageId[] = ['germination', 'vegetative', 'flowering', 'fruiting', 'bulking', 'harvest'];
@@ -136,6 +158,16 @@ export interface SpeciesExtra {
   isolation: number;
   /** Prix de référence au détail (€/kg), pour le bilan de saison. */
   priceKg: number;
+  /**
+   * Graines fidèles ? « yes » : redonnent la même plante ; « mostly » :
+   * oui si les variétés sont isolées ; « no » : ne redonnent pas la plante
+   * (hybrides, cultivars multipliés autrement).
+   */
+  trueToSeed?: 'yes' | 'mostly' | 'no';
+  /** Beaucoup de variétés du commerce sont des hybrides F1. */
+  f1Common?: boolean;
+  /** Comment récolter et conserver les graines (ou multiplier la plante). */
+  seedTip?: Txt;
 }
 
 /** « amendment » : amendement calcaire (chaulage), sans N-P-K. */

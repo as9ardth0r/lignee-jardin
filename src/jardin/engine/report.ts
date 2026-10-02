@@ -4,7 +4,7 @@
  */
 import { SPECIES_EXTRA } from '../data/speciesExtra';
 import type { GardenData, ISODate } from '../model';
-import { plantArea } from './crop';
+import { plantArea, speciesOf } from './crop';
 import { yearOf } from './dates';
 import { expectedYieldKg } from './nutrition';
 import { timeline } from './phenology';
@@ -30,7 +30,7 @@ export function forecast(data: GardenData, today: ISODate): ForecastRow[] {
   const harvested = new Map<string, number>();
   for (const o of data.observations) if (o.plantId && o.harvestG) harvested.set(o.plantId, (harvested.get(o.plantId) ?? 0) + o.harvestG / 1000);
   return data.plants
-    .filter((p) => p.status !== 'ended')
+    .filter((p) => p.status !== 'ended' && speciesOf(p).type !== 'flower')
     .map((p) => {
       const tl = timeline(p, data, today);
       const expectedKg = expectedYieldKg(p);

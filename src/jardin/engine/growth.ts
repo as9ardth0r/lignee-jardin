@@ -12,6 +12,7 @@
  */
 import { SPECIES_BY_ID } from '../data/species';
 import { speciesWithType } from '../data/speciesTypes';
+import { FLOWER_INFO } from '../data/flowers';
 import type { GardenData, ISODate, Plant } from '../model';
 import { addDays, diffDays } from './dates';
 import { expectedYieldKg } from './nutrition';
@@ -24,6 +25,8 @@ export const MATURE_HEIGHT: Record<string, number> = {
   cabbage: 45, cauliflower: 50, broccoli: 60, brussels: 90, kale: 70, kohlrabi: 40, radish: 20, turnip: 35, carrot: 35, parsnip: 45,
   celeriac: 50, fennel: 60, parsley: 35, onion: 50, shallot: 40, garlic: 50, leek: 60, basil: 40, strawberry: 20, rhubarb: 70,
   sweetpotato: 40, beet: 40, chives: 30,
+  // Fleurs : milieu de la fourchette de hauteur du catalogue.
+  ...Object.fromEntries(Object.entries(FLOWER_INFO).map(([id, f]) => [id, Math.round((f.height[0] + f.height[1]) / 2)])),
 };
 
 /** Jour (âge équivalent) où la plante atteint la moitié de sa hauteur adulte. */
@@ -92,6 +95,8 @@ export interface HarvestProgress {
 }
 
 export function harvestProgress(plant: Plant, data: GardenData, today: ISODate): HarvestProgress | null {
+  // Les fleurs ne se « récoltent » pas en kilos.
+  if (SPECIES_BY_ID[plant.speciesId]?.type === 'flower') return null;
   const tl = timeline(plant, data, today);
   const obs = data.observations.filter((o) => o.plantId === plant.id && o.harvestG && o.harvestG > 0).sort((a, b) => a.date.localeCompare(b.date));
   if (!obs.length && today < tl.harvestFrom) return null;

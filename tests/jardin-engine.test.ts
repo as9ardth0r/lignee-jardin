@@ -4,7 +4,12 @@
  */
 import { CLIMATES, CLIMATE_IDS, AWC_MM_PER_CM } from '../src/jardin/data/climate';
 import { PRODUCTS, PRODUCT_BY_ID } from '../src/jardin/data/products';
-import { SPECIES, SPECIES_BY_ID } from '../src/jardin/data/species';
+import { SPECIES, SPECIES_BY_ID, VEGETABLES } from '../src/jardin/data/species';
+import { FLOWERS, FLOWER_INFO, FLOWER_USES } from '../src/jardin/data/flowers';
+import { forecast as forecastRows } from '../src/jardin/engine/report';
+import { seasonNeed as needOf } from '../src/jardin/engine/nutrition';
+import { harvestProgress as hp } from '../src/jardin/engine/growth';
+import { FAMILIES } from '../src/jardin/model';
 import { DEFAULT_SETTINGS, EMPTY_DATA, type Bed, type GardenData, type Plant } from '../src/jardin/model';
 import { addDays, dayOfYear, diffDays, weekKey } from '../src/jardin/engine/dates';
 import { cropCalendar, inWindow, kcAt, plantArea, shiftWindows, stageInfo } from '../src/jardin/engine/crop';
@@ -62,8 +67,8 @@ const data = (over: Partial<GardenData>): GardenData => ({ ...EMPTY_DATA, settin
 
 // --- Catalogue ------------------------------------------------------------
 
-test('catalogue : 42 espèces, identifiants uniques', () => {
-  ok(SPECIES.length === 42, `${SPECIES.length} espèces`);
+test('catalogue : 42 légumes et 38 fleurs, identifiants uniques', () => {
+  ok(VEGETABLES.length === 42 && FLOWERS.length === 38 && SPECIES.length === 80, `${VEGETABLES.length} + ${FLOWERS.length} espèces`);
   ok(new Set(SPECIES.map((s) => s.id)).size === SPECIES.length, 'doublon');
 });
 
@@ -987,6 +992,40 @@ test('Lune : phases et lune montante (calcul hors ligne)', () => {
   ok(gaps.every((g) => g >= 12 && g <= 15), gaps.join(','));
   ok(moonDay(turns[0]).ascending !== moonDay(turns[1]).ascending, 'alternance');
   ok(DEFAULT_SETTINGS.moon === false, 'désactivé par défaut');
+});
+
+test('fleurs : fiches complètes', () => {
+  for (const f of FLOWERS) {
+    const info = FLOWER_INFO[f.id];
+    ok(Boolean(info) && info.bloom.length > 0 && info.colors.length > 0 && info.uses.length > 0, `${f.id} : fiche`);
+    ok(info.height[0] > 0 && info.height[0] <= info.height[1], `${f.id} : hauteur`);
+    ok(info.uses.every((u) => FLOWER_USES.includes(u)), `${f.id} : usages`);
+    ok(f.type === 'flower' && FAMILIES.includes(f.family), `${f.id} : type et famille`);
+    const ex = SPECIES_EXTRA[f.id];
+    ok(Boolean(ex && ex.seedTip && ex.trueToSeed), `${f.id} : graines`);
+    if (ex?.pollination === 'vegetative') ok(ex.trueToSeed === 'no', `${f.id} : multiplication végétative`);
+  }
+  ok(COMPANIONS.every((c) => SPECIES_BY_ID[c.a] && SPECIES_BY_ID[c.b]), 'associations : espèces connues');
+  ok(Boolean(FLOWER_INFO.foxglove.toxic && FLOWER_INFO.daffodil.toxic && FLOWER_INFO.lily.toxic && FLOWER_INFO.sweetpea.toxic), 'toxicité signalée');
+});
+
+test('fleurs : floraison, rappels et besoins', () => {
+  const cos = plant({ id: 'f1', speciesId: 'cosmos', count: 10, indoor: true, sowDate: '2026-04-01', transplantDate: '2026-05-15' });
+  const dah = plant({ id: 'f2', speciesId: 'dahlia', typeId: 'tubers', count: 5, sowDate: '2026-04-20' });
+  const tom = plant({ id: 'f3', speciesId: 'tomato', count: 6, sowDate: '2026-03-01' });
+  const d = data({ beds: [bed()], plants: [cos, dah, tom] });
+  const tl = timeline(cos, d, '2026-08-01');
+  ok(tl.harvestFrom >= '2026-06-15' && tl.harvestFrom <= '2026-07-31', `cosmos fleurit ${tl.harvestFrom}`);
+  const aug = generateTasks(d, '2026-08-05');
+  ok(aug.some((t) => t.kind === 'bloom' && t.plantId === 'f1'), 'rappel fleurs fanées');
+  ok(!aug.some((t) => t.kind === 'harvest' && (t.plantId === 'f1' || t.plantId === 'f2')), 'pas de « récolte » pour les fleurs');
+  const oct = generateTasks(d, '2026-10-20');
+  ok(oct.some((t) => t.kind === 'lift' && t.plantId === 'f2'), 'rentrer les dahlias avant les gelées');
+  ok(!generateTasks(d, '2026-07-01').some((t) => t.kind === 'lift'), 'pas de rappel en été');
+  const n = needOf(cos).need;
+  ok(n.N > 0 && n.N < 20 && n.K2O > n.N, `besoins cosmos N ${n.N.toFixed(1)} g`);
+  ok(forecastRows(d, '2026-08-01').every((r) => r.speciesId === 'tomato'), 'prévisions de récolte sans les fleurs');
+  ok(hp(cos, d, '2026-08-01') === null, 'pas de récolte cumulée pour une fleur');
 });
 
 if (failed) {
