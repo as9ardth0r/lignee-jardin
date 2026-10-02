@@ -907,8 +907,8 @@ test('notes vocales : sauvegardées et fusionnées avec les photos', () => {
   ok(parseBackup(serializeBackup(d, [])).data.observations[0].audioIds?.[0] === 'au1', 'gardées dans la sauvegarde');
 });
 
-test('ateliers : 13 ateliers, cultures reconnues par l’import du jardin', () => {
-  ok(ATELIERS.length === 13 && new Set(ATELIERS.map((a) => a.id)).size === 13, 'ids');
+test('ateliers : 14 ateliers, cultures reconnues par l’import du jardin', () => {
+  ok(ATELIERS.length === 14 && new Set(ATELIERS.map((a) => a.id)).size === 14, 'ids');
   for (const a of ATELIERS) if (a.myVarieties) ok(Boolean(LIGNEE_CROPS[a.myVarieties.crop]) && Boolean(SPECIES_BY_ID[LIGNEE_CROPS[a.myVarieties.crop]]), a.id);
 });
 
@@ -920,6 +920,9 @@ test('ateliers : « Mes lignées » ajoutées au jardin sans doublon', () => {
   ok(pendingVarieties(ATELIER_BY_ID.fraise, first).length === 0, 'déjà au jardin');
   ok(pendingVarieties(ATELIER_BY_ID.tomate, []).length === 0, 'rien enregistré');
   ok(pendingVarieties(ATELIER_BY_ID.cannabis, []).length === 0, 'cannabis : pas d’espèce au jardin');
+  store['lignee.muflier.myvarieties.v1'] = JSON.stringify({ app: 'lignee', crop: 'muflier', kind: 'varieties', version: 1, varieties: [{ id: 'my-m', name: 'Rouge pélorique', species: 'majus', variants: ['sulf', 'cyc', 'dich'], days: 112 }] });
+  const muf = pendingVarieties(ATELIER_BY_ID.muflier, []);
+  ok(muf.length === 1 && muf[0].speciesId === 'snapdragon' && muf[0].origin === 'lignee:muflier', 'muflier → catalogue fleurs');
   store['lignee.tomato.myvarieties.v1'] = '{corrompu';
   ok(pendingVarieties(ATELIER_BY_ID.tomate, []).length === 0, 'stockage corrompu ignoré');
 });

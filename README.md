@@ -228,7 +228,7 @@ saison, titre et sauvegarde.
 Lune : phases sur des éclipses connues, déclinaison maximale de
 l'arrêt lunaire de 2025, alternance montante / descendante (~13,7 j),
 option désactivée par défaut.
-Ateliers : 13 ateliers et cultures reconnues, « Mes lignées » ajoutées
+Ateliers : 14 ateliers et cultures reconnues, « Mes lignées » ajoutées
 au jardin sans doublon (stockage corrompu ignoré).
 
 ```bash
@@ -259,6 +259,30 @@ saison / de conservation ; radis de tous les mois / d'hiver
   rappels de la culture. « Non précisé » garde le calendrier général de
   l'espèce.
 
+## Les fleurs
+
+Le catalogue compte **38 fleurs** à côté des 42 légumes : annuelles
+(cosmos, zinnia, souci, capucine, bleuet, nigelle, pois de senteur,
+muflier, tournesol…), bisannuelles et vivaces, bulbes et tubercules
+(tulipe, narcisse, dahlia, glaïeul, lis…). Chaque fiche donne la
+floraison (à la place de la récolte), les couleurs, les usages
+(bouquet, mellifère, comestible, séchage…), la hauteur, la toxicité
+éventuelle et deux rappels propres aux fleurs : couper les fleurs
+fanées et rentrer les bulbes gélifs avant les gelées. Types de culture
+pour le pois de senteur, le souci, le bleuet, la nigelle, la pensée, le
+dahlia (tubercules ou semis) et le lis.
+
+**Graines de fleurs** : pour chaque fleur, l'app indique si elle se
+ressème fidèlement, si les variétés du commerce sont souvent des F1,
+comment récolter et conserver les graines, et quand la multiplication
+se fait plutôt par bulbes, tubercules ou boutures.
+
+**Atelier Muflier** : la génétique des fleurs se pratique dans
+l'atelier 🌺 Muflier de l'onglet Sélection (couleurs à dominance
+incomplète, gène sauteur, fleur pélorique de Darwin,
+auto-incompatibilité des mufliers sauvages). Ses « Mes lignées »
+arrivent au jardin comme variétés de muflier.
+
 ## La Lune (option, tradition jardinière)
 
 Réglages → Affichage → « Afficher la Lune » (désactivé par défaut) :
@@ -275,11 +299,11 @@ tâches ni ses conseils.
 
 ## Les ateliers de sélection (onglet « Sélection »)
 
-Lignée Jardin est l'app principale : les treize apps Lignée de
+Lignée Jardin est l'app principale : les quatorze apps Lignée de
 génétique y sont réunies comme **ateliers**, chacun ouvert depuis
 l'onglet 🧬 **Sélection** : tomate, piment et poivron, courge, melon,
-pastèque, haricot, pois, maïs, chou, carotte, pomme de terre, fraise et
-cannabis.
+pastèque, haricot, pois, maïs, chou, carotte, pomme de terre, fraise,
+muflier et cannabis.
 
 - Chaque atelier est l'app d'origine, **copiée telle quelle** dans
   `src/ateliers/<id>/` (moteur, interface, textes FR/EN, tests) : mêmes
@@ -496,10 +520,10 @@ src/
 ├── Root.tsx, main.tsx, i18n/LanguageContext.tsx, components/LanguageSwitcher.tsx
 ├── utils/download.ts
 ├── ateliers/
-│   ├── registry.ts           # Les 13 ateliers : nom, couleur, chargement à la demande, « Mes lignées »
+│   ├── registry.ts           # Les 14 ateliers : nom, couleur, chargement à la demande, « Mes lignées »
 │   ├── pending.ts            # Variétés d'un atelier pas encore au jardin
 │   └── tomate/, piment/, courge/, melon/, pasteque/, haricot/, pois/,
-│       mais/, chou/, carotte/, patate/, fraise/, cannabis/   # apps d'origine
+│       mais/, chou/, carotte/, patate/, fraise/, muflier/, cannabis/   # apps d'origine
 └── jardin/
     ├── model.ts              # Types : espèces, produits, réglages, planches, cultures, journal…
     ├── data/

@@ -104,6 +104,7 @@ export const LIGNEE_CROPS: Record<string, string> = {
   piment: 'pepper',
   pois: 'pea',
   fraise: 'strawberry',
+  muflier: 'snapdragon',
 };
 
 /**
