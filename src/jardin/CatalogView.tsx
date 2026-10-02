@@ -9,7 +9,7 @@ import { useGarden } from './store';
 import { Button, Card, Chip, Empty, INK500, INK700, Notice, Sheet } from './ui';
 import { companionsOf, SPECIES_EXTRA } from './data/speciesExtra';
 import { speciesWithType, typesOf } from './data/speciesTypes';
-import { COLOR_HEX, FLOWER_INFO, isFlower } from './data/flowers';
+import { COLOR_HEX, FLOWER_COLORS, FLOWER_INFO, isFlower, type FlowerColor } from './data/flowers';
 import { seedState } from './engine/season';
 import { SeedsPanel } from './Seeds';
 import { StocksView } from './Stocks';
@@ -41,15 +41,36 @@ export function CatalogView() {
   );
 }
 
+type FlowerGroup = 'annual' | 'biennial' | 'perennial' | 'bulb';
+const FLOWER_GROUPS: FlowerGroup[] = ['annual', 'biennial', 'perennial', 'bulb'];
+function flowerGroup(life: 'annual' | 'biennial' | 'perennial', bulb?: boolean): FlowerGroup {
+  return bulb ? 'bulb' : life;
+}
+
 function SpeciesList() {
   const { tt, lang } = useJT();
   const nav = useNav();
   const [q, setQ] = useState('');
   const [type, setType] = useState<CropType | 'all'>('all');
+  const [group, setGroup] = useState<FlowerGroup | 'all'>('all');
+  const [color, setColor] = useState<FlowerColor | 'all'>('all');
+  const [inBloom, setInBloom] = useState(false);
+  const month = new Date().getMonth() + 1;
+  const flowers = type === 'flower';
   const list = useMemo(() => {
     const ql = q.trim().toLowerCase();
-    return SPECIES.filter((s) => (type === 'all' || s.type === type) && (!ql || s.name[lang].toLowerCase().includes(ql) || s.latin.toLowerCase().includes(ql))).sort((a, b) => a.name[lang].localeCompare(b.name[lang]));
-  }, [q, type, lang]);
+    return SPECIES.filter((s) => {
+      if (type !== 'all' && s.type !== type) return false;
+      if (ql && !s.name[lang].toLowerCase().includes(ql) && !s.latin.toLowerCase().includes(ql)) return false;
+      if (!flowers) return true;
+      const fl = FLOWER_INFO[s.id];
+      if (!fl) return false;
+      if (group !== 'all' && flowerGroup(s.life, fl.bulb) !== group) return false;
+      if (color !== 'all' && !fl.colors.includes(color)) return false;
+      if (inBloom && !fl.bloom.some(([a, b]) => (a <= b ? month >= a && month <= b : month >= a || month <= b))) return false;
+      return true;
+    }).sort((a, b) => a.name[lang].localeCompare(b.name[lang]));
+  }, [q, type, lang, flowers, group, color, inBloom, month]);
   return (
     <Card title={tt('catalog.title', { n: SPECIES.length })}>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt('catalog.search')} aria-label={tt('catalog.search')} className="field w-full rounded px-2.5 py-2 text-sm outline-none" style={{ background: 'var(--color-paper-200)', boxShadow: 'inset 0 0 0 1px var(--color-paper-300)' }} />
@@ -63,6 +84,34 @@ function SpeciesList() {
           </Chip>
         ))}
       </div>
+      {flowers && (
+        <div className="mt-2 space-y-1.5 rounded p-2" style={{ background: 'var(--color-paper-200)' }}>
+          <div className="flex flex-wrap gap-1.5">
+            {(['all', ...FLOWER_GROUPS] as Array<FlowerGroup | 'all'>).map((g) => (
+              <Chip key={g} active={group === g} onClick={() => setGroup(g)}>
+                {tt(`flowerGroup.${g}` as JKey)}
+              </Chip>
+            ))}
+            <Chip active={inBloom} onClick={() => setInBloom((v) => !v)}>
+              🌸 {tt('flowerGroup.inBloom')}
+            </Chip>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Chip active={color === 'all'} onClick={() => setColor('all')}>
+              {tt('flowerGroup.anyColor')}
+            </Chip>
+            {FLOWER_COLORS.map((c) => (
+              <Chip key={c} active={color === c} onClick={() => setColor(c)}>
+                <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: COLOR_HEX[c], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.2)' }} />
+                {tt(`color.${c}` as JKey)}
+              </Chip>
+            ))}
+          </div>
+          <p className="text-[11px]" style={{ color: INK500 }}>
+            {tt('flowerGroup.count', { n: list.length })}
+          </p>
+        </div>
+      )}
       <div className="mt-3">
         {list.length === 0 ? (
           <Empty>{tt('catalog.none')}</Empty>

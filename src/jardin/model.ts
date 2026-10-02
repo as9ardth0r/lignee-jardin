@@ -38,7 +38,32 @@ export type Family =
   | 'caryophyllaceae'
   | 'liliaceae'
   | 'iridaceae'
-  | 'paeoniaceae';
+  | 'paeoniaceae'
+  | 'cleomaceae'
+  | 'plumbaginaceae'
+  | 'campanulaceae'
+  | 'verbenaceae'
+  | 'limnanthaceae'
+  | 'onagraceae'
+  | 'acanthaceae'
+  | 'portulacaceae'
+  | 'nyctaginaceae'
+  | 'balsaminaceae'
+  | 'begoniaceae'
+  | 'scrophulariaceae'
+  | 'polemoniaceae'
+  | 'asphodelaceae'
+  | 'crassulaceae'
+  | 'geraniaceae'
+  | 'lythraceae'
+  | 'primulaceae'
+  | 'apocynaceae'
+  | 'alstroemeriaceae'
+  | 'hydrangeaceae'
+  | 'asparagaceae'
+  | 'cannaceae'
+  | 'araceae'
+  | 'colchicaceae';
 
 export const FAMILIES: Family[] = [
   'solanaceae',
@@ -66,6 +91,31 @@ export const FAMILIES: Family[] = [
   'liliaceae',
   'iridaceae',
   'paeoniaceae',
+  'cleomaceae',
+  'plumbaginaceae',
+  'campanulaceae',
+  'verbenaceae',
+  'limnanthaceae',
+  'onagraceae',
+  'acanthaceae',
+  'portulacaceae',
+  'nyctaginaceae',
+  'balsaminaceae',
+  'begoniaceae',
+  'scrophulariaceae',
+  'polemoniaceae',
+  'asphodelaceae',
+  'crassulaceae',
+  'geraniaceae',
+  'lythraceae',
+  'primulaceae',
+  'apocynaceae',
+  'alstroemeriaceae',
+  'hydrangeaceae',
+  'asparagaceae',
+  'cannaceae',
+  'araceae',
+  'colchicaceae',
 ];
 
 /** Type de culture : décide la répartition des besoins par stade. */

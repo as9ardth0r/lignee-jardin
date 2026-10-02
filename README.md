@@ -261,10 +261,16 @@ saison / de conservation ; radis de tous les mois / d'hiver
 
 ## Les fleurs
 
-Le catalogue compte **38 fleurs** à côté des 42 légumes : annuelles
+Le catalogue compte **141 fleurs** à côté des 42 légumes : annuelles
 (cosmos, zinnia, souci, capucine, bleuet, nigelle, pois de senteur,
-muflier, tournesol…), bisannuelles et vivaces, bulbes et tubercules
-(tulipe, narcisse, dahlia, glaïeul, lis…). Chaque fiche donne la
+muflier, tournesol, célosie, statice, ipomée, coquelicot…), engrais verts
+fleuris (phacélie, sarrasin, trèfle incarnat), bisannuelles, vivaces et
+arbustes à fleurs (delphinium, lupin, hellébore, phlox, hémérocalle,
+hortensia, arbre aux papillons…), plantes de balcon (géranium,
+bégonia, impatiens, fuchsia), bulbes et tubercules (tulipe, narcisse,
+jacinthe, muscari, perce-neige, renoncule, dahlia, balisier, muguet…).
+Dans le catalogue, l’onglet Fleurs se filtre par groupe (annuelles,
+bisannuelles, vivaces, bulbes), par couleur et « en fleur ce mois-ci ». Chaque fiche donne la
 floraison (à la place de la récolte), les couleurs, les usages
 (bouquet, mellifère, comestible, séchage…), la hauteur, la toxicité
 éventuelle et deux rappels propres aux fleurs : couper les fleurs

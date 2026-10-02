@@ -67,8 +67,8 @@ const data = (over: Partial<GardenData>): GardenData => ({ ...EMPTY_DATA, settin
 
 // --- Catalogue ------------------------------------------------------------
 
-test('catalogue : 42 légumes et 38 fleurs, identifiants uniques', () => {
-  ok(VEGETABLES.length === 42 && FLOWERS.length === 38 && SPECIES.length === 80, `${VEGETABLES.length} + ${FLOWERS.length} espèces`);
+test('catalogue : 42 légumes et 141 fleurs, identifiants uniques', () => {
+  ok(VEGETABLES.length === 42 && FLOWERS.length === 141 && SPECIES.length === 183, `${VEGETABLES.length} + ${FLOWERS.length} espèces`);
   ok(new Set(SPECIES.map((s) => s.id)).size === SPECIES.length, 'doublon');
 });
 
@@ -1010,6 +1010,9 @@ test('fleurs : fiches complètes', () => {
   }
   ok(COMPANIONS.every((c) => SPECIES_BY_ID[c.a] && SPECIES_BY_ID[c.b]), 'associations : espèces connues');
   ok(Boolean(FLOWER_INFO.foxglove.toxic && FLOWER_INFO.daffodil.toxic && FLOWER_INFO.lily.toxic && FLOWER_INFO.sweetpea.toxic), 'toxicité signalée');
+  ok(['colchicum', 'lilyofthevalley', 'delphinium', 'hellebore', 'daylily'].every((id) => FLOWER_INFO[id]?.toxic), 'toxicité des nouvelles fleurs');
+  ok(['tulip', 'dahlia', 'hyacinth', 'canna', 'ranunculus'].every((id) => FLOWER_INFO[id]?.bulb), 'bulbes repérés');
+  ok(FLOWERS.every((f) => FLOWER_INFO[f.id].lift === undefined || f.frost !== 'hardy'), 'à rentrer : seulement des fleurs gélives');
 });
 
 test('fleurs : floraison, rappels et besoins', () => {

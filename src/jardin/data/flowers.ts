@@ -13,6 +13,7 @@
  * plantes, toxicité), ANSES (plantes toxiques), Centre antipoison.
  */
 import type { Family, Feeding, Frost, MonthRange, Species, SpeciesExtra, Sun, Txt } from '../model';
+import { MORE_FLOWER_DEFS, MORE_FLOWER_EXTRA } from './flowersMore';
 
 export type FlowerColor = 'white' | 'yellow' | 'orange' | 'red' | 'pink' | 'purple' | 'blue';
 export const FLOWER_COLORS: FlowerColor[] = ['white', 'yellow', 'orange', 'red', 'pink', 'purple', 'blue'];
@@ -31,8 +32,8 @@ export const COLOR_HEX: Record<FlowerColor, string> = {
  * (syrphes, chrysopes, coccinelles), compagne du potager, comestible,
  * fleur à couper, fleur séchée, parfumée, se ressème seule, engrais vert.
  */
-export type FlowerUse = 'pollinators' | 'beneficials' | 'companion' | 'edible' | 'cut' | 'dried' | 'fragrant' | 'selfSeeds' | 'greenManure';
-export const FLOWER_USES: FlowerUse[] = ['pollinators', 'beneficials', 'companion', 'edible', 'cut', 'dried', 'fragrant', 'selfSeeds', 'greenManure'];
+export type FlowerUse = 'pollinators' | 'beneficials' | 'companion' | 'edible' | 'cut' | 'dried' | 'fragrant' | 'selfSeeds' | 'greenManure' | 'pots';
+export const FLOWER_USES: FlowerUse[] = ['pollinators', 'beneficials', 'companion', 'edible', 'cut', 'dried', 'fragrant', 'selfSeeds', 'greenManure', 'pots'];
 
 export interface FlowerInfo {
   /** Mois de floraison (région parisienne), décalés selon le climat comme le reste du calendrier. */
@@ -47,7 +48,11 @@ export interface FlowerInfo {
   lift?: boolean;
   /** Plante toxique : précaution à afficher. */
   toxic?: Txt;
+  /** Bulbe, corme, griffe ou tubercule (filtre « bulbes »). */
+  bulb?: boolean;
 }
+
+export type FlowerDef = Def;
 
 interface Def {
   id: string;
@@ -355,7 +360,7 @@ const DEFS: Def[] = [
     tBase: 3, pH: [6, 7.5], spacing: [15, 10], plantOut: [[10, 11]],
     bloomDays: [150, 190], season: 230, feeding: 'light', root: 0.2, returnYears: 3,
     note: T('Planter à 2-3 fois la hauteur du bulbe. Après floraison, laisser jaunir le feuillage 6 semaines avant de couper : il nourrit le bulbe de l’an prochain.', 'Plant at 2–3 times the bulb’s height. After flowering, let the foliage yellow for 6 weeks before cutting: it feeds next year’s bulb.'),
-    info: {
+    info: { bulb: true,
       bloom: [[3, 5]], height: [20, 60], colors: ['red', 'yellow', 'pink', 'white', 'purple', 'orange'], uses: ['cut'],
       toxic: T('Bulbe toxique et irritant pour la peau (« doigt des tulipiers »).', 'Bulb toxic and irritating to skin (“tulip fingers”).'),
     },
@@ -365,7 +370,7 @@ const DEFS: Def[] = [
     tBase: 3, pH: [6, 7.5], spacing: [15, 12], plantOut: [[9, 10]],
     bloomDays: [150, 200], season: 240, feeding: 'light', root: 0.2,
     note: T('Se naturalise dans l’herbe et revient chaque année. Les rongeurs n’y touchent pas.', 'Naturalises in grass and returns every year. Rodents leave it alone.'),
-    info: {
+    info: { bulb: true,
       bloom: [[2, 4]], height: [15, 50], colors: ['yellow', 'white', 'orange'], uses: ['cut', 'fragrant'],
       toxic: T('TOXIQUE : bulbe confondu avec un oignon, intoxications fréquentes. Ne pas le stocker avec les oignons. Sa sève irrite la peau et fane les autres fleurs du vase.', 'TOXIC: the bulb is mistaken for an onion, poisonings are common. Never store it with onions. Its sap irritates skin and wilts other flowers in a vase.'),
     },
@@ -375,42 +380,42 @@ const DEFS: Def[] = [
     tBase: 2, pH: [6, 7.5], spacing: [10, 8], plantOut: [[9, 10]],
     bloomDays: [130, 180], season: 220, feeding: 'light', root: 0.15,
     note: T('Première nourriture des abeilles en fin d’hiver. À planter en masse dans la pelouse.', 'The first food for bees at winter’s end. Plant in drifts in the lawn.'),
-    info: { bloom: [[2, 3]], height: [8, 12], colors: ['purple', 'white', 'yellow'], uses: ['pollinators'] },
+    info: { bulb: true, bloom: [[2, 3]], height: [8, 12], colors: ['purple', 'white', 'yellow'], uses: ['pollinators'] },
   },
   {
     id: 'ornamentalallium', name: T('Ail d’ornement', 'Ornamental onion'), latin: 'Allium giganteum, A. hollandicum', emoji: '💜', family: 'amaryllidaceae', life: 'perennial', sun: 'full', frost: 'hardy',
     tBase: 3, pH: [6, 7.5], spacing: [30, 25], plantOut: [[9, 10]],
     bloomDays: [220, 260], season: 280, feeding: 'light', root: 0.3, returnYears: 3,
     note: T('Boules violettes très mellifères. Même famille que l’ail et l’oignon : il compte dans leur rotation (pourriture blanche).', 'Purple globes loved by bees. Same family as garlic and onion: it counts in their rotation (white rot).'),
-    info: { bloom: [[5, 6]], height: [60, 120], colors: ['purple', 'white'], uses: ['pollinators', 'cut', 'dried'] },
+    info: { bulb: true, bloom: [[5, 6]], height: [60, 120], colors: ['purple', 'white'], uses: ['pollinators', 'cut', 'dried'] },
   },
   {
     id: 'dahlia', name: T('Dahlia', 'Dahlia'), latin: 'Dahlia', emoji: '🌺', family: 'asteraceae', life: 'perennial', sun: 'full', frost: 'tender',
     tBase: 8, pH: [6, 7.5], spacing: [80, 60], plantOut: [[4, 5]],
     bloomDays: [80, 170], season: 180, feeding: 'heavy', root: 0.5,
     note: T('Tubercules plantés après les dernières gelées, tuteurés. Arroser et nourrir en été. Rentrer les tubercules à l’abri du gel en automne.', 'Tubers planted after the last frosts, staked. Water and feed in summer. Lift the tubers before frost in autumn.'),
-    info: { bloom: [[7, 10]], height: [40, 150], colors: ['red', 'pink', 'orange', 'yellow', 'white', 'purple'], uses: ['cut', 'pollinators'], deadhead: true, lift: true },
+    info: { bulb: true, bloom: [[7, 10]], height: [40, 150], colors: ['red', 'pink', 'orange', 'yellow', 'white', 'purple'], uses: ['cut', 'pollinators'], deadhead: true, lift: true },
   },
   {
     id: 'gladiolus', name: T('Glaïeul', 'Gladiolus'), latin: 'Gladiolus', emoji: '🌸', family: 'iridaceae', life: 'perennial', sun: 'full', frost: 'tender',
     tBase: 8, pH: [6, 7.5], spacing: [30, 15], plantOut: [[4, 6]],
     bloomDays: [90, 120], season: 150, feeding: 'medium', root: 0.3,
     note: T('Planter en plusieurs fois (toutes les 2 semaines) pour étaler la floraison. Rentrer les bulbes en automne.', 'Plant in batches (every 2 weeks) to spread flowering. Lift the corms in autumn.'),
-    info: { bloom: [[7, 9]], height: [80, 120], colors: ['red', 'pink', 'white', 'yellow', 'orange', 'purple'], uses: ['cut'], lift: true },
+    info: { bulb: true, bloom: [[7, 9]], height: [80, 120], colors: ['red', 'pink', 'white', 'yellow', 'orange', 'purple'], uses: ['cut'], lift: true },
   },
   {
     id: 'lily', name: T('Lys', 'Lily'), latin: 'Lilium', emoji: '🌸', family: 'liliaceae', life: 'perennial', sun: 'full', frost: 'hardy',
     tBase: 5, pH: [6, 7], spacing: [30, 20], plantOut: [[10, 11], [3, 4]],
     bloomDays: [230, 270], season: 290, feeding: 'medium', root: 0.4,
     note: T('Tête au soleil, pied à l’ombre. Surveiller le criocère (petit coléoptère rouge) qui dévore les feuilles.', 'Head in the sun, feet in the shade. Watch for the lily beetle (small red beetle) that eats the leaves.'),
-    info: {
+    info: { bulb: true,
       bloom: [[6, 8]], height: [60, 150], colors: ['white', 'pink', 'orange', 'yellow', 'red'], uses: ['cut', 'fragrant'],
       toxic: T('MORTEL POUR LES CHATS (même le pollen ou l’eau du vase). Couper les étamines pour les bouquets.', 'DEADLY TO CATS (even pollen or vase water). Remove stamens for bouquets.'),
     },
   },
 ];
 
-const BUILT = DEFS.map(flower);
+const BUILT = [...DEFS, ...MORE_FLOWER_DEFS].map(flower);
 export const FLOWERS: Species[] = BUILT.map((b) => b.species);
 export const FLOWER_INFO: Record<string, FlowerInfo> = Object.fromEntries(BUILT.map((b) => [b.species.id, b.info]));
 
@@ -433,6 +438,7 @@ const x = (seedLife: number, pollination: SpeciesExtra['pollination'], isolation
 
 /** Garder ses graines de fleurs : fidélité, isolement, récolte. Ordres de grandeur des guides de semences au jardin. */
 export const FLOWER_EXTRA: Record<string, SpeciesExtra> = {
+  ...MORE_FLOWER_EXTRA,
   cosmos: x(3, 'insect', 200, 'mostly', 'Récolter les graines noires en aiguilles quand elles se détachent du cœur sec. Les couleurs se mélangent entre variétés voisines.', 'Collect the black needle-like seeds once they come away from the dry centre. Colours mix between neighbouring varieties.'),
   zinnia: x(4, 'insect', 200, 'mostly', 'Laisser sécher la fleur sur pied ; les graines sont à la base des pétales. Les séries naines « Profusion » sont des F1 stériles.', 'Let the flower dry on the plant; seeds sit at the base of the petals. Dwarf “Profusion” series are sterile F1s.', true),
   calendula: x(5, 'insect', 50, 'mostly', 'Graines en croissant à récolter brunes et sèches ; il se ressème de lui-même.', 'Crescent-shaped seeds, collect brown and dry; it self-seeds anyway.'),
