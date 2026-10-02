@@ -21,7 +21,7 @@
  */
 import type { GardenData, ISODate, Plant, Species, StageId } from '../model';
 import { addDays, diffDays } from './dates';
-import { isPlanted, shiftWindows, speciesOf, varietyScale, type StageInfo, type StageState } from './crop';
+import { isPerennialCrop, isPlanted, shiftWindows, speciesOf, varietyScale, type StageInfo, type StageState } from './crop';
 import { ORCHARD_MONTHS } from '../data/orchard';
 import { activeWeather, normalDay, tempsOn } from './weather';
 
@@ -274,7 +274,7 @@ export function timeline(plant: Plant, data: GardenData, today: ISODate): Timeli
     let y = Math.max(Number(harvestFrom.slice(0, 4)), Number(today.slice(0, 4)));
     if (today > win(y)[1]) y++;
     [harvestFrom, harvestTo] = win(y);
-  } else if (sp.life === 'perennial' && plant.status !== 'planned' && today > harvestTo) {
+  } else if (isPerennialCrop(sp) && plant.status !== 'planned' && today > harvestTo) {
     const k = Math.ceil(diffDays(harvestTo, today) / 365);
     harvestFrom = addDays(harvestFrom, 365 * k);
     harvestTo = addDays(harvestTo, 365 * k);

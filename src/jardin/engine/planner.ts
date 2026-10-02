@@ -14,7 +14,7 @@ import { companionsOf } from '../data/speciesExtra';
 import { SPECIES_BY_ID } from '../data/species';
 import type { Bed, ClimateId, GardenData, ISODate, MonthRange, Plant, SeasonPlan, Species, Wish } from '../model';
 import { addDays, diffDays, yearOf } from './dates';
-import { cropCalendar, isPlanted, plantArea, plantsForArea } from './crop';
+import { cropCalendar, isPerennialCrop, isPlanted, plantArea, plantsForArea } from './crop';
 import { rotationWarning } from './rotation';
 import { phMismatches, soilFor } from './soil';
 import { bedSun, DEFAULT_LAT, sunMismatch } from './sun';
@@ -184,7 +184,7 @@ export function planSeason(data: GardenData, plan: SeasonPlan): PlanResult {
     .filter((b) => b.kind !== 'hydro')
     .map((bed) => {
       // Les vivaces en place gardent leur surface.
-      const perennial = data.plants.filter((p) => p.bedId === bed.id && p.status !== 'ended' && SPECIES_BY_ID[p.speciesId]?.life === 'perennial').reduce((s, p) => s + plantArea(p), 0);
+      const perennial = data.plants.filter((p) => p.bedId === bed.id && p.status !== 'ended' && isPerennialCrop(SPECIES_BY_ID[p.speciesId] ?? { life: 'annual', type: 'leaf' })).reduce((s, p) => s + plantArea(p), 0);
       return { bed, area: bedArea(bed), used: perennial, exposure: bedSun(bed, data.obstacles, lat, data.settings.planNorth).exposure, prev: previousCrop(bed.id, data.plants, year), assigned: [] };
     });
   const crops: PlannedCrop[] = [];
@@ -301,7 +301,7 @@ function cropDatesSpread(sp: Species, climate: ClimateId, year: number, f: numbe
 export function wishesFromYear(data: GardenData, year: number): Wish[] {
   const m = new Map<string, number>();
   for (const p of data.plants) {
-    if (yearOf(p.sowDate) !== year || SPECIES_BY_ID[p.speciesId]?.life === 'perennial') continue;
+    if (yearOf(p.sowDate) !== year || isPerennialCrop(SPECIES_BY_ID[p.speciesId] ?? { life: 'annual', type: 'leaf' })) continue;
     m.set(p.speciesId, (m.get(p.speciesId) ?? 0) + plantArea(p));
   }
   return [...m.entries()].map(([speciesId, area]) => ({ speciesId, area: Math.round(area * 10) / 10, sowings: ['lettuce', 'radish', 'spinach', 'rocket', 'carrot', 'bean'].includes(speciesId) ? 3 : 1 }));

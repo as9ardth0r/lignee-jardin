@@ -4,7 +4,8 @@ import { PRODUCT_BY_ID } from './data/products';
 import { SPECIES_BY_ID } from './data/species';
 import { uid, type Bed, type BedKind, type Obstacle, type ObstacleKind, type Texture } from './model';
 import { bedSun, DEFAULT_LAT, shadowPolygon, sunMismatch, sunPosition } from './engine/sun';
-import { isActiveOn } from './engine/crop';
+import { isActiveOn, speciesOf } from './engine/crop';
+import { bedCropsOfYear, bedGroupOfYear, bedRotationIssues, rotationGroup, ROTATION_COLOR, ROTATION_GROUPS, type RotationGroup } from './engine/rotation';
 import { bedArea, waterAdvice, WATER_THRESHOLD, type WaterAdvice, type WaterDay } from './engine/water';
 import type { TT } from './i18n';
 import { fmtDate, fmtG, fmtL, fmtNum, plantTitle } from './format';
@@ -90,7 +91,7 @@ function PlanSize() {
 type DragTarget = { kind: 'bed' | 'obs'; id: string; dx: number; dy: number; moved: boolean };
 
 /** Plan du jardin : planches et obstacles déplaçables au doigt (pas de 10 cm), ombres portées. */
-function GardenPlan({ sun }: { sun: { doy: number; hour: number } | null }) {
+function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } | null; rotationYear: number | null }) {
   const { data, saveBed, saveObstacle, today } = useGarden();
   const { tt, lang } = useJT();
   const nav = useNav();
@@ -178,7 +179,10 @@ function GardenPlan({ sun }: { sun: { doy: number; hour: number } | null }) {
         {grid}
         {data.beds.map((b) => {
           const { x, y } = pos(b);
-          const c = BED_FILL[b.kind];
+          const base = BED_FILL[b.kind];
+          const group = rotationYear !== null ? bedGroupOfYear(b.id, data.plants, rotationYear) : null;
+          const issue = rotationYear !== null && bedRotationIssues(b.id, data.plants, rotationYear).length > 0;
+          const c = rotationYear === null ? base : group ? { fill: ROTATION_COLOR[group], stroke: '#2a2a22' } : { fill: '#5a5448', stroke: '#3a362e' };
           const emojis = [...new Set(data.plants.filter((p) => p.bedId === b.id && isActiveOn(p, today)).map((p) => SPECIES_BY_ID[p.speciesId]?.emoji))].slice(0, 4).join('');
           // Nom lisible même sur un grand terrain ; écrit dans le sens de la longueur pour une planche étroite.
           const vertical = b.h > b.w * 2.5;
@@ -189,10 +193,11 @@ function GardenPlan({ sun }: { sun: { doy: number; hour: number } | null }) {
           const tcy = y + b.h / 2;
           return (
             <g key={b.id} onPointerDown={(e) => onDown(e, 'bed', b)} style={{ cursor: 'grab' }}>
-              <rect x={x} y={y} width={b.w} height={b.h} rx={b.kind === 'pot' ? Math.min(b.w, b.h) / 2 : 0.08} fill={c.fill} fillOpacity={b.kind === 'greenhouse' ? 0.35 : 1} stroke={c.stroke} strokeWidth={0.05} />
+              <rect x={x} y={y} width={b.w} height={b.h} rx={b.kind === 'pot' ? Math.min(b.w, b.h) / 2 : 0.08} fill={c.fill} fillOpacity={b.kind === 'greenhouse' && rotationYear === null ? 0.35 : 1} stroke={issue ? '#ff3b2f' : c.stroke} strokeWidth={issue ? Math.max(0.08, planW / 250) : 0.05} strokeDasharray={issue ? '0.25 0.12' : undefined} />
               {b.mulch && <rect x={x + 0.06} y={y + 0.06} width={Math.max(0, b.w - 0.12)} height={Math.max(0, b.h - 0.12)} rx={0.05} fill="none" stroke="#e8d79a" strokeWidth={0.03} strokeDasharray="0.12 0.08" />}
               <g transform={vertical ? `rotate(-90 ${tcx} ${tcy})` : undefined}>
-                <text x={tcx} y={tcy - (emojis ? fs * 0.25 : -fs * 0.35)} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', fontWeight: 600 }}>
+                <text x={tcx} y={tcy - (emojis ? fs * 0.25 : -fs * 0.35)} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', fontWeight: 600, paintOrder: 'stroke', stroke: 'rgba(0,0,0,.35)', strokeWidth: fs * 0.08 }}>
+                  {issue ? '⚠ ' : ''}
                   {b.name}
                 </text>
                 {emojis && (
@@ -266,6 +271,8 @@ export function GardenView() {
   const { tt, lang } = useJT();
   const nav = useNav();
   const [showSun, setShowSun] = useState(false);
+  const thisYear = Number(today.slice(0, 4));
+  const [rotYear, setRotYear] = useState<number | null>(null);
   const [doy, setDoy] = useState(172);
   const [hour, setHour] = useState(16);
   const sunInfo = useBedSun();
@@ -309,7 +316,8 @@ export function GardenView() {
         }
       >
         <PlanSize />
-        <GardenPlan sun={showSun ? { doy, hour } : null} />
+        <GardenPlan sun={showSun ? { doy, hour } : null} rotationYear={rotYear} />
+        <RotationPanel year={rotYear} thisYear={thisYear} onYear={setRotYear} />
         <div className="mt-3 rounded px-3 py-2" style={{ background: 'var(--color-paper-200)' }}>
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" checked={showSun} onChange={(e) => setShowSun(e.target.checked)} /> ☀ {tt('garden.shadows')}
@@ -369,6 +377,98 @@ export function GardenView() {
       <SoilCard />
       <SensorsCard />
     </div>
+  );
+}
+
+// --- Rotation -------------------------------------------------------------------------
+
+function RotationPanel({ year, thisYear, onYear }: { year: number | null; thisYear: number; onYear: (y: number | null) => void }) {
+  const { data } = useGarden();
+  const { tt, lang } = useJT();
+  const years = [thisYear - 3, thisYear - 2, thisYear - 1, thisYear, thisYear + 1];
+  const present = new Set<RotationGroup>();
+  if (year !== null) for (const b of data.beds) for (const p of bedCropsOfYear(b.id, data.plants, year)) present.add(rotationGroup(speciesOf(p)));
+  const issues = year !== null ? data.beds.flatMap((b) => bedRotationIssues(b.id, data.plants, year).map((i) => ({ bed: b, ...i }))) : [];
+  return (
+    <div className="mt-3 rounded px-3 py-2" style={{ background: 'var(--color-paper-200)' }}>
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" checked={year !== null} onChange={(e) => onYear(e.target.checked ? thisYear : null)} /> 🔄 {tt('rot.title')}
+      </label>
+      {year !== null && (
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {years.map((y) => (
+              <Chip key={y} active={year === y} onClick={() => onYear(y)}>
+                {y}
+              </Chip>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]" style={{ color: INK700 }}>
+            {ROTATION_GROUPS.filter((g) => present.has(g)).map((g) => (
+              <span key={g} className="flex items-center gap-1">
+                <span className="inline-block h-3 w-3 rounded-sm" style={{ background: ROTATION_COLOR[g] }} />
+                {tt(`rot.group.${g}` as JKey)}
+              </span>
+            ))}
+            {present.size === 0 && <span>{tt('rot.empty')}</span>}
+          </div>
+          {issues.map((i) => (
+            <Notice key={i.plant.id} tone="warn">
+              {tt('rot.issue', { bed: i.bed.name, crop: speciesOf(i.plant).name[lang], prev: speciesOf(i.warning.previous).name[lang], years: i.warning.years, wanted: i.warning.wanted })}
+            </Notice>
+          ))}
+          <p className="text-[11px] leading-snug" style={{ color: INK500 }}>
+            {tt('rot.hint')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Historique de la planche sur 4 ans, par groupe de rotation. */
+function BedHistory({ bedId }: { bedId: string }) {
+  const { data, today } = useGarden();
+  const { tt, lang } = useJT();
+  const y0 = Number(today.slice(0, 4));
+  const years = [y0 + 1, y0, y0 - 1, y0 - 2, y0 - 3];
+  const rows = years.map((y) => ({ y, plants: bedCropsOfYear(bedId, data.plants, y) })).filter((r) => r.plants.length || r.y === y0);
+  const issues = bedRotationIssues(bedId, data.plants, y0).concat(bedRotationIssues(bedId, data.plants, y0 + 1));
+  return (
+    <section>
+      <h3 className="mb-1 font-display text-lg">🔄 {tt('rot.history')}</h3>
+      <ul className="space-y-1 text-sm">
+        {rows.map((r) => (
+          <li key={r.y} className="flex items-start gap-2">
+            <span className="w-12 shrink-0 font-medium">{r.y}</span>
+            <span className="flex flex-wrap gap-1">
+              {r.plants.length === 0 ? (
+                <span style={{ color: INK500 }}>{tt('rot.none')}</span>
+              ) : (
+                [...new Set(r.plants.map((p) => p.speciesId))].map((id) => {
+                  const p = r.plants.find((x) => x.speciesId === id)!;
+                  const sp = speciesOf(p);
+                  return (
+                    <span key={id} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs" style={{ background: 'var(--color-paper-300)' }}>
+                      <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: ROTATION_COLOR[rotationGroup(sp)] }} />
+                      {sp.emoji} {sp.name[lang]}
+                    </span>
+                  );
+                })
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {issues.map((i) => (
+        <div key={i.plant.id} className="mt-2">
+          <Notice tone="warn">{tt('rot.issueBed', { crop: speciesOf(i.plant).name[lang], prev: speciesOf(i.warning.previous).name[lang], years: i.warning.years, wanted: i.warning.wanted })}</Notice>
+        </div>
+      ))}
+      <p className="mt-1 text-[11px] leading-snug" style={{ color: INK500 }}>
+        {tt('rot.order')}
+      </p>
+    </section>
   );
 }
 
@@ -565,6 +665,8 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
             {tt('bed.area', { m2: fmtNum(bedArea(bed), lang, 1) })}
           </p>
         </section>
+
+        {bed.kind !== 'hydro' && <BedHistory bedId={bed.id} />}
 
         {sun && (
           <section>

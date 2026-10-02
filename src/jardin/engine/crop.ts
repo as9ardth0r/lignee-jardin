@@ -140,6 +140,11 @@ export function stageInfo(plant: Plant, today: ISODate, variety?: Pick<Variety, 
 }
 
 /** Une culture occupe-t-elle sa planche à cette date ? */
+/** Culture vivace qui reste en place d'une année sur l'autre (l'ail et l'échalote, vivaces botaniques, se cultivent en annuelles). */
+export function isPerennialCrop(sp: Pick<Species, 'life' | 'type'>): boolean {
+  return sp.life === 'perennial' && sp.type !== 'bulb';
+}
+
 export function isActiveOn(plant: Plant, date: ISODate): boolean {
   if (plant.status === 'planned') return false;
   if (plant.sowDate > date) return false;

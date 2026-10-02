@@ -9,6 +9,7 @@ import { FLOWERS, FLOWER_INFO, FLOWER_USES } from '../src/jardin/data/flowers';
 import { HERBS } from '../src/jardin/data/herbs';
 import { ORCHARD } from '../src/jardin/data/orchard';
 import { MORE_VEGETABLES } from '../src/jardin/data/vegMore';
+import { bedCropsOfYear, bedGroupOfYear, bedRotationIssues, rotationGroup } from '../src/jardin/engine/rotation';
 import { forecast as forecastRows } from '../src/jardin/engine/report';
 import { seasonNeed as needOf } from '../src/jardin/engine/nutrition';
 import { harvestProgress as hp } from '../src/jardin/engine/growth';
@@ -1030,6 +1031,19 @@ test('vivaces et fruitiers : la récolte revient chaque année', () => {
   ok(timeline(app, d, '2023-06-01').harvestFrom > '2025-01-01', 'pas de pommes la première année');
   const rt = timeline(rasp, d, '2026-08-05');
   ok(generateTasks(d, '2026-08-05').some((t) => t.kind === 'harvest' && t.plantId === 'o2'), `framboises en août, 2 ans après la plantation (${rt.harvestFrom} → ${rt.harvestTo})`);
+});
+
+test('rotation : couleurs du plan et ail après ail', () => {
+  const g1 = plant({ id: 'r1', speciesId: 'garlic', count: 40, sowDate: '2024-10-20', endDate: '2025-07-01', status: 'ended' });
+  const g2 = plant({ id: 'r2', speciesId: 'onion', count: 60, sowDate: '2026-10-10', status: 'planned' });
+  const t1 = plant({ id: 'r3', speciesId: 'tomato', count: 6, sowDate: '2024-03-01', endDate: '2024-10-01', status: 'ended' });
+  const ap = plant({ id: 'r4', speciesId: 'apple', count: 1, sowDate: '2023-12-01' });
+  const plants = [g1, g2, t1, ap];
+  ok(bedGroupOfYear('b1', [g1, g2, t1], 2024) === 'alliums' && bedGroupOfYear('b1', [t1], 2024) === 'solanaceae' && bedGroupOfYear('b1', [g1, g2, t1], 2026) === 'alliums', 'groupe dominant');
+  ok(rotationGroup(SPECIES_BY_ID.apple) === 'perennial' && rotationGroup(SPECIES_BY_ID.cosmos) === 'flowers' && rotationGroup(SPECIES_BY_ID.lettuce) === 'leafy', 'groupes');
+  ok(bedCropsOfYear('b1', plants, 2026).some((p) => p.id === 'r4'), 'le pommier compte chaque année');
+  const issues = bedRotationIssues('b1', plants, 2026);
+  ok(issues.length === 1 && issues[0].plant.id === 'r2' && issues[0].warning.previous.id === 'r1', `oignon après ail signalé (${issues.length})`);
 });
 
 test('fleurs : floraison, rappels et besoins', () => {
