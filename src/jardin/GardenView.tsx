@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { TEXTURES } from './data/climate';
 import { PRODUCT_BY_ID } from './data/products';
 import { SPECIES_BY_ID } from './data/species';
@@ -46,6 +46,46 @@ export const SUN_DAYS: Array<{ doy: number; key: 'march' | 'june' | 'sept' | 'de
   { doy: 266, key: 'sept' },
   { doy: 355, key: 'dec' },
 ];
+
+/** Taille maximale du terrain (m). */
+export const PLAN_MAX = 200;
+
+/** Agrandit le terrain si une planche ou un obstacle en dépasse (marge de 0,5 m). */
+function fitPlan(store: { data: { settings: { planW: number; planH: number } }; updateSettings: (p: { planW?: number; planH?: number }) => void }, it: { x: number; y: number; w: number; h: number }) {
+  const { planW, planH } = store.data.settings;
+  const needW = Math.min(PLAN_MAX, Math.ceil(it.x + it.w + 0.5));
+  const needH = Math.min(PLAN_MAX, Math.ceil(it.y + it.h + 0.5));
+  if (needW > planW || needH > planH) store.updateSettings({ planW: Math.max(planW, needW), planH: Math.max(planH, needH) });
+}
+
+/** Taille du terrain, réglable directement au-dessus du plan. */
+function PlanSize() {
+  const { data, updateSettings } = useGarden();
+  const { tt } = useJT();
+  const { planW, planH } = data.settings;
+  const items = [...data.beds, ...data.obstacles];
+  const minW = Math.max(2, ...items.map((b) => Math.ceil(b.x + b.w)));
+  const minH = Math.max(2, ...items.map((b) => Math.ceil(b.y + b.h)));
+  // Une planche qui dépasse du terrain (anciennes données, import) l'agrandit.
+  useEffect(() => {
+    if (minW > planW || minH > planH) updateSettings({ planW: Math.min(PLAN_MAX, Math.max(planW, minW)), planH: Math.min(PLAN_MAX, Math.max(planH, minH)) });
+  }, [minW, minH, planW, planH, updateSettings]);
+  const clamp = (v: string, min: number) => Math.max(min, Math.min(PLAN_MAX, Math.round(Number(v) || min)));
+  return (
+    <div className="mb-3 rounded p-3" style={{ background: 'var(--color-paper-200)' }}>
+      <p className="text-sm font-medium">📐 {tt('garden.size')}</p>
+      <div className="mt-2 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2 text-sm">
+        <TextInput type="number" value={planW} onChange={(v) => updateSettings({ planW: clamp(v, minW) })} />
+        <span>×</span>
+        <TextInput type="number" value={planH} onChange={(v) => updateSettings({ planH: clamp(v, minH) })} />
+        <span>m</span>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-snug" style={{ color: INK500 }}>
+        {tt('garden.sizeHint')}
+      </p>
+    </div>
+  );
+}
 
 type DragTarget = { kind: 'bed' | 'obs'; id: string; dx: number; dy: number; moved: boolean };
 
@@ -102,8 +142,10 @@ function GardenPlan({ sun }: { sun: { doy: number; hour: number } | null }) {
   const pos = (it: { id: string; x: number; y: number }) => (live?.id === it.id ? { x: live.x, y: live.y } : { x: it.x, y: it.y });
 
   const grid = [];
-  for (let x = 0; x <= planW; x++) grid.push(<line key={`x${x}`} x1={x} y1={0} x2={x} y2={planH} stroke="#3b5942" strokeWidth={0.02} />);
-  for (let y = 0; y <= planH; y++) grid.push(<line key={`y${y}`} x1={0} y1={y} x2={planW} y2={y} stroke="#3b5942" strokeWidth={0.02} />);
+  // Quadrillage : 1 m, trait plus marqué tous les 5 m (lisible sur un grand terrain).
+  const gw = (i: number) => (i % 5 === 0 ? Math.max(0.04, planW / 400) : 0.02);
+  for (let x = 0; x <= planW; x++) grid.push(<line key={`x${x}`} x1={x} y1={0} x2={x} y2={planH} stroke={x % 5 === 0 ? '#4f7458' : '#3b5942'} strokeWidth={gw(x)} />);
+  for (let y = 0; y <= planH; y++) grid.push(<line key={`y${y}`} x1={0} y1={y} x2={planW} y2={y} stroke={y % 5 === 0 ? '#4f7458' : '#3b5942'} strokeWidth={gw(y)} />);
 
   const sunPos = sun ? sunPosition(lat, sun.doy, sun.hour) : null;
   const obstaclesLive = data.obstacles.map((o) => ({ ...o, ...pos(o) }));
@@ -138,19 +180,27 @@ function GardenPlan({ sun }: { sun: { doy: number; hour: number } | null }) {
           const { x, y } = pos(b);
           const c = BED_FILL[b.kind];
           const emojis = [...new Set(data.plants.filter((p) => p.bedId === b.id && isActiveOn(p, today)).map((p) => SPECIES_BY_ID[p.speciesId]?.emoji))].slice(0, 4).join('');
-          const fs = Math.max(0.22, Math.min(0.42, Math.min(b.w, b.h) * 0.28));
+          // Nom lisible même sur un grand terrain ; écrit dans le sens de la longueur pour une planche étroite.
+          const vertical = b.h > b.w * 2.5;
+          const along = vertical ? b.h : b.w;
+          const across = vertical ? b.w : b.h;
+          const fs = Math.max(0.22, Math.min(0.42 * Math.max(1, Math.max(planW, planH) / 30), across * (emojis ? 0.4 : 0.7), (along * 0.9) / (0.6 * Math.max(4, b.name.length))));
+          const tcx = x + b.w / 2;
+          const tcy = y + b.h / 2;
           return (
             <g key={b.id} onPointerDown={(e) => onDown(e, 'bed', b)} style={{ cursor: 'grab' }}>
               <rect x={x} y={y} width={b.w} height={b.h} rx={b.kind === 'pot' ? Math.min(b.w, b.h) / 2 : 0.08} fill={c.fill} fillOpacity={b.kind === 'greenhouse' ? 0.35 : 1} stroke={c.stroke} strokeWidth={0.05} />
               {b.mulch && <rect x={x + 0.06} y={y + 0.06} width={Math.max(0, b.w - 0.12)} height={Math.max(0, b.h - 0.12)} rx={0.05} fill="none" stroke="#e8d79a" strokeWidth={0.03} strokeDasharray="0.12 0.08" />}
-              <text x={x + b.w / 2} y={y + b.h / 2 - (emojis ? fs * 0.25 : -fs * 0.35)} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', fontWeight: 600 }}>
-                {b.name}
-              </text>
-              {emojis && (
-                <text x={x + b.w / 2} y={y + b.h / 2 + fs * 0.95} textAnchor="middle" fontSize={fs * 0.9} style={{ pointerEvents: 'none' }}>
-                  {emojis}
+              <g transform={vertical ? `rotate(-90 ${tcx} ${tcy})` : undefined}>
+                <text x={tcx} y={tcy - (emojis ? fs * 0.25 : -fs * 0.35)} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', fontWeight: 600 }}>
+                  {b.name}
                 </text>
-              )}
+                {emojis && (
+                  <text x={tcx} y={tcy + fs * 0.95} textAnchor="middle" fontSize={fs * 0.9} style={{ pointerEvents: 'none' }}>
+                    {emojis}
+                  </text>
+                )}
+              </g>
             </g>
           );
         })}
@@ -258,6 +308,7 @@ export function GardenView() {
           </div>
         }
       >
+        <PlanSize />
         <GardenPlan sun={showSun ? { doy, hour } : null} />
         <div className="mt-3 rounded px-3 py-2" style={{ background: 'var(--color-paper-200)' }}>
           <label className="flex items-center gap-2 text-sm font-medium">
@@ -328,7 +379,11 @@ export function ObstacleSheet({ id, onClose }: { id: string; onClose: () => void
   const { tt } = useJT();
   const o = store.data.obstacles.find((x) => x.id === id);
   if (!o) return null;
-  const set = (patch: Partial<Obstacle>) => store.saveObstacle({ ...o, ...patch });
+  const set = (patch: Partial<Obstacle>) => {
+    const next = { ...o, ...patch };
+    store.saveObstacle(next);
+    fitPlan(store, next);
+  };
   const num = (v: string, min: number, max: number) => Math.max(min, Math.min(max, Number(v.replace(',', '.')) || min));
   return (
     <Sheet title={o.name || tt('obstacle.title')} onClose={onClose} closeLabel={tt('common.close')}>
@@ -338,8 +393,8 @@ export function ObstacleSheet({ id, onClose }: { id: string; onClose: () => void
           <Field label={tt('obstacle.kind')}>
             {(fid) => <Select id={fid} value={o.kind} onChange={(v) => set({ kind: v })} options={(['building', 'wall', 'tree', 'hedge'] as ObstacleKind[]).map((k) => ({ v: k, l: tt(`obstacleKind.${k}` as JKey) }))} />}
           </Field>
-          <Field label={tt('bed.w')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={o.w} onChange={(v) => set({ w: num(v, 0.1, 60) })} />}</Field>
-          <Field label={tt('bed.h')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={o.h} onChange={(v) => set({ h: num(v, 0.1, 60) })} />}</Field>
+          <Field label={tt('bed.w')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={o.w} onChange={(v) => set({ w: num(v, 0.1, PLAN_MAX) })} />}</Field>
+          <Field label={tt('bed.h')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={o.h} onChange={(v) => set({ h: num(v, 0.1, PLAN_MAX) })} />}</Field>
           <Field label={tt('obstacle.height')} hint={tt('obstacle.heightHint')}>
             {(fid) => <TextInput id={fid} type="number" step={0.5} value={o.height} onChange={(v) => set({ height: num(v, 0.2, 40) })} />}
           </Field>
@@ -446,11 +501,15 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
   const adv = useMemo(() => (bed ? waterAdvice(bed, data, today) : null), [bed, data, today]);
   const sunAll = useBedSun();
   if (!bed || !adv) return null;
-  const set = (patch: Partial<Bed>) => store.saveBed({ ...bed, ...patch });
+  const set = (patch: Partial<Bed>) => {
+    const next = { ...bed, ...patch };
+    store.saveBed(next);
+    fitPlan(store, next);
+  };
   const plants = data.plants.filter((p) => p.bedId === bed.id).sort((a, b) => b.sowDate.localeCompare(a.sowDate));
   const apps = data.applications.filter((a) => a.bedId === bed.id).sort((a, b) => b.date.localeCompare(a.date));
   const waters = data.water.filter((w) => w.bedId === bed.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
-  const num = (v: string) => Math.max(0.2, Math.min(50, Number(v.replace(',', '.')) || 0.2));
+  const num = (v: string) => Math.max(0.2, Math.min(PLAN_MAX, Number(v.replace(',', '.')) || 0.2));
   const sun = sunAll.get(bed.id);
   const mismatches = sun
     ? [...new Set(plants.filter((p) => p.status !== 'ended' && sunMismatch(SPECIES_BY_ID[p.speciesId].sun, sun.exposure)).map((p) => SPECIES_BY_ID[p.speciesId].name[lang]))]
@@ -479,6 +538,11 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
             )}
             <Field label={tt('bed.w')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={bed.w} onChange={(v) => set({ w: num(v) })} />}</Field>
             <Field label={tt('bed.h')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={bed.h} onChange={(v) => set({ h: num(v) })} />}</Field>
+            <div className="flex items-end">
+              <Button small kind="ghost" onClick={() => set({ w: bed.h, h: bed.w })}>
+                ↻ {tt('bed.rotate')}
+              </Button>
+            </div>
             {bed.kind !== 'hydro' && (
             <div className="flex flex-col justify-end gap-1.5 text-sm">
               <label className="flex items-center gap-2">

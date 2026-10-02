@@ -2,7 +2,7 @@
  * Briques d'interface communes (même registre que les apps Lignée :
  * fond « canopée », fiches papier, accents vert feuille et or résine).
  */
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 export const INK500 = 'var(--color-ink-500)';
 export const INK700 = 'var(--color-ink-700)';
@@ -82,17 +82,30 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 }
 
 export function TextInput({ id, value, onChange, placeholder, type = 'text', step, min, max }: { id?: string; value: string | number | undefined; onChange: (v: string) => void; placeholder?: string; type?: 'text' | 'number' | 'date'; step?: number; min?: number; max?: number }) {
+  // Champ numérique : on garde ce que l'utilisateur tape (champ vide, « 1 » avant « 15 », virgule…)
+  // et on ne transmet que des nombres complets ; la valeur enregistrée (éventuellement bornée)
+  // réapparaît quand on quitte le champ.
+  const [draft, setDraft] = useState<string | null>(null);
+  const isNum = type === 'number';
   return (
     <input
       id={id}
-      type={type}
-      value={value ?? ''}
+      type={isNum ? 'text' : type}
+      value={isNum && draft !== null ? draft : (value ?? '')}
       step={step}
       min={min}
       max={max}
       placeholder={placeholder}
-      inputMode={type === 'number' ? 'decimal' : undefined}
-      onChange={(e) => onChange(e.target.value)}
+      inputMode={isNum ? 'decimal' : undefined}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (!isNum) return onChange(v);
+        setDraft(v);
+        const n = v.trim().replace(',', '.');
+        if (n === '' || n.endsWith('.') || !Number.isFinite(Number(n))) return;
+        onChange(n);
+      }}
+      onBlur={() => setDraft(null)}
       className="field w-full rounded px-2.5 py-2 text-sm outline-none"
       style={fieldStyle}
     />

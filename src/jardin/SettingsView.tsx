@@ -168,8 +168,8 @@ export function SettingsView() {
             <div className="col-span-2">
               <Field label={tt('settings.name')}>{(fid) => <TextInput id={fid} value={s.gardenName} onChange={(v) => set({ gardenName: v })} />}</Field>
             </div>
-            <Field label={tt('settings.planW')}>{(fid) => <TextInput id={fid} type="number" value={s.planW} onChange={(v) => set({ planW: Math.max(2, Math.min(100, Number(v) || 2)) })} />}</Field>
-            <Field label={tt('settings.planH')}>{(fid) => <TextInput id={fid} type="number" value={s.planH} onChange={(v) => set({ planH: Math.max(2, Math.min(100, Number(v) || 2)) })} />}</Field>
+            <Field label={tt('settings.planW')}>{(fid) => <TextInput id={fid} type="number" value={s.planW} onChange={(v) => set({ planW: Math.max(2, Math.min(200, Number(v) || 2)) })} />}</Field>
+            <Field label={tt('settings.planH')}>{(fid) => <TextInput id={fid} type="number" value={s.planH} onChange={(v) => set({ planH: Math.max(2, Math.min(200, Number(v) || 2)) })} />}</Field>
             <div className="col-span-2 sm:col-span-4">
               <Field label={tt('settings.planNorth')}>
                 {(fid) => <Select id={fid} value={String(s.planNorth)} onChange={(v) => set({ planNorth: Number(v) })} options={[0, 90, 180, 270].map((d) => ({ v: String(d), l: tt(`north.${d}` as JKey) }))} />}
