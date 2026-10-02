@@ -259,6 +259,14 @@ saison / de conservation ; radis de tous les mois / d'hiver
   rappels de la culture. « Non précisé » garde le calendrier général de
   l'espèce.
 
+## Légumes complémentaires
+
+17 légumes s'ajoutent aux 42 de départ : vivaces du potager (artichaut,
+asperge, oseille, raifort, topinambour), cardon, céleri branche, chou
+chinois, pak-choï, pourpier, tétragone, pissenlit, physalis, gombo,
+scorsonère, haricot d'Espagne et pois chiche. Les vivaces retrouvent
+leur récolte chaque année (asperge : rien les deux premières années).
+
 ## Les aromatiques
 
 21 aromatiques s'ajoutent au basilic, au persil et à la ciboulette :

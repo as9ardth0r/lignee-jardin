@@ -70,7 +70,8 @@ export type Family =
   | 'actinidiaceae'
   | 'vitaceae'
   | 'moraceae'
-  | 'betulaceae';
+  | 'betulaceae'
+  | 'aizoaceae';
 
 export const FAMILIES: Family[] = [
   'solanaceae',
@@ -130,6 +131,7 @@ export const FAMILIES: Family[] = [
   'vitaceae',
   'moraceae',
   'betulaceae',
+  'aizoaceae',
 ];
 
 /** Type de culture : décide la répartition des besoins par stade. */

@@ -12,6 +12,7 @@ import type { SpeciesExtra } from '../model';
 import { FLOWER_EXTRA } from './flowers';
 import { HERB_EXTRA } from './herbs';
 import { ORCHARD_EXTRA } from './orchard';
+import { MORE_VEG_EXTRA } from './vegMore';
 
 const e = (seedLife: number, pollination: SpeciesExtra['pollination'], isolation: number, priceKg: number): SpeciesExtra => ({ seedLife, pollination, isolation, priceKg });
 
@@ -58,6 +59,7 @@ export const SPECIES_EXTRA: Record<string, SpeciesExtra> = {
   sweetpotato: e(1, 'vegetative', 0, 3),
   beet: e(5, 'wind', 1000, 2),
   chives: e(2, 'insect', 100, 20),
+  ...MORE_VEG_EXTRA,
   ...HERB_EXTRA,
   ...ORCHARD_EXTRA,
   ...FLOWER_EXTRA,
@@ -95,6 +97,8 @@ export const COMPANIONS: Companion[] = [
   { a: 'calendula', b: 'tomato', effect: 'good', evidence: 'some', why: { fr: 'Attire syrphes et coccinelles, prédateurs des pucerons.', en: 'Draws hoverflies and ladybirds, aphid predators.' } },
   { a: 'borage', b: 'strawberry', effect: 'good', evidence: 'tradition', why: { fr: 'Attire les bourdons : fraises mieux pollinisées, moins déformées.', en: 'Draws bumblebees: better-pollinated, less misshapen strawberries.' } },
   { a: 'borage', b: 'squash', effect: 'good', evidence: 'tradition', why: { fr: 'Plus de pollinisateurs autour des fleurs de courge.', en: 'More pollinators around squash flowers.' } },
+  { a: 'runnerbean', b: 'sweetcorn', effect: 'good', evidence: 'some', why: { fr: 'Le maïs sert de tuteur, le haricot laisse de l’azote ; prévoir un maïs vigoureux.', en: 'Maize acts as a pole, the bean leaves nitrogen; use a vigorous maize.' } },
+  { a: 'horseradish', b: 'potato', effect: 'good', evidence: 'tradition', why: { fr: 'Tradition : planté aux coins de la planche de pommes de terre ; à confiner, car envahissant.', en: 'Tradition: planted at the corners of the potato bed; keep it contained, it is invasive.' } },
   { a: 'chives', b: 'apple', effect: 'good', evidence: 'tradition', why: { fr: 'Tradition : la ciboulette au pied des pommiers limiterait la tavelure ; non démontré, mais elle fleurit pour les abeilles.', en: 'Tradition: chives at the foot of apple trees may limit scab; unproven, but it flowers for bees.' } },
   { a: 'phacelia', b: 'apple', effect: 'good', evidence: 'some', why: { fr: 'Bande fleurie au verger : plus d’auxiliaires contre les pucerons.', en: 'Flower strip in the orchard: more beneficial insects against aphids.' } },
   { a: 'dill', b: 'cabbage', effect: 'good', evidence: 'some', why: { fr: 'Ses ombelles nourrissent les petites guêpes parasites des chenilles et pucerons du chou.', en: 'Its umbels feed the small wasps parasitising cabbage caterpillars and aphids.' } },

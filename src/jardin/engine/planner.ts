@@ -52,7 +52,7 @@ export interface PlanResult {
 }
 
 /** Cultures de chaleur qui gagnent à être sous serre hors climat méditerranéen. */
-const HEAT_LOVERS = new Set(['tomato', 'eggplant', 'pepper', 'melon', 'cucumber', 'watermelon', 'sweetpotato', 'basil', 'lemongrass', 'stevia', 'shiso', 'marjoram']);
+const HEAT_LOVERS = new Set(['tomato', 'eggplant', 'pepper', 'melon', 'cucumber', 'watermelon', 'sweetpotato', 'basil', 'lemongrass', 'stevia', 'shiso', 'marjoram', 'okra', 'physalis', 'purslane', 'nzspinach']);
 /** Cultures rapides pour occuper une planche avant une plantation tardive. */
 export const CATCH_CROPS = ['radish', 'rocket', 'lettuce', 'spinach', 'turnip'];
 /** Surface maximale d'une culture dérobée (m²). */

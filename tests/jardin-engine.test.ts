@@ -8,6 +8,7 @@ import { SPECIES, SPECIES_BY_ID, VEGETABLES } from '../src/jardin/data/species';
 import { FLOWERS, FLOWER_INFO, FLOWER_USES } from '../src/jardin/data/flowers';
 import { HERBS } from '../src/jardin/data/herbs';
 import { ORCHARD } from '../src/jardin/data/orchard';
+import { MORE_VEGETABLES } from '../src/jardin/data/vegMore';
 import { forecast as forecastRows } from '../src/jardin/engine/report';
 import { seasonNeed as needOf } from '../src/jardin/engine/nutrition';
 import { harvestProgress as hp } from '../src/jardin/engine/growth';
@@ -69,8 +70,9 @@ const data = (over: Partial<GardenData>): GardenData => ({ ...EMPTY_DATA, settin
 
 // --- Catalogue ------------------------------------------------------------
 
-test('catalogue : 42 légumes, 21 aromatiques, 17 fruitiers et 141 fleurs, identifiants uniques', () => {
-  ok(VEGETABLES.length === 42 && HERBS.length === 21 && ORCHARD.length === 17 && FLOWERS.length === 141 && SPECIES.length === 221, `${VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
+test('catalogue : 59 légumes, 21 aromatiques, 17 fruitiers et 141 fleurs, identifiants uniques', () => {
+  ok(VEGETABLES.length + MORE_VEGETABLES.length === 59 && HERBS.length === 21 && ORCHARD.length === 17 && FLOWERS.length === 141 && SPECIES.length === 238, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
+  ok(MORE_VEGETABLES.every((v) => SPECIES_EXTRA[v.id]?.seedTip && MATURE_HEIGHT[v.id] > 0), 'nouveaux légumes : fiches complètes');
   ok(ORCHARD.every((f) => f.type === 'orchard' && f.life === 'perennial' && SPECIES_EXTRA[f.id]?.seedTip && MATURE_HEIGHT[f.id] > 0), 'fruitiers : fiches complètes');
   ok(HERBS.every((h) => h.type === 'herb' && SPECIES_EXTRA[h.id]?.seedTip && MATURE_HEIGHT[h.id] > 0), 'aromatiques : fiches complètes');
   ok(new Set(SPECIES.map((s) => s.id)).size === SPECIES.length, 'doublon');
