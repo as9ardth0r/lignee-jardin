@@ -6,6 +6,7 @@ import { CLIMATES, CLIMATE_IDS, AWC_MM_PER_CM } from '../src/jardin/data/climate
 import { PRODUCTS, PRODUCT_BY_ID } from '../src/jardin/data/products';
 import { SPECIES, SPECIES_BY_ID, VEGETABLES } from '../src/jardin/data/species';
 import { FLOWERS, FLOWER_INFO, FLOWER_USES } from '../src/jardin/data/flowers';
+import { HERBS } from '../src/jardin/data/herbs';
 import { forecast as forecastRows } from '../src/jardin/engine/report';
 import { seasonNeed as needOf } from '../src/jardin/engine/nutrition';
 import { harvestProgress as hp } from '../src/jardin/engine/growth';
@@ -67,8 +68,9 @@ const data = (over: Partial<GardenData>): GardenData => ({ ...EMPTY_DATA, settin
 
 // --- Catalogue ------------------------------------------------------------
 
-test('catalogue : 42 légumes et 141 fleurs, identifiants uniques', () => {
-  ok(VEGETABLES.length === 42 && FLOWERS.length === 141 && SPECIES.length === 183, `${VEGETABLES.length} + ${FLOWERS.length} espèces`);
+test('catalogue : 42 légumes, 21 aromatiques et 141 fleurs, identifiants uniques', () => {
+  ok(VEGETABLES.length === 42 && HERBS.length === 21 && FLOWERS.length === 141 && SPECIES.length === 204, `${VEGETABLES.length} + ${HERBS.length} + ${FLOWERS.length} espèces`);
+  ok(HERBS.every((h) => h.type === 'herb' && SPECIES_EXTRA[h.id]?.seedTip && MATURE_HEIGHT[h.id] > 0), 'aromatiques : fiches complètes');
   ok(new Set(SPECIES.map((s) => s.id)).size === SPECIES.length, 'doublon');
 });
 

@@ -10,6 +10,7 @@
  */
 import type { SpeciesExtra } from '../model';
 import { FLOWER_EXTRA } from './flowers';
+import { HERB_EXTRA } from './herbs';
 
 const e = (seedLife: number, pollination: SpeciesExtra['pollination'], isolation: number, priceKg: number): SpeciesExtra => ({ seedLife, pollination, isolation, priceKg });
 
@@ -56,6 +57,7 @@ export const SPECIES_EXTRA: Record<string, SpeciesExtra> = {
   sweetpotato: e(1, 'vegetative', 0, 3),
   beet: e(5, 'wind', 1000, 2),
   chives: e(2, 'insect', 100, 20),
+  ...HERB_EXTRA,
   ...FLOWER_EXTRA,
 };
 
@@ -91,6 +93,10 @@ export const COMPANIONS: Companion[] = [
   { a: 'calendula', b: 'tomato', effect: 'good', evidence: 'some', why: { fr: 'Attire syrphes et coccinelles, prédateurs des pucerons.', en: 'Draws hoverflies and ladybirds, aphid predators.' } },
   { a: 'borage', b: 'strawberry', effect: 'good', evidence: 'tradition', why: { fr: 'Attire les bourdons : fraises mieux pollinisées, moins déformées.', en: 'Draws bumblebees: better-pollinated, less misshapen strawberries.' } },
   { a: 'borage', b: 'squash', effect: 'good', evidence: 'tradition', why: { fr: 'Plus de pollinisateurs autour des fleurs de courge.', en: 'More pollinators around squash flowers.' } },
+  { a: 'dill', b: 'cabbage', effect: 'good', evidence: 'some', why: { fr: 'Ses ombelles nourrissent les petites guêpes parasites des chenilles et pucerons du chou.', en: 'Its umbels feed the small wasps parasitising cabbage caterpillars and aphids.' } },
+  { a: 'dill', b: 'fennel', effect: 'bad', evidence: 'some', why: { fr: 'Ils se croisent : graines bâtardes si l’on veut garder les siennes.', en: 'They cross: mongrel seed if you save your own.' } },
+  { a: 'savory', b: 'bean', effect: 'good', evidence: 'tradition', why: { fr: 'Tradition : éloignerait le puceron noir ; se cuisine avec.', en: 'Tradition: said to deter black aphid; cooked together.' } },
+  { a: 'sage', b: 'cabbage', effect: 'good', evidence: 'tradition', why: { fr: 'Tradition : son odeur gênerait la piéride ; effet non démontré.', en: 'Tradition: its scent may confuse cabbage whites; not proven.' } },
   { a: 'limnanthes', b: 'broadbean', effect: 'good', evidence: 'some', why: { fr: 'Attire les syrphes dont les larves mangent les pucerons noirs de la fève.', en: 'Draws hoverflies whose larvae eat black bean aphids.' } },
   { a: 'limnanthes', b: 'lettuce', effect: 'good', evidence: 'some', why: { fr: 'Bordure basse qui nourrit les syrphes, alliés contre les pucerons.', en: 'Low edging that feeds hoverflies, allies against aphids.' } },
   { a: 'ammi', b: 'cabbage', effect: 'good', evidence: 'some', why: { fr: 'Ombelles qui nourrissent les petites guêpes parasites des chenilles et des pucerons.', en: 'Umbels that feed the small wasps parasitising caterpillars and aphids.' } },

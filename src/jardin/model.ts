@@ -63,7 +63,8 @@ export type Family =
   | 'asparagaceae'
   | 'cannaceae'
   | 'araceae'
-  | 'colchicaceae';
+  | 'colchicaceae'
+  | 'lauraceae';
 
 export const FAMILIES: Family[] = [
   'solanaceae',
@@ -116,6 +117,7 @@ export const FAMILIES: Family[] = [
   'cannaceae',
   'araceae',
   'colchicaceae',
+  'lauraceae',
 ];
 
 /** Type de culture : décide la répartition des besoins par stade. */

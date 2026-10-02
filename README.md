@@ -259,6 +259,18 @@ saison / de conservation ; radis de tous les mois / d'hiver
   rappels de la culture. « Non précisé » garde le calendrier général de
   l'espèce.
 
+## Les aromatiques
+
+21 aromatiques s'ajoutent au basilic, au persil et à la ciboulette :
+méditerranéennes de sol sec (thym, romarin, sauge, origan, marjolaine,
+sarriette, hysope, laurier-sauce), aromatiques fraîches (menthe,
+mélisse, estragon, livèche, verveine citronnelle), annuelles à semer
+(coriandre, aneth, cerfeuil, camomille, shiso) et plus exotiques
+(citronnelle, stévia, ail des ours). Chacune a son calendrier, sa
+cueillette, sa multiplication (boutures, division ou graines) et ses
+pièges : menthe envahissante, estragon français sans graines,
+confusions mortelles de l'ail des ours avec le muguet et le colchique.
+
 ## Les fleurs
 
 Le catalogue compte **141 fleurs** à côté des 42 légumes : annuelles

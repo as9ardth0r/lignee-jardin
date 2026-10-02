@@ -13,6 +13,7 @@
  *   courantes en France.
  * Chaque valeur est à vérifier et sourcer fiche par fiche (voir README).
  */
+import { HERBS } from './herbs';
 import type { Species } from '../model';
 import { FLOWERS } from './flowers';
 
@@ -627,7 +628,7 @@ export const VEGETABLES: Species[] = [
   },
 ];
 
-/** Tout le catalogue : potager puis fleurs (data/flowers.ts). */
-export const SPECIES: Species[] = [...VEGETABLES, ...FLOWERS];
+/** Tout le catalogue : potager, aromatiques (data/herbs.ts) puis fleurs (data/flowers.ts). */
+export const SPECIES: Species[] = [...VEGETABLES, ...HERBS, ...FLOWERS];
 
 export const SPECIES_BY_ID: Record<string, Species> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));
