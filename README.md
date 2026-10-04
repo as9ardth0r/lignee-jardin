@@ -315,6 +315,10 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Plan du jardin : zoom et herbe
+
+Le plan s'ouvre cadré sur ce qui est dessiné (planches et obstacles). On zoome en pinçant avec deux doigts, avec les boutons − et +, d'un double-clic sur l'herbe ou avec Ctrl + molette. On se déplace en faisant glisser l'herbe. « Planches » recadre sur les planches et « Tout » montre le terrain entier. Une barre d'échelle indique la longueur réelle. De près, le quadrillage passe à 50 cm puis à 10 cm, et chaque planche montre ses cultures à leur place, avec leur nom quand il tient. Le fond est en herbe, les planches en terre avec un cadre en bois, et la dernière vue est gardée quand on change d'onglet.
+
 ## Disposition sur la planche, voisinages, eau de pluie
 
 - **Disposition** : la fiche d'une planche dessine ses cultures en rectangles à l'échelle. On les fait glisser (pas de 5 cm) et on les agrandit par le coin ; la surface de la culture suit, donc ses besoins et sa récolte attendue aussi. Les cultures pas encore placées sont posées par l'app à la première place libre (pointillés) ; « Garder les places proposées » les enregistre. Surface libre, chevauchements et manque de place sont signalés.

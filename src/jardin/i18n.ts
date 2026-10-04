@@ -115,7 +115,7 @@ const fr = {
   'garden.title': 'Plan du jardin',
   'garden.addBed': 'Planche',
   'garden.planLabel': 'Plan du jardin, {{w}} × {{h}} m',
-  'garden.planHint': 'Glissez une planche pour la déplacer (pas de 10 cm), touchez-la pour ouvrir sa fiche. Quadrillage : 1 m, trait marqué tous les 5 m. Terrain de {{w}} × {{h}} m.',
+  'garden.planHint': 'Pincez avec deux doigts (ou les boutons, ou Ctrl + molette) pour zoomer, glissez sur l’herbe pour vous déplacer. Glissez une planche pour la déplacer (pas de 10 cm), touchez-la pour ouvrir sa fiche. De près, les cultures apparaissent dans chaque planche. Terrain de {{w}} × {{h}} m.',
   'garden.size': 'Taille du terrain (largeur × profondeur)',
   'mulch.title': 'Paillage et apports en surface',
   'mulch.add': 'Couche',
@@ -1375,7 +1375,7 @@ const fr = {
   'layout.unplace': 'Laisser l’app placer',
   'layout.keepAuto': 'Garder les places proposées',
   'layout.saved': '{{n}} emplacement(s) enregistré(s)',
-  'layout.overflow': 'Pas assez de place pour : {list}. Elle(s) sont dessinée(s) en plus petit, dans le plus grand trou restant (pointillés). Rapprochez les autres cultures, réduisez une surface ou agrandissez la planche.',
+  'layout.overflow': 'Pas assez de place pour : {{list}}. Dessinée(s) en plus petit dans le plus grand trou restant (pointillés). Rapprochez les autres cultures, réduisez une surface ou agrandissez la planche.',
   'layout.overlap': 'Chevauchements : {{list}}.',
   'layout.neighbours': 'Voisinages (moins de 50 cm)',
   'layout.touch': 'côte à côte',
@@ -1413,6 +1413,13 @@ const fr = {
   'tankRain.source': 'Eau puisée dans',
   'tankRain.mains': 'Réseau, puits…',
   'tankRain.note': 'Pluie sur le toit (1 mm sur 1 m² = 1 L, moins 20 % de pertes), d’après le pluviomètre ou la météo locale, moins les arrosages notés « puisés dans la cuve ». Relevez le niveau de temps en temps pour recaler l’estimation.',
+  'garden.zoomIn': 'Zoomer',
+  'garden.zoomOut': 'Dézoomer',
+  'garden.zoomAll': 'Tout le terrain',
+  'garden.zoomBeds': 'Cadrer sur les planches',
+  'garden.scale': 'Échelle',
+  'garden.zoomBedsShort': 'Planches',
+  'garden.zoomAllShort': 'Tout',
 };
 
 const en: Record<keyof typeof fr, string> = {
@@ -1525,7 +1532,7 @@ const en: Record<keyof typeof fr, string> = {
   'garden.title': 'Garden plan',
   'garden.addBed': 'Bed',
   'garden.planLabel': 'Garden plan, {{w}} × {{h}} m',
-  'garden.planHint': 'Drag a bed to move it (10 cm steps), tap it to open its sheet. Grid: 1 m, bold line every 5 m. Plot {{w}} × {{h}} m.',
+  'garden.planHint': 'Pinch with two fingers (or use the buttons, or Ctrl + wheel) to zoom, drag on the grass to move around. Drag a bed to move it (10 cm steps), tap it to open its sheet. Close up, the crops show inside each bed. Plot {{w}} × {{h}} m.',
   'garden.size': 'Plot size (width × depth)',
   'mulch.title': 'Mulch and surface inputs',
   'mulch.add': 'Layer',
@@ -2785,7 +2792,7 @@ const en: Record<keyof typeof fr, string> = {
   'layout.unplace': 'Let the app place it',
   'layout.keepAuto': 'Keep the suggested places',
   'layout.saved': '{{n}} position(s) saved',
-  'layout.overflow': 'Not enough room for: {list}. Drawn smaller, in the largest gap left (dotted). Move the other crops closer, reduce an area or enlarge the bed.',
+  'layout.overflow': 'Not enough room for: {{list}}. Drawn smaller, in the largest gap left (dotted). Move the other crops closer, reduce an area or enlarge the bed.',
   'layout.overlap': 'Overlaps: {{list}}.',
   'layout.neighbours': 'Neighbours (within 50 cm)',
   'layout.touch': 'side by side',
@@ -2823,6 +2830,13 @@ const en: Record<keyof typeof fr, string> = {
   'tankRain.source': 'Water from',
   'tankRain.mains': 'Mains, well…',
   'tankRain.note': 'Rain on the roof (1 mm on 1 m² = 1 L, minus 20% losses), from the rain gauge or local weather, minus watering logged as “from the tank”. Read the level now and then to correct the estimate.',
+  'garden.zoomIn': 'Zoom in',
+  'garden.zoomOut': 'Zoom out',
+  'garden.zoomAll': 'Whole plot',
+  'garden.zoomBeds': 'Fit to the beds',
+  'garden.scale': 'Scale',
+  'garden.zoomBedsShort': 'Beds',
+  'garden.zoomAllShort': 'All',
 };
 
 export type JKey = keyof typeof fr;

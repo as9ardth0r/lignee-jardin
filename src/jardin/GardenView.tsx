@@ -42,9 +42,9 @@ export function waterText(adv: WaterAdvice, tt: TT, lang: 'fr' | 'en'): string {
 
 const OBSTACLE_FILL: Record<ObstacleKind, { fill: string; stroke: string }> = {
   building: { fill: '#6b6455', stroke: '#3a352a' },
-  wall: { fill: '#8a8270', stroke: '#4a4434' },
-  tree: { fill: '#3f6a34', stroke: '#2a4a22' },
-  hedge: { fill: '#4f7a3c', stroke: '#2f5040' },
+  wall: { fill: '#9a9280', stroke: '#4a4434' },
+  tree: { fill: '#2f5a26', stroke: '#1d3a17' },
+  hedge: { fill: '#2f5f2a', stroke: '#1d3a17' },
 };
 
 /** Jours proposés pour l'aperçu des ombres. */
@@ -96,32 +96,156 @@ function PlanSize() {
 }
 
 type DragTarget = { kind: 'bed' | 'obs'; id: string; dx: number; dy: number; moved: boolean };
+/** Vue du plan : facteur de zoom et centre (m). z = 1 : tout le terrain. */
+type View = { z: number; cx: number; cy: number };
+type Gesture = { kind: 'pinch'; d0: number; z0: number; wx: number; wy: number } | { kind: 'pan'; sx: number; sy: number; cx0: number; cy0: number; moved: boolean };
 
-/** Plan du jardin : planches et obstacles déplaçables au doigt (pas de 10 cm), ombres portées. */
+/** Longueurs proposées pour la barre d'échelle (m). */
+const SCALE_STEPS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50];
+/** Dernière vue du plan (gardée quand on change d'onglet). */
+let savedPlanView: View | null = null;
+/** Largeur visible minimale (m) : zoom maximal. */
+const MIN_VIEW_M = 1.2;
+
+/** Plan du jardin : planches et obstacles déplaçables au doigt (pas de 10 cm), ombres portées, zoom. */
 function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } | null; rotationYear: number | null }) {
   const { data, saveBed, saveObstacle, today } = useGarden();
   const { tt, lang } = useJT();
   const nav = useNav();
   const svgRef = useRef<SVGSVGElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragTarget | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef<Gesture | null>(null);
   const [live, setLive] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [boxW, setBoxW] = useState(340);
   const { planW, planH, planNorth } = data.settings;
   const lat = data.settings.lat ?? DEFAULT_LAT;
 
-  const toPlan = (e: RPointerEvent) => {
+  // Repère complet (terrain + marge de 20 cm) et vue zoomée dans ce repère.
+  const W0 = planW + 0.4;
+  const H0 = planH + 0.4;
+  const zMax = Math.max(1, W0 / MIN_VIEW_M);
+  const clampView = (v: View): View => {
+    const z = Math.max(1, Math.min(zMax, v.z));
+    const w = W0 / z;
+    const h = H0 / z;
+    return { z, cx: Math.max(-0.2 + w / 2, Math.min(-0.2 + W0 - w / 2, v.cx)), cy: Math.max(-0.2 + h / 2, Math.min(-0.2 + H0 - h / 2, v.cy)) };
+  };
+  /** Cadre (zoom, centre) qui montre des éléments du plan avec 40 cm de marge. */
+  const frameOf = (items: Array<{ x: number; y: number; w: number; h: number }>): View => {
+    if (items.length === 0) return { z: 1, cx: planW / 2, cy: planH / 2 };
+    const x0 = Math.min(...items.map((b) => b.x)) - 0.4;
+    const y0 = Math.min(...items.map((b) => b.y)) - 0.4;
+    const x1 = Math.max(...items.map((b) => b.x + b.w)) + 0.4;
+    const y1 = Math.max(...items.map((b) => b.y + b.h)) + 0.4;
+    return clampView({ z: Math.min(W0 / (x1 - x0), H0 / (y1 - y0)), cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 });
+  };
+  // Au premier affichage : cadré sur ce qui est dessiné (planches et obstacles) ; ensuite, la dernière vue est gardée.
+  const [rawView, setRawView] = useState<View>(() => savedPlanView ?? frameOf([...data.beds, ...data.obstacles]));
+  const setView = (v: View) => {
+    savedPlanView = v;
+    setRawView(v);
+  };
+  const view = clampView(rawView);
+  const vw = W0 / view.z;
+  const vh = H0 / view.z;
+  const vx = view.cx - vw / 2;
+  const vy = view.cy - vh / 2;
+  /** Mètres par pixel affiché, et pixels par mètre. */
+  const mpp = vw / Math.max(1, boxW);
+  const ppm = 1 / mpp;
+
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBoxW(el.clientWidth || 340));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  /** Zoom autour d'un point du plan (wx, wy) qui reste sous le même point de l'écran (fx, fy en fraction de la vue). */
+  const zoomAt = (z: number, wx: number, wy: number, fx: number, fy: number) => {
+    const nz = Math.max(1, Math.min(zMax, z));
+    const w = W0 / nz;
+    const h = H0 / nz;
+    setView(clampView({ z: nz, cx: wx - fx * w + w / 2, cy: wy - fy * h + h / 2 }));
+  };
+  const frac = (clientX: number, clientY: number) => {
     const r = svgRef.current!.getBoundingClientRect();
-    const vw = planW + 0.4;
-    const vh = planH + 0.4;
-    return { x: ((e.clientX - r.left) / r.width) * vw - 0.2, y: ((e.clientY - r.top) / r.height) * vh - 0.2 };
+    return { fx: (clientX - r.left) / r.width, fy: (clientY - r.top) / r.height };
+  };
+
+  // Ctrl + molette (et pincement du pavé tactile) : zoom autour du curseur.
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  });
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const v = viewRef.current;
+      const { fx, fy } = frac(e.clientX, e.clientY);
+      const w = W0 / v.z;
+      const h = H0 / v.z;
+      zoomAt(v.z * Math.exp(-e.deltaY * 0.01), v.cx - w / 2 + fx * w, v.cy - h / 2 + fy * h, fx, fy);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  });
+
+  const toPlan = (e: { clientX: number; clientY: number }) => {
+    const { fx, fy } = frac(e.clientX, e.clientY);
+    return { x: vx + fx * vw, y: vy + fy * vh };
   };
   const itemOf = (d: DragTarget) => (d.kind === 'bed' ? data.beds.find((x) => x.id === d.id) : data.obstacles.find((x) => x.id === d.id));
 
   const onDown = (e: RPointerEvent, kind: 'bed' | 'obs', item: { id: string; x: number; y: number }) => {
     const p = toPlan(e);
     drag.current = { kind, id: item.id, dx: p.x - item.x, dy: p.y - item.y, moved: false };
-    (e.target as Element).setPointerCapture(e.pointerId);
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  };
+  // Tous les doigts passent ici (après le gestionnaire de la planche touchée).
+  const onSvgDown = (e: RPointerEvent) => {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = [...pointers.current.values()];
+    if (pts.length >= 2) {
+      // Deuxième doigt : on abandonne le déplacement de planche et on pince.
+      drag.current = null;
+      setLive(null);
+      const [a, b] = pts;
+      const mid = toPlan({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 });
+      gesture.current = { kind: 'pinch', d0: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), z0: view.z, wx: mid.x, wy: mid.y };
+      return;
+    }
+    if (!drag.current) {
+      // Un doigt sur l'herbe : on fait glisser la vue (si zoomée).
+      svgRef.current?.setPointerCapture?.(e.pointerId);
+      gesture.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, cx0: view.cx, cy0: view.cy, moved: false };
+    }
   };
   const onMove = (e: RPointerEvent) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = gesture.current;
+    if (g?.kind === 'pinch') {
+      const pts = [...pointers.current.values()];
+      if (pts.length < 2) return;
+      const [a, b] = pts;
+      const { fx, fy } = frac((a.x + b.x) / 2, (a.y + b.y) / 2);
+      zoomAt(g.z0 * (Math.hypot(a.x - b.x, a.y - b.y) / g.d0), g.wx, g.wy, fx, fy);
+      return;
+    }
+    if (g?.kind === 'pan') {
+      const r = svgRef.current!.getBoundingClientRect();
+      const dx = e.clientX - g.sx;
+      const dy = e.clientY - g.sy;
+      if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
+      if (view.z > 1) setView(clampView({ z: view.z, cx: g.cx0 - (dx / r.width) * vw, cy: g.cy0 - (dy / r.height) * vh }));
+      return;
+    }
     const d = drag.current;
     if (!d) return;
     const it = itemOf(d);
@@ -132,7 +256,17 @@ function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } 
     if (Math.abs(x - it.x) > 0.05 || Math.abs(y - it.y) > 0.05) d.moved = true;
     if (d.moved) setLive({ id: it.id, x, y });
   };
-  const onUp = () => {
+  const onUp = (e: RPointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    const g = gesture.current;
+    if (g) {
+      if (g.kind === 'pinch' && pointers.current.size > 0) {
+        // Il reste un doigt : il continue en déplaçant la vue.
+        const [p] = [...pointers.current.values()];
+        gesture.current = { kind: 'pan', sx: p.x, sy: p.y, cx0: viewRef.current.cx, cy0: viewRef.current.cy, moved: true };
+      } else if (pointers.current.size === 0) gesture.current = null;
+      return;
+    }
     const d = drag.current;
     drag.current = null;
     if (!d) return;
@@ -147,154 +281,249 @@ function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } 
     }
     setLive(null);
   };
+  const onCancel = (e: RPointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size === 0) gesture.current = null;
+    drag.current = null;
+    setLive(null);
+  };
   const pos = (it: { id: string; x: number; y: number }) => (live?.id === it.id ? { x: live.x, y: live.y } : { x: it.x, y: it.y });
 
+  // Boutons de zoom.
+  const zoomBy = (k: number) => zoomAt(view.z * k, view.cx, view.cy, 0.5, 0.5);
+  const fitBeds = () => setView(frameOf(data.beds.length > 0 ? data.beds : data.obstacles));
+
+  // Quadrillage (traits d'épaisseur fixe à l'écran) : 1 m, plus marqué tous les 5 m ; de près, 50 puis 10 cm.
   const grid = [];
-  // Quadrillage : 1 m, trait plus marqué tous les 5 m (lisible sur un grand terrain).
-  const gw = (i: number) => (i % 5 === 0 ? Math.max(0.04, planW / 400) : 0.02);
-  for (let x = 0; x <= planW; x++) grid.push(<line key={`x${x}`} x1={x} y1={0} x2={x} y2={planH} stroke={x % 5 === 0 ? '#4f7458' : '#3b5942'} strokeWidth={gw(x)} />);
-  for (let y = 0; y <= planH; y++) grid.push(<line key={`y${y}`} x1={0} y1={y} x2={planW} y2={y} stroke={y % 5 === 0 ? '#4f7458' : '#3b5942'} strokeWidth={gw(y)} />);
+  const sub = ppm >= 260 ? 0.1 : ppm >= 70 ? 0.5 : null;
+  if (sub) {
+    const n0 = Math.max(0, Math.floor(vx / sub));
+    const n1 = Math.min(Math.round(planW / sub), Math.ceil((vx + vw) / sub));
+    for (let i = n0; i <= n1; i++) if (Math.abs(i * sub - Math.round(i * sub)) > 1e-6) grid.push(<line key={`sx${i}`} x1={i * sub} y1={Math.max(0, vy)} x2={i * sub} y2={Math.min(planH, vy + vh)} stroke="#ffffff" strokeOpacity={0.12} strokeWidth={1} vectorEffect="non-scaling-stroke" />);
+    const m0 = Math.max(0, Math.floor(vy / sub));
+    const m1 = Math.min(Math.round(planH / sub), Math.ceil((vy + vh) / sub));
+    for (let i = m0; i <= m1; i++) if (Math.abs(i * sub - Math.round(i * sub)) > 1e-6) grid.push(<line key={`sy${i}`} x1={Math.max(0, vx)} y1={i * sub} x2={Math.min(planW, vx + vw)} y2={i * sub} stroke="#ffffff" strokeOpacity={0.12} strokeWidth={1} vectorEffect="non-scaling-stroke" />);
+  }
+  for (let x = 0; x <= planW; x++) grid.push(<line key={`x${x}`} x1={x} y1={0} x2={x} y2={planH} stroke="#ffffff" strokeOpacity={x % 5 === 0 ? 0.32 : ppm < 24 ? 0.09 : 0.18} strokeWidth={x % 5 === 0 ? 1.5 : 1} vectorEffect="non-scaling-stroke" />);
+  for (let y = 0; y <= planH; y++) grid.push(<line key={`y${y}`} x1={0} y1={y} x2={planW} y2={y} stroke="#ffffff" strokeOpacity={y % 5 === 0 ? 0.32 : ppm < 24 ? 0.09 : 0.18} strokeWidth={y % 5 === 0 ? 1.5 : 1} vectorEffect="non-scaling-stroke" />);
 
   const sunPos = sun ? sunPosition(lat, sun.doy, sun.hour) : null;
-  // Emplacements des cultures placées à la main, et mauvais voisins à signaler.
-  const footprints = useMemo(() => new Map(data.beds.map((b) => [b.id, layoutBed(data, b).filter((l) => !l.auto)])), [data]);
+  // Emplacements des cultures (placées à la main, ou proposées par l'app quand on zoome), et mauvais voisins à signaler.
+  const layouts = useMemo(() => new Map(data.beds.map((b) => [b.id, layoutBed(data, b)])), [data]);
   const badPlants = useMemo(() => new Set(neighbours(data).filter((n) => n.effect === 'bad').flatMap((n) => [n.a.id, n.b.id])), [data]);
   const obstaclesLive = data.obstacles.map((o) => ({ ...o, ...pos(o) }));
-  // Rose des vents : flèche vers le nord dans le coin haut droit.
+  // Rose des vents et échelle : taille fixe à l'écran, dans les coins de la vue.
   const nr = (planNorth * Math.PI) / 180;
-  const cx = planW - 0.55;
-  const cy = 0.55;
+  const cr = 15 * mpp;
+  const cx = vx + vw - cr - 8 * mpp;
+  const cy = vy + cr + 8 * mpp;
+  const scaleM = SCALE_STEPS.find((s) => s * ppm >= 32) ?? SCALE_STEPS[SCALE_STEPS.length - 1];
+  const px = (n: number) => n * mpp;
 
   return (
     <div>
-      <svg
-        ref={svgRef}
-        viewBox={`-0.2 -0.2 ${planW + 0.4} ${planH + 0.4}`}
-        className="w-full touch-none select-none rounded"
-        style={{ background: '#1c2e20', aspectRatio: `${planW + 0.4} / ${planH + 0.4}` }}
-        role="img"
-        aria-label={tt('garden.planLabel', { w: planW, h: planH })}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={() => {
-          drag.current = null;
-          setLive(null);
-        }}
-      >
-        <defs>
-          <clipPath id="plan-clip">
-            <rect x={0} y={0} width={planW} height={planH} />
-          </clipPath>
-        </defs>
-        {grid}
-        {data.beds.map((b) => {
-          const { x, y } = pos(b);
-          const base = BED_FILL[b.kind];
-          const group = rotationYear !== null ? bedGroupOfYear(b.id, data.plants, rotationYear) : null;
-          const issue = rotationYear !== null && bedRotationIssues(b.id, data.plants, rotationYear).length > 0;
-          const c = rotationYear === null ? base : group ? { fill: ROTATION_COLOR[group], stroke: '#2a2a22' } : { fill: '#5a5448', stroke: '#3a362e' };
-          const emojis = [...new Set(data.plants.filter((p) => p.bedId === b.id && isActiveOn(p, today)).map((p) => SPECIES_BY_ID[p.speciesId]?.emoji))].slice(0, 4).join('');
-          // Nom lisible même sur un grand terrain ; écrit dans le sens de la longueur pour une planche étroite.
-          const vertical = b.h > b.w * 2.5;
-          const along = vertical ? b.h : b.w;
-          const across = vertical ? b.w : b.h;
-          const fs = Math.max(0.22, Math.min(0.42 * Math.max(1, Math.max(planW, planH) / 30), across * (emojis ? 0.4 : 0.7), (along * 0.9) / (0.6 * Math.max(4, b.name.length))));
-          const tcx = x + b.w / 2;
-          const tcy = y + b.h / 2;
-          return (
-            <g key={b.id} onPointerDown={(e) => onDown(e, 'bed', b)} style={{ cursor: 'grab' }}>
-              <rect x={x} y={y} width={b.w} height={b.h} rx={b.kind === 'pot' ? Math.min(b.w, b.h) / 2 : 0.08} fill={c.fill} fillOpacity={b.kind === 'greenhouse' && rotationYear === null ? 0.35 : 1} stroke={issue ? '#ff3b2f' : c.stroke} strokeWidth={issue ? Math.max(0.08, planW / 250) : 0.05} strokeDasharray={issue ? '0.25 0.12' : undefined} />
-              {b.mulch && <rect x={x + 0.06} y={y + 0.06} width={Math.max(0, b.w - 0.12)} height={Math.max(0, b.h - 0.12)} rx={0.05} fill="none" stroke="#e8d79a" strokeWidth={0.03} strokeDasharray="0.12 0.08" />}
-              {rotationYear === null &&
-                (footprints.get(b.id) ?? []).map((l) => (
-                  <rect
-                    key={l.plant.id}
-                    x={x + l.pos.x + 0.03}
-                    y={y + l.pos.y + 0.03}
-                    width={Math.max(0.02, l.pos.w - 0.06)}
-                    height={Math.max(0.02, l.pos.h - 0.06)}
-                    rx={0.04}
-                    fill="#faf7ee"
-                    fillOpacity={l.plant.status === 'planned' ? 0.08 : 0.16}
-                    stroke={badPlants.has(l.plant.id) ? '#ff3b2f' : 'rgba(250,247,238,.55)'}
-                    strokeWidth={badPlants.has(l.plant.id) ? 0.05 : 0.025}
-                    style={{ pointerEvents: 'none' }}
-                  />
-                ))}
-              <g transform={vertical ? `rotate(-90 ${tcx} ${tcy})` : undefined}>
-                <text x={tcx} y={tcy - (emojis ? fs * 0.25 : -fs * 0.35)} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', fontWeight: 600, paintOrder: 'stroke', stroke: 'rgba(0,0,0,.35)', strokeWidth: fs * 0.08 }}>
-                  {issue ? '⚠ ' : ''}
-                  {b.name}
-                </text>
-                {emojis && (
-                  <text x={tcx} y={tcy + fs * 0.95} textAnchor="middle" fontSize={fs * 0.9} style={{ pointerEvents: 'none' }}>
-                    {emojis}
+      <div className="mb-1.5 flex flex-wrap items-center justify-end gap-1.5">
+        {/* Barre d'échelle : longueur réelle à l'écran. */}
+        <div className="mr-auto flex items-end gap-1.5 text-xs font-medium" style={{ color: INK700 }} aria-label={tt('garden.scale')}>
+          <span className="block h-2 border-x-2 border-b-2" style={{ width: scaleM * ppm, borderColor: '#24331f' }} />
+          <span className="font-data leading-none">{scaleM < 1 ? `${Math.round(scaleM * 100)} cm` : `${scaleM} m`}</span>
+        </div>
+        {(
+          [
+            ['−', tt('garden.zoomOut'), () => zoomBy(1 / 1.6), view.z <= 1, ''],
+            ['+', tt('garden.zoomIn'), () => zoomBy(1.6), view.z >= zMax - 1e-6, ''],
+            ['▣', tt('garden.zoomBeds'), fitBeds, false, tt('garden.zoomBedsShort')],
+            ['⤢', tt('garden.zoomAll'), () => setView({ z: 1, cx: planW / 2, cy: planH / 2 }), view.z <= 1, tt('garden.zoomAllShort')],
+          ] as Array<[string, string, () => void, boolean, string]>
+        ).map(([sym, label, act, off, wide]) => (
+          <button key={label} type="button" onClick={act} disabled={off} title={label} aria-label={label} className={`flex h-9 items-center justify-center gap-1 rounded-full text-sm font-medium disabled:opacity-40 ${wide ? 'w-9 text-base sm:w-auto sm:px-3 sm:text-sm' : 'w-9 text-lg'}`} style={{ background: 'var(--color-paper-200)', boxShadow: 'inset 0 0 0 1px var(--color-paper-300)', color: '#24331f' }}>
+            <span aria-hidden="true">{sym}</span>
+            {wide && <span className="hidden sm:inline">{wide}</span>}
+          </button>
+        ))}
+      </div>
+      <div ref={boxRef} className="relative">
+        <svg
+          ref={svgRef}
+          viewBox={`${vx} ${vy} ${vw} ${vh}`}
+          className="w-full touch-none select-none rounded"
+          style={{ background: '#1c2e20', aspectRatio: `${W0} / ${H0}`, cursor: view.z > 1 ? 'move' : undefined }}
+          role="img"
+          aria-label={tt('garden.planLabel', { w: planW, h: planH })}
+          onPointerDown={onSvgDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onCancel}
+          onDoubleClick={(e) => {
+            if ((e.target as Element).getAttribute('data-bg') !== '1') return;
+            const p = toPlan(e);
+            const { fx, fy } = frac(e.clientX, e.clientY);
+            zoomAt(view.z * 2, p.x, p.y, fx, fy);
+          }}
+        >
+          <defs>
+            <clipPath id="plan-clip">
+              <rect x={0} y={0} width={planW} height={planH} />
+            </clipPath>
+            {/* Herbe : brins clairs et sombres sur un vert prairie. */}
+            <pattern id="plan-grass" patternUnits="userSpaceOnUse" width={0.6} height={0.6}>
+              <rect width={0.6} height={0.6} fill="#5f8f3c" />
+              <path d="M0.05 0.18 l0.02 -0.08 M0.21 0.47 l-0.02 -0.08 M0.38 0.12 l0.015 -0.07 M0.5 0.36 l-0.02 -0.07 M0.12 0.56 l0.02 -0.06 M0.31 0.3 l0.01 -0.07" stroke="#7aa94e" strokeWidth={0.018} strokeLinecap="round" />
+              <path d="M0.15 0.28 l-0.015 -0.07 M0.44 0.55 l0.02 -0.07 M0.55 0.1 l-0.015 -0.06 M0.26 0.08 l0.02 -0.06 M0.03 0.42 l0.015 -0.07" stroke="#4d7a30" strokeWidth={0.018} strokeLinecap="round" />
+            </pattern>
+            {/* Terre : grumeaux plus sombres et plus clairs. */}
+            <pattern id="plan-soil" patternUnits="userSpaceOnUse" width={0.3} height={0.3}>
+              <rect width={0.3} height={0.3} fill="#7a5634" />
+              <circle cx={0.05} cy={0.07} r={0.018} fill="#5e4026" />
+              <circle cx={0.2} cy={0.15} r={0.014} fill="#916a44" />
+              <circle cx={0.12} cy={0.24} r={0.02} fill="#5e4026" />
+              <circle cx={0.26} cy={0.04} r={0.012} fill="#916a44" />
+              <circle cx={0.27} cy={0.26} r={0.015} fill="#664629" />
+            </pattern>
+          </defs>
+          <rect data-bg="1" x={0} y={0} width={planW} height={planH} fill={ppm >= 45 ? 'url(#plan-grass)' : '#5f8f3c'} />
+          <g style={{ pointerEvents: 'none' }}>{grid}</g>
+          {data.beds.map((b) => {
+            const { x, y } = pos(b);
+            const base = BED_FILL[b.kind];
+            const group = rotationYear !== null ? bedGroupOfYear(b.id, data.plants, rotationYear) : null;
+            const issue = rotationYear !== null && bedRotationIssues(b.id, data.plants, rotationYear).length > 0;
+            const c = rotationYear === null ? (b.kind === 'bed' ? { fill: ppm >= 45 ? 'url(#plan-soil)' : '#7a5634', stroke: '#c49a62' } : base) : group ? { fill: ROTATION_COLOR[group], stroke: '#2a2a22' } : { fill: '#5a5448', stroke: '#3a362e' };
+            const emojis = [...new Set(data.plants.filter((p) => p.bedId === b.id && isActiveOn(p, today)).map((p) => SPECIES_BY_ID[p.speciesId]?.emoji))].slice(0, 4).join('');
+            const laid = layouts.get(b.id) ?? [];
+            // De près (planche d'au moins 110 px), les cultures s'affichent dans la planche, avec leur nom.
+            const close = rotationYear === null && b.kind !== 'hydro' && Math.min(b.w, b.h) * ppm >= 60 && b.w * ppm >= 110;
+            // Nom lisible même sur un grand terrain ; écrit dans le sens de la longueur pour une planche étroite.
+            const vertical = b.h > b.w * 2.5;
+            const along = vertical ? b.h : b.w;
+            const across = vertical ? b.w : b.h;
+            const fs = Math.min(px(17), Math.max(0.22, Math.min(0.42 * Math.max(1, Math.max(planW, planH) / 30), across * (emojis ? 0.4 : 0.7), (along * 0.9) / (0.6 * Math.max(4, b.name.length)))));
+            const tcx = x + b.w / 2;
+            const tcy = y + b.h / 2;
+            const frame = b.kind === 'bed' && rotationYear === null;
+            return (
+              <g key={b.id} onPointerDown={(e) => onDown(e, 'bed', b)} style={{ cursor: 'grab' }}>
+                {frame && <rect x={x + px(1.5)} y={y + px(2)} width={b.w} height={b.h} rx={0.06} fill="#000" fillOpacity={0.25} />}
+                <rect x={x} y={y} width={b.w} height={b.h} rx={b.kind === 'pot' ? Math.min(b.w, b.h) / 2 : 0.06} fill={c.fill} fillOpacity={b.kind === 'greenhouse' && rotationYear === null ? 0.45 : 1} stroke={issue ? '#ff3b2f' : c.stroke} strokeWidth={issue ? 3 : frame ? Math.max(2, Math.min(0.06 * ppm, 6)) : 1.5} vectorEffect="non-scaling-stroke" strokeDasharray={issue ? '6 3' : undefined} />
+                {b.mulch && <rect x={x + 0.06} y={y + 0.06} width={Math.max(0, b.w - 0.12)} height={Math.max(0, b.h - 0.12)} rx={0.05} fill="none" stroke="#e8d79a" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeDasharray="4 3" />}
+                {rotationYear === null &&
+                  laid
+                    .filter((l) => close || !l.auto)
+                    .map((l) => {
+                      const sp = speciesOf(l.plant);
+                      const bad = badPlants.has(l.plant.id);
+                      const name = SPECIES_BY_ID[l.plant.speciesId]?.name[lang] ?? '';
+                      const fc = Math.min(px(13), l.pos.h * 0.35);
+                      const fitName = (name.length + 3) * fc * 0.6 <= l.pos.w - px(6);
+                      return (
+                        <g key={l.plant.id} style={{ pointerEvents: 'none' }}>
+                          <rect
+                            x={x + l.pos.x + px(2)}
+                            y={y + l.pos.y + px(2)}
+                            width={Math.max(0.02, l.pos.w - px(4))}
+                            height={Math.max(0.02, l.pos.h - px(4))}
+                            rx={px(4)}
+                            fill={close ? ROTATION_COLOR[rotationGroup(sp)] : '#faf7ee'}
+                            fillOpacity={close ? (l.plant.status === 'planned' ? 0.35 : 0.7) : l.plant.status === 'planned' ? 0.08 : 0.16}
+                            stroke={bad ? '#ff3b2f' : 'rgba(250,247,238,.7)'}
+                            strokeWidth={bad ? 2.5 : 1}
+                            strokeDasharray={l.auto ? '4 3' : undefined}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                          {close && (
+                            <text x={x + l.pos.x + l.pos.w / 2} y={y + l.pos.y + l.pos.h / 2 + fc * 0.35} textAnchor="middle" fontSize={fitName ? fc : Math.min(fc * 1.3, l.pos.w * 0.7)} fill="#faf7ee" style={{ fontWeight: 600, paintOrder: 'stroke', stroke: 'rgba(0,0,0,.45)', strokeWidth: fc * 0.12 }}>
+                              {fitName ? `${sp.emoji} ${name}` : sp.emoji}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+                {close ? (
+                  // Nom de la planche en étiquette, au-dessus de la planche.
+                  <text x={x} y={y - px(5)} fontSize={px(12)} fill="#faf7ee" style={{ fontWeight: 700, paintOrder: 'stroke', stroke: 'rgba(0,0,0,.55)', strokeWidth: px(2.5) }}>
+                    {issue ? '⚠ ' : ''}
+                    {b.name} · {fmtNum(b.w, lang, 2)} × {fmtNum(b.h, lang, 2)} m
                   </text>
+                ) : (
+                  <g transform={vertical ? `rotate(-90 ${tcx} ${tcy})` : undefined}>
+                    <text x={tcx} y={tcy - (emojis ? fs * 0.25 : -fs * 0.35)} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', fontWeight: 600, paintOrder: 'stroke', stroke: 'rgba(0,0,0,.45)', strokeWidth: fs * 0.1 }}>
+                      {issue ? '⚠ ' : ''}
+                      {b.name}
+                    </text>
+                    {emojis && (
+                      <text x={tcx} y={tcy + fs * 0.95} textAnchor="middle" fontSize={fs * 0.9} style={{ pointerEvents: 'none' }}>
+                        {emojis}
+                      </text>
+                    )}
+                  </g>
                 )}
               </g>
+            );
+          })}
+          {sunPos && sunPos.alt > 0 && (
+            <g clipPath="url(#plan-clip)" style={{ pointerEvents: 'none' }}>
+              {obstaclesLive.map((o) => (
+                <polygon key={o.id} points={shadowPolygon(o, sunPos, planNorth).map(([x, y]) => `${x},${y}`).join(' ')} fill="#0b1a08" fillOpacity={0.42} />
+              ))}
             </g>
-          );
-        })}
-        {sunPos && sunPos.alt > 0 && (
-          <g clipPath="url(#plan-clip)" style={{ pointerEvents: 'none' }}>
-            {obstaclesLive.map((o) => (
-              <polygon key={o.id} points={shadowPolygon(o, sunPos, planNorth).map(([x, y]) => `${x},${y}`).join(' ')} fill="#000" fillOpacity={0.38} />
-            ))}
-          </g>
-        )}
-        {data.obstacles.map((o) => {
-          const { x, y } = pos(o);
-          const c = OBSTACLE_FILL[o.kind];
-          // Nom puis hauteur sur deux lignes, taille ajustée à la largeur de l'obstacle.
-          const fs = Math.max(0.16, Math.min(0.4, Math.min(o.w, o.h) * 0.3, (o.w * 0.9) / (0.58 * Math.max(4, o.name.length))));
-          return (
-            <g key={o.id} onPointerDown={(e) => onDown(e, 'obs', o)} style={{ cursor: 'grab' }}>
-              {o.kind === 'tree' ? (
-                <ellipse cx={x + o.w / 2} cy={y + o.h / 2} rx={o.w / 2} ry={o.h / 2} fill={c.fill} stroke={c.stroke} strokeWidth={0.05} />
-              ) : (
-                <rect x={x} y={y} width={o.w} height={o.h} rx={o.kind === 'hedge' ? 0.2 : 0.03} fill={c.fill} stroke={c.stroke} strokeWidth={0.05} />
-              )}
-              <text x={x + o.w / 2} y={y + o.h / 2 - fs * 0.2} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none' }}>
-                {o.name}
-                <tspan x={x + o.w / 2} dy={fs * 1.15} fontSize={fs * 0.85} opacity={0.85}>
-                  ↑ {fmtNum(o.height, lang, 1)} m
-                </tspan>
-              </text>
-            </g>
-          );
-        })}
-        <g style={{ pointerEvents: 'none' }}>
-          <circle cx={cx} cy={cy} r={0.38} fill="#0f1a12" fillOpacity={0.7} stroke="#d9ae52" strokeWidth={0.03} />
-          <path d={`M ${cx + Math.sin(nr) * 0.3} ${cy - Math.cos(nr) * 0.3} L ${cx - Math.cos(nr) * 0.1} ${cy - Math.sin(nr) * 0.1} L ${cx + Math.cos(nr) * 0.1} ${cy + Math.sin(nr) * 0.1} Z`} fill="#d9ae52" />
-          <text x={cx - Math.sin(nr) * 0.2} y={cy + Math.cos(nr) * 0.2 + 0.08} textAnchor="middle" fontSize={0.22} fill="#faf7ee" fontWeight={700}>
-            {tt('garden.north')}
-          </text>
-        </g>
-        {sunPos && sunPos.alt <= 0 && (
-          <rect x={0} y={0} width={planW} height={planH} fill="#000" fillOpacity={0.45} style={{ pointerEvents: 'none' }} />
-        )}
-        {sunPos &&
-          sunPos.alt > 0 &&
-          (() => {
-            // Soleil dessiné au bord du plan, du côté d’où viennent les rayons.
-            const [dx, dy] = sunDir(sunPos.az, planNorth);
-            const r = Math.max(0.22, Math.min(0.9, Math.min(planW, planH) * 0.045));
-            const hx = planW / 2 - r * 1.6;
-            const hy = planH / 2 - r * 1.6;
-            const t = Math.min(Math.abs(dx) > 1e-6 ? hx / Math.abs(dx) : Infinity, Math.abs(dy) > 1e-6 ? hy / Math.abs(dy) : Infinity);
-            const sx = planW / 2 + dx * t;
-            const sy = planH / 2 + dy * t;
+          )}
+          {data.obstacles.map((o) => {
+            const { x, y } = pos(o);
+            const c = OBSTACLE_FILL[o.kind];
+            // Nom puis hauteur sur deux lignes, taille ajustée à la largeur de l'obstacle.
+            const fs = Math.min(px(15), Math.max(0.16, Math.min(0.4, Math.min(o.w, o.h) * 0.3, (o.w * 0.9) / (0.58 * Math.max(4, o.name.length)))));
             return (
-              <g style={{ pointerEvents: 'none' }} aria-hidden="true">
-                {Array.from({ length: 8 }, (_, i) => {
-                  const a = (i * Math.PI) / 4;
-                  return <line key={i} x1={sx + Math.cos(a) * r * 1.25} y1={sy + Math.sin(a) * r * 1.25} x2={sx + Math.cos(a) * r * 1.7} y2={sy + Math.sin(a) * r * 1.7} stroke="#f5c84a" strokeWidth={r * 0.22} strokeLinecap="round" />;
-                })}
-                <circle cx={sx} cy={sy} r={r} fill="#f5c84a" stroke="#c8901a" strokeWidth={r * 0.12} />
+              <g key={o.id} onPointerDown={(e) => onDown(e, 'obs', o)} style={{ cursor: 'grab' }}>
+                {o.kind === 'tree' ? (
+                  <>
+                    <ellipse cx={x + o.w / 2 + px(2)} cy={y + o.h / 2 + px(3)} rx={o.w / 2} ry={o.h / 2} fill="#000" fillOpacity={0.25} />
+                    <ellipse cx={x + o.w / 2} cy={y + o.h / 2} rx={o.w / 2} ry={o.h / 2} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                    <ellipse cx={x + o.w * 0.4} cy={y + o.h * 0.38} rx={o.w * 0.22} ry={o.h * 0.18} fill="#5a8a46" fillOpacity={0.6} />
+                  </>
+                ) : (
+                  <rect x={x} y={y} width={o.w} height={o.h} rx={o.kind === 'hedge' ? 0.2 : 0.03} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                )}
+                <text x={x + o.w / 2} y={y + o.h / 2 - fs * 0.2} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', paintOrder: 'stroke', stroke: 'rgba(0,0,0,.4)', strokeWidth: fs * 0.08 }}>
+                  {o.name}
+                  <tspan x={x + o.w / 2} dy={fs * 1.15} fontSize={fs * 0.85} opacity={0.9}>
+                    ↑ {fmtNum(o.height, lang, 1)} m
+                  </tspan>
+                </text>
               </g>
             );
-          })()}
-      </svg>
+          })}
+          {sunPos && sunPos.alt <= 0 && <rect x={0} y={0} width={planW} height={planH} fill="#000" fillOpacity={0.45} style={{ pointerEvents: 'none' }} />}
+          {sunPos &&
+            sunPos.alt > 0 &&
+            (() => {
+              // Soleil dessiné au bord du plan, du côté d’où viennent les rayons.
+              const [dx, dy] = sunDir(sunPos.az, planNorth);
+              const r = Math.max(0.22, Math.min(0.9, Math.min(planW, planH) * 0.045));
+              const hx = planW / 2 - r * 1.6;
+              const hy = planH / 2 - r * 1.6;
+              const t = Math.min(Math.abs(dx) > 1e-6 ? hx / Math.abs(dx) : Infinity, Math.abs(dy) > 1e-6 ? hy / Math.abs(dy) : Infinity);
+              const sx = planW / 2 + dx * t;
+              const sy = planH / 2 + dy * t;
+              return (
+                <g style={{ pointerEvents: 'none' }} aria-hidden="true">
+                  {Array.from({ length: 8 }, (_, i) => {
+                    const a = (i * Math.PI) / 4;
+                    return <line key={i} x1={sx + Math.cos(a) * r * 1.25} y1={sy + Math.sin(a) * r * 1.25} x2={sx + Math.cos(a) * r * 1.7} y2={sy + Math.sin(a) * r * 1.7} stroke="#f5c84a" strokeWidth={r * 0.22} strokeLinecap="round" />;
+                  })}
+                  <circle cx={sx} cy={sy} r={r} fill="#f5c84a" stroke="#c8901a" strokeWidth={r * 0.12} />
+                </g>
+              );
+            })()}
+          {/* Rose des vents (coin haut droit de la vue). */}
+          <g style={{ pointerEvents: 'none' }}>
+            <circle cx={cx} cy={cy} r={cr} fill="#0f1a12" fillOpacity={0.7} stroke="#d9ae52" strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
+            <path d={`M ${cx + Math.sin(nr) * cr * 0.8} ${cy - Math.cos(nr) * cr * 0.8} L ${cx - Math.cos(nr) * cr * 0.27} ${cy - Math.sin(nr) * cr * 0.27} L ${cx + Math.cos(nr) * cr * 0.27} ${cy + Math.sin(nr) * cr * 0.27} Z`} fill="#d9ae52" />
+            <text x={cx - Math.sin(nr) * cr * 0.52} y={cy + Math.cos(nr) * cr * 0.52 + cr * 0.2} textAnchor="middle" fontSize={cr * 0.58} fill="#faf7ee" fontWeight={700}>
+              {tt('garden.north')}
+            </text>
+          </g>
+        </svg>
+      </div>
       <p className="mt-1.5 text-[11px] leading-snug" style={{ color: INK500 }}>
         {tt('garden.planHint', { w: planW, h: planH })}
       </p>
