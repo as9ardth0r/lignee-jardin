@@ -915,8 +915,8 @@ test('notes vocales : sauvegardées et fusionnées avec les photos', () => {
   ok(parseBackup(serializeBackup(d, [])).data.observations[0].audioIds?.[0] === 'au1', 'gardées dans la sauvegarde');
 });
 
-test('ateliers : 14 ateliers, cultures reconnues par l’import du jardin', () => {
-  ok(ATELIERS.length === 14 && new Set(ATELIERS.map((a) => a.id)).size === 14, 'ids');
+test('ateliers : 15 ateliers, cultures reconnues par l’import du jardin', () => {
+  ok(ATELIERS.length === 15 && new Set(ATELIERS.map((a) => a.id)).size === 15, 'ids');
   for (const a of ATELIERS) if (a.myVarieties) ok(Boolean(LIGNEE_CROPS[a.myVarieties.crop]) && Boolean(SPECIES_BY_ID[LIGNEE_CROPS[a.myVarieties.crop]]), a.id);
 });
 
@@ -931,6 +931,9 @@ test('ateliers : « Mes lignées » ajoutées au jardin sans doublon', () => {
   store['lignee.muflier.myvarieties.v1'] = JSON.stringify({ app: 'lignee', crop: 'muflier', kind: 'varieties', version: 1, varieties: [{ id: 'my-m', name: 'Rouge pélorique', species: 'majus', variants: ['sulf', 'cyc', 'dich'], days: 112 }] });
   const muf = pendingVarieties(ATELIER_BY_ID.muflier, []);
   ok(muf.length === 1 && muf[0].speciesId === 'snapdragon' && muf[0].origin === 'lignee:muflier', 'muflier → catalogue fleurs');
+  store['lignee.pdsenteur.myvarieties.v1'] = JSON.stringify({ app: 'lignee', crop: 'pdsenteur', kind: 'varieties', version: 1, varieties: [{ id: 'my-p', name: 'Spencer bordeaux', species: 'odoratus', variants: ['wav', 'Bi'], days: 110 }] });
+  const pds = pendingVarieties(ATELIER_BY_ID.pdsenteur, []);
+  ok(pds.length === 1 && pds[0].speciesId === 'sweetpea' && pds[0].origin === 'lignee:pdsenteur', 'pois de senteur → catalogue fleurs');
   store['lignee.tomato.myvarieties.v1'] = '{corrompu';
   ok(pendingVarieties(ATELIER_BY_ID.tomate, []).length === 0, 'stockage corrompu ignoré');
 });

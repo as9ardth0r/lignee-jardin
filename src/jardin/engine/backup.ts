@@ -106,6 +106,7 @@ export const LIGNEE_CROPS: Record<string, string> = {
   pois: 'pea',
   fraise: 'strawberry',
   muflier: 'snapdragon',
+  pdsenteur: 'sweetpea',
 };
 
 /**
