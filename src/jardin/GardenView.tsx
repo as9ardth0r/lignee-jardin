@@ -3,7 +3,7 @@ import { TEXTURES } from './data/climate';
 import { PRODUCT_BY_ID } from './data/products';
 import { SPECIES_BY_ID } from './data/species';
 import { uid, type Bed, type BedKind, type Obstacle, type ObstacleKind, type Texture, type MulchMaterial } from './model';
-import { bedSun, DEFAULT_LAT, shadowPolygon, sunMismatch, sunPosition } from './engine/sun';
+import { bedSun, clockHourOf, compassPoint, dayOfYear, DEFAULT_LAT, DEFAULT_LON, shadowPolygon, solarHourAt, sunDir, sunMismatch, sunPosition } from './engine/sun';
 import { isActiveOn, speciesOf } from './engine/crop';
 import { MULCH_INFO, MULCH_MATERIALS, bedMulchSummary, mulchContentM2 } from './engine/mulch';
 import { bedCropsOfYear, bedGroupOfYear, bedRotationIssues, rotationGroup, ROTATION_COLOR, ROTATION_GROUPS, type RotationGroup } from './engine/rotation';
@@ -248,6 +248,27 @@ function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } 
         {sunPos && sunPos.alt <= 0 && (
           <rect x={0} y={0} width={planW} height={planH} fill="#000" fillOpacity={0.45} style={{ pointerEvents: 'none' }} />
         )}
+        {sunPos &&
+          sunPos.alt > 0 &&
+          (() => {
+            // Soleil dessiné au bord du plan, du côté d’où viennent les rayons.
+            const [dx, dy] = sunDir(sunPos.az, planNorth);
+            const r = Math.max(0.22, Math.min(0.9, Math.min(planW, planH) * 0.045));
+            const hx = planW / 2 - r * 1.6;
+            const hy = planH / 2 - r * 1.6;
+            const t = Math.min(Math.abs(dx) > 1e-6 ? hx / Math.abs(dx) : Infinity, Math.abs(dy) > 1e-6 ? hy / Math.abs(dy) : Infinity);
+            const sx = planW / 2 + dx * t;
+            const sy = planH / 2 + dy * t;
+            return (
+              <g style={{ pointerEvents: 'none' }} aria-hidden="true">
+                {Array.from({ length: 8 }, (_, i) => {
+                  const a = (i * Math.PI) / 4;
+                  return <line key={i} x1={sx + Math.cos(a) * r * 1.25} y1={sy + Math.sin(a) * r * 1.25} x2={sx + Math.cos(a) * r * 1.7} y2={sy + Math.sin(a) * r * 1.7} stroke="#f5c84a" strokeWidth={r * 0.22} strokeLinecap="round" />;
+                })}
+                <circle cx={sx} cy={sy} r={r} fill="#f5c84a" stroke="#c8901a" strokeWidth={r * 0.12} />
+              </g>
+            );
+          })()}
       </svg>
       <p className="mt-1.5 text-[11px] leading-snug" style={{ color: INK500 }}>
         {tt('garden.planHint', { w: planW, h: planH })}
@@ -274,8 +295,30 @@ export function GardenView() {
   const [showSun, setShowSun] = useState(false);
   const thisYear = Number(today.slice(0, 4));
   const [rotYear, setRotYear] = useState<number | null>(null);
-  const [doy, setDoy] = useState(172);
-  const [hour, setHour] = useState(16);
+  const lon = data.settings.lon ?? DEFAULT_LON;
+  const lat = data.settings.lat ?? DEFAULT_LAT;
+  // Par défaut, les ombres suivent l’heure du téléphone (mise à jour chaque minute).
+  const [sunMode, setSunMode] = useState<'now' | 'manual'>('now');
+  const [now, setNow] = useState(() => new Date());
+  const [doy, setDoy] = useState(() => dayOfYear(new Date()));
+  const [hour, setHour] = useState(() => Math.round(solarHourAt(new Date(), data.settings.lon ?? DEFAULT_LON) * 4) / 4);
+  useEffect(() => {
+    if (!showSun || sunMode !== 'now') return;
+    setNow(new Date());
+    const t = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(t);
+  }, [showSun, sunMode]);
+  const sunAt = sunMode === 'now' ? { doy: dayOfYear(now), hour: solarHourAt(now, lon) } : { doy, hour };
+  const sunAtPos = sunPosition(lat, sunAt.doy, sunAt.hour);
+  const hhmm = (h: number) => {
+    const m = Math.round(h * 60) % 1440;
+    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  };
+  const clock = sunMode === 'now' ? now.getHours() + now.getMinutes() / 60 : clockHourOf(hour, doy, lon, now.getFullYear());
+  const compass = (az: number) => {
+    const p = compassPoint(az);
+    return lang === 'fr' ? p.replace(/W/g, 'O') : p;
+  };
   const sunInfo = useBedSun();
 
   const freeSpot = (w: number, h: number) => {
@@ -317,7 +360,7 @@ export function GardenView() {
         }
       >
         <PlanSize />
-        <GardenPlan sun={showSun ? { doy, hour } : null} rotationYear={rotYear} />
+        <GardenPlan sun={showSun ? sunAt : null} rotationYear={rotYear} />
         <RotationPanel year={rotYear} thisYear={thisYear} onYear={setRotYear} />
         <div className="mt-3 rounded px-3 py-2" style={{ background: 'var(--color-paper-200)' }}>
           <label className="flex items-center gap-2 text-sm font-medium">
@@ -326,18 +369,49 @@ export function GardenView() {
           {showSun && (
             <div className="mt-2 space-y-2">
               <div className="flex flex-wrap gap-1.5">
+                <Chip active={sunMode === 'now'} onClick={() => setSunMode('now')}>
+                  🕑 {tt('garden.now')}
+                </Chip>
                 {SUN_DAYS.map((d) => (
-                  <Chip key={d.key} active={doy === d.doy} onClick={() => setDoy(d.doy)}>
+                  <Chip
+                    key={d.key}
+                    active={sunMode === 'manual' && doy === d.doy}
+                    onClick={() => {
+                      if (sunMode === 'now') setHour(Math.round(sunAt.hour * 4) / 4);
+                      setDoy(d.doy);
+                      setSunMode('manual');
+                    }}
+                  >
                     {tt(`sunday.${d.key}` as JKey)}
                   </Chip>
                 ))}
               </div>
               <label className="flex items-center gap-3 text-xs" style={{ color: INK700 }}>
-                <span className="w-24 shrink-0">{tt('garden.hour', { h: hour })}</span>
-                <input type="range" min={5} max={21} step={1} value={hour} onChange={(e) => setHour(Number(e.target.value))} className="resin-range" style={{ ['--range-progress' as string]: `${((hour - 5) / 16) * 100}%` }} aria-label={tt('garden.hourLabel')} />
+                <span className="shrink-0 whitespace-nowrap font-data">{tt('garden.clock', { t: hhmm(clock) })}</span>
+                <input
+                  type="range"
+                  min={4}
+                  max={22}
+                  step={0.25}
+                  value={Math.max(4, Math.min(22, sunAt.hour))}
+                  onChange={(e) => {
+                    if (sunMode === 'now') setDoy(sunAt.doy);
+                    setHour(Number(e.target.value));
+                    setSunMode('manual');
+                  }}
+                  className="resin-range"
+                  style={{ ['--range-progress' as string]: `${((Math.max(4, Math.min(22, sunAt.hour)) - 4) / 18) * 100}%` }}
+                  aria-label={tt('garden.hourLabel')}
+                />
               </label>
+              <p className="text-xs font-medium" style={{ color: INK700 }}>
+                {sunAtPos.alt > 0
+                  ? tt('garden.sunNow', { alt: Math.round(sunAtPos.alt), dir: compass(sunAtPos.az), solar: hhmm(sunAt.hour) })
+                  : tt('garden.night', { solar: hhmm(sunAt.hour) })}
+              </p>
               <p className="text-[11px] leading-snug" style={{ color: INK500 }}>
-                {tt('garden.shadowsHint', { lat: fmtNum(data.settings.lat ?? DEFAULT_LAT, lang, 1) })}
+                {tt(sunMode === 'now' ? 'garden.shadowsNowHint' : 'garden.shadowsHint', { lat: fmtNum(lat, lang, 1), lon: fmtNum(lon, lang, 1) })}
+                {data.settings.lon === undefined ? ` ${tt('garden.shadowsNoLon')}` : ''}
               </p>
             </div>
           )}

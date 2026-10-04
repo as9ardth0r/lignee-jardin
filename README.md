@@ -284,6 +284,37 @@ broyat vert riche en trèfle, presque nul pour la paille ou le bois), les
 compte dans les apports des cultures de la planche et réduit
 l'évaporation dans le calcul d'arrosage pendant un an.
 
+## Ombres à l'heure du téléphone
+
+Dans l'onglet Jardin, « ☀ Ombres » s'ouvre sur **Maintenant** : les
+ombres des obstacles (maison, arbres, murs, haies) sont calculées pour la
+date et l'heure du téléphone, mises à jour chaque minute. L'heure du
+téléphone est convertie en heure solaire vraie au jardin (heure UTC +
+longitude / 15 + équation du temps ; l'heure d'été est déjà comprise dans
+l'horloge). Un petit soleil au bord du plan montre d'où viennent les
+rayons, et la ligne sous le curseur donne sa hauteur et sa direction ; la
+nuit, le plan s'assombrit. Les boutons 20 mars, 21 juin, 23 sept. et
+21 déc. et le curseur (au quart d'heure) passent en mode manuel ; le
+curseur affiche l'heure telle qu'elle serait au téléphone ce jour-là.
+Sans localisation du jardin, la position de Paris est utilisée.
+
+## Bilan de fin de saison
+
+Cultures → « 🧺 Récoltes et bilan » :
+
+- **Fleurs coupées** : une observation sur une fleur propose le champ
+  « Tiges coupées » ; le bilan les totalise par espèce (par pied, par m²).
+- **Résultats par planche** : poids récolté, kg/m², tiges, récolte comparée
+  à l'attendu, heures de soleil, paillage, problèmes notés.
+- **Ce qui a marché / à revoir** : chaque culture potagère terminée est
+  comparée à son rendement attendu (≥ 90 % : réussie ; < 50 % ou jamais
+  pesée : à revoir), avec des causes probables tirées du carnet :
+  manque de soleil sur la planche (calculé sur le plan), rotation non
+  respectée, problèmes sanitaires notés, récolte jamais pesée.
+- **Rapport PDF de fin d'année** : synthèse, récoltes, fleurs coupées,
+  résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
+  encore attendues, apports et interventions sanitaires.
+
 ## Les aromatiques
 
 21 aromatiques s'ajoutent au basilic, au persil et à la ciboulette :
@@ -611,7 +642,8 @@ src/
     │   ├── rotation.ts       # Retour d'une famille sur une planche
     │   ├── weather.ts        # Open-Meteo, cache, alertes, contexte récent
     │   ├── phenology.ts      # Degrés-jours, courbe de référence, recalage
-    │   ├── sun.ts            # Position du soleil, ombres, heures de soleil
+    │   ├── sun.ts            # Position du soleil, ombres, heures de soleil, heure du téléphone → heure solaire
+    │   ├── bilan.ts          # Bilan de fin de saison : fleurs coupées, planches, ce qui a marché
     │   ├── diagnosis.ts      # Classement des hypothèses
     │   ├── season.ts         # Graines, bilan de saison
     │   ├── sync.ts           # Horodatage, traces de suppression, fusion de jardins

@@ -9,6 +9,7 @@ import { fmtDate, fmtNum, plantTitle, speciesName } from './format';
 import { makeTT, type JKey } from './i18n';
 import type { GardenData } from './model';
 import { reportData } from './engine/report';
+import { bedResults, cutFlowers, plantResults, seasonReview } from './engine/bilan';
 
 const clean = (s: string) =>
   s
@@ -80,6 +81,12 @@ export async function buildReportPdf(data: GardenData, year: number, today: stri
   const eur = (v: number) => `${fmtNum(v, lang, 2)} EUR`;
   const bedName = (id?: string) => data.beds.find((b) => b.id === id)?.name ?? '';
 
+  const flowers = cutFlowers(data, year);
+  const results = plantResults(data, year, today);
+  const beds = bedResults(data, year, today, results);
+  const review = seasonReview(results);
+  const pct = (x: number) => `${Math.round(x * 100)} %`;
+
   // En-tête
   ink([47, 94, 42]);
   text('Lignée Jardin', M, 10, 'bold');
@@ -99,6 +106,7 @@ export async function buildReportPdf(data: GardenData, year: number, today: stri
     [tt('season.harvested'), kg(r.season.grams)],
     [tt('season.value'), eur(r.season.value)],
     [tt('season.inputs'), eur(r.season.inputsCost)],
+    [tt('report.stems'), String(flowers.stems)],
     [tt('report.irrigation'), `${Math.round(r.waterLiters)} L`],
     [tt('report.rain'), `${fmtNum(r.rainMm, lang, 0)} mm`],
   ];
@@ -120,6 +128,59 @@ export async function buildReportPdf(data: GardenData, year: number, today: stri
   } else {
     text(tt('report.none'), M, 9);
     y += 6;
+  }
+
+  if (flowers.rows.length) {
+    heading(tt('report.flowers'));
+    table(
+      [tt('season.col.crop'), tt('review.col.stems'), tt('review.col.perPlant'), tt('review.col.perM2')],
+      [80, 32, 33, 33],
+      flowers.rows.map((x) => [speciesName(x.speciesId, lang), String(x.stems), x.plants > 0 ? fmtNum(x.stems / x.plants, lang, 1) : '-', x.area > 0 ? fmtNum(x.stems / x.area, lang, 0) : '-']),
+      [false, true, true, true],
+    );
+  }
+
+  if (beds.length) {
+    heading(tt('review.beds'));
+    table(
+      [tt('report.bed'), tt('report.cropsShort'), tt('season.col.weight'), tt('season.col.perM2'), tt('review.col.vsExpected'), tt('report.sunCol')],
+      [30, 54, 24, 24, 24, 22],
+      beds.map((b) => [
+        b.name + (b.mulched ? ` (${tt('review.mulched')})` : ''),
+        b.speciesIds.map((id) => speciesName(id, lang)).join(', ') + (b.stems ? ` - ${tt('review.stemsShort', { n: b.stems })}` : '') + (b.problems ? ` - ${tt('review.problemsShort', { n: b.problems })}` : ''),
+        b.grams > 0 ? kg(b.grams) : '-',
+        b.grams > 0 ? `${fmtNum(b.grams / 1000 / b.area, lang, 1)} kg` : '-',
+        b.ratio === null ? '-' : pct(b.ratio),
+        `${fmtNum(b.sunHours, lang, 1)} h`,
+      ]),
+      [false, false, true, true, true, true],
+    );
+  }
+
+  if (review.worked.length || review.review.length) {
+    heading(tt('report.review'));
+    const line = (x: (typeof results)[number]) => [
+      plantTitle(x.plant, lang),
+      bedName(x.plant.bedId),
+      x.harvestedKg > 0 ? `${fmtNum(x.harvestedKg, lang, 1)} / ${fmtNum(x.expectedKg, lang, 1)} kg (${pct(x.ratio)})` : tt('review.noWeight'),
+      x.causes.map((c) => tt(`review.cause.${c}` as JKey, { n: x.problems })).join(' ; '),
+    ];
+    if (review.worked.length) {
+      pageBreak(10);
+      ink([74, 127, 54]);
+      text(tt('review.worked'), M, 10, 'bold');
+      ink([30, 30, 30]);
+      y += 5;
+      table([tt('season.col.crop'), tt('report.bed'), tt('review.col.result'), tt('review.col.causes')], [50, 30, 44, 54], review.worked.map(line));
+    }
+    if (review.review.length) {
+      pageBreak(10);
+      ink([165, 83, 47]);
+      text(tt('review.toReview'), M, 10, 'bold');
+      ink([30, 30, 30]);
+      y += 5;
+      table([tt('season.col.crop'), tt('report.bed'), tt('review.col.result'), tt('review.col.causes')], [50, 30, 44, 54], review.review.map(line));
+    }
   }
 
   if (r.forecast.length) {

@@ -122,10 +122,10 @@ export function SettingsView() {
   };
 
   const csvJournal = () => {
-    const rows: Array<Array<string | number | undefined>> = [[tt('csv.date'), tt('csv.plant'), tt('csv.bed'), tt('csv.note'), tt('csv.height'), tt('csv.fruits'), tt('csv.harvest'), tt('csv.health'), tt('csv.photos'), tt('csv.voice')]];
+    const rows: Array<Array<string | number | undefined>> = [[tt('csv.date'), tt('csv.plant'), tt('csv.bed'), tt('csv.note'), tt('csv.height'), tt('csv.fruits'), tt('csv.harvest'), tt('csv.stems'), tt('csv.health'), tt('csv.photos'), tt('csv.voice')]];
     for (const o of [...data.observations].sort((a, b) => a.date.localeCompare(b.date))) {
       const p = o.plantId ? data.plants.find((x) => x.id === o.plantId) : undefined;
-      rows.push([o.date, p ? plantTitle(p, lang) : '', data.beds.find((b) => b.id === o.bedId)?.name, o.note, o.heightCm, o.fruits, o.harvestG, o.health ? tt(`health.${o.health}` as JKey) : '', o.photoIds.length, o.audioIds?.length ?? 0]);
+      rows.push([o.date, p ? plantTitle(p, lang) : '', data.beds.find((b) => b.id === o.bedId)?.name, o.note, o.heightCm, o.fruits, o.harvestG, o.stems, o.health ? tt(`health.${o.health}` as JKey) : '', o.photoIds.length, o.audioIds?.length ?? 0]);
     }
     downloadTextFile(`lignee-jardin-journal-${stamp}.csv`, toCSV(rows), 'text/csv');
   };

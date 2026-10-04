@@ -27,6 +27,7 @@ export function ObservationSheet({ plantId, bedId, onClose }: { plantId?: string
   const [height, setHeight] = useState('');
   const [fruits, setFruits] = useState('');
   const [harvest, setHarvest] = useState('');
+  const [stems, setStems] = useState('');
   const [health, setHealth] = useState<Health | undefined>();
   const [files, setFiles] = useState<File[]>([]);
   const [clips, setClips] = useState<VoiceClip[]>([]);
@@ -37,6 +38,9 @@ export function ObservationSheet({ plantId, bedId, onClose }: { plantId?: string
     ...growing.map((p) => ({ v: `p:${p.id}`, l: `${SPECIES_BY_ID[p.speciesId]?.emoji ?? ''} ${plantTitle(p, lang)} (${data.beds.find((b) => b.id === p.bedId)?.name ?? ''})` })),
     ...data.beds.map((b) => ({ v: `b:${b.id}`, l: `▭ ${b.name}` })),
   ];
+
+  const targetPlant = target.startsWith('p:') ? data.plants.find((x) => x.id === target.slice(2)) : undefined;
+  const isFlowerTarget = Boolean(targetPlant && SPECIES_BY_ID[targetPlant.speciesId]?.type === 'flower');
 
   const save = async () => {
     if (!target) return;
@@ -54,6 +58,7 @@ export function ObservationSheet({ plantId, bedId, onClose }: { plantId?: string
           heightCm: num(height),
           fruits: num(fruits),
           harvestG: num(harvest),
+          stems: num(stems),
           health,
         },
         files,
@@ -105,9 +110,10 @@ export function ObservationSheet({ plantId, bedId, onClose }: { plantId?: string
           <p className="mb-1 text-xs font-medium">{tt('voice.title')}</p>
           <VoiceRecorder clips={clips} onChange={setClips} />
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className={`grid gap-3 ${isFlowerTarget ? 'grid-cols-2' : 'grid-cols-3'}`}>
           <Field label={tt('obs.height')}>{(fid) => <TextInput id={fid} type="number" value={height} onChange={setHeight} />}</Field>
           <Field label={tt('obs.fruits')}>{(fid) => <TextInput id={fid} type="number" value={fruits} onChange={setFruits} />}</Field>
+          {isFlowerTarget && <Field label={tt('obs.stems')}>{(fid) => <TextInput id={fid} type="number" value={stems} onChange={setStems} />}</Field>}
           <Field label={tt('obs.harvest')}>{(fid) => <TextInput id={fid} type="number" value={harvest} onChange={setHarvest} />}</Field>
         </div>
         <div>

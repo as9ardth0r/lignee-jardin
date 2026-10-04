@@ -154,3 +154,42 @@ function convexHull(points: Array<[number, number]>): Array<[number, number]> {
   }
   return [...lower.slice(0, -1), ...upper.slice(0, -1)];
 }
+
+// --- Heure du téléphone ↔ heure solaire --------------------------------------------
+
+/** Longitude par défaut (Paris) si le jardin n'est pas localisé. */
+export const DEFAULT_LON = 2.35;
+
+/** Jour de l'année (1 à 366) d'une date locale. */
+export function dayOfYear(d: Date): number {
+  return Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 1)) / 86_400_000) + 1;
+}
+
+/** Équation du temps (minutes) : avance du soleil vrai sur le soleil moyen. */
+export function equationOfTime(doy: number): number {
+  const b = ((2 * Math.PI) / 365) * (doy - 81);
+  return 9.87 * Math.sin(2 * b) - 7.53 * Math.cos(b) - 1.5 * Math.sin(b);
+}
+
+/**
+ * Heure solaire vraie au jardin pour un instant donné (horloge du téléphone) :
+ * heure UTC + longitude / 15 + équation du temps. Le décalage horaire et
+ * l'heure d'été sont pris en compte par l'horloge elle-même.
+ */
+export function solarHourAt(d: Date, lon: number): number {
+  const utc = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
+  return (((utc + lon / 15 + equationOfTime(dayOfYear(d)) / 60) % 24) + 24) % 24;
+}
+
+/** Heure affichée par le téléphone (heures décimales, locale) pour une heure solaire d'un jour de l'année donné. */
+export function clockHourOf(solarHour: number, doy: number, lon: number, year: number): number {
+  const noon = new Date(year, 0, doy, 12);
+  const tz = -noon.getTimezoneOffset() / 60;
+  return (((solarHour - lon / 15 - equationOfTime(doy) / 60 + tz) % 24) + 24) % 24;
+}
+
+/** Point cardinal (16 directions) d'un azimut, pour le libellé. */
+export function compassPoint(az: number): string {
+  const pts = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  return pts[Math.round((((az % 360) + 360) % 360) / 22.5) % 16];
+}

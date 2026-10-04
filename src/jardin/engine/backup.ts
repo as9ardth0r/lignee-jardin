@@ -160,6 +160,7 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
       plant('demo-p3', 'carrot', 'demo-b1', 60, -55, false),
       plant('demo-p4', 'zucchini', 'demo-b2', 3, -70, true, -45),
       plant('demo-p5', 'bean', 'demo-b2', 40, 2, false),
+      plant('demo-p6', 'zinnia', 'demo-b2', 6, -80, true, -50, 'Benary’s Giant'),
     ],
     varieties: [],
     observations: [
@@ -172,6 +173,9 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
       { id: 'demo-h2', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -4), note: '', harvestG: 2100, photoIds: [] },
       { id: 'demo-h3', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -3), note: 'Premières tomates mûres', harvestG: 900, photoIds: [] },
       { id: 'demo-h4', plantId: 'demo-p2', bedId: 'demo-b1', date: addDays(today, -2), note: '', harvestG: 650, photoIds: [] },
+      { id: 'demo-f1', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(today, -14), note: 'Premier bouquet', stems: 18, photoIds: [] },
+      { id: 'demo-f2', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(today, -7), note: '', stems: 25, photoIds: [] },
+      { id: 'demo-f3', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(today, -1), note: '', stems: 22, photoIds: [] },
     ],
     applications: [
       { id: 'demo-a1', bedId: 'demo-b3', productId: 'organicNPK', amount: 600, date: addDays(today, -50), cost: 4.5 },

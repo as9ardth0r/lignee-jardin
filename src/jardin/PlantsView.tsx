@@ -199,9 +199,9 @@ export function Journal({ plantId, bedId }: { plantId?: string; bedId?: string }
               </button>
             </div>
             {o.note && <p className="mt-1 whitespace-pre-wrap text-sm leading-snug">{o.note}</p>}
-            {(o.heightCm || o.fruits || o.harvestG) && (
+            {(o.heightCm || o.fruits || o.harvestG || o.stems) && (
               <p className="mt-1 text-xs" style={{ color: INK700 }}>
-                {[o.heightCm ? tt('journal.heightV', { cm: o.heightCm }) : '', o.fruits ? tt('journal.fruitsV', { n: o.fruits }) : '', o.harvestG ? tt('journal.harvestV', { w: fmtG(o.harvestG, lang) }) : ''].filter(Boolean).join(' · ')}
+                {[o.heightCm ? tt('journal.heightV', { cm: o.heightCm }) : '', o.fruits ? tt('journal.fruitsV', { n: o.fruits }) : '', o.harvestG ? tt('journal.harvestV', { w: fmtG(o.harvestG, lang) }) : '', o.stems ? tt('journal.stemsV', { n: o.stems }) : ''].filter(Boolean).join(' · ')}
               </p>
             )}
             {o.audioIds && o.audioIds.length > 0 && (

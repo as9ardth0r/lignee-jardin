@@ -428,6 +428,8 @@ export interface Observation extends Meta {
   heightCm?: number;
   fruits?: number;
   harvestG?: number;
+  /** Tiges coupées (fleurs, bouquets). */
+  stems?: number;
   health?: Health;
   photoIds: string[];
 }

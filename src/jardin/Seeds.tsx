@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { forecast, forecastByMonth, multiYear } from './engine/report';
+import { bedResults, cutFlowers, plantResults, seasonReview, type PlantResult } from './engine/bilan';
 import { toCSV } from './engine/backup';
 import { monthName, plantTitle } from './format';
 import { saveFile } from '../utils/download';
@@ -203,7 +204,7 @@ export function SeasonView() {
   const store = useGarden();
   const { data, today } = store;
   const { tt, lang } = useJT();
-  const years = [...new Set([yearOf(today), ...data.observations.filter((o) => o.harvestG).map((o) => yearOf(o.date))])].sort((a, b) => b - a);
+  const years = [...new Set([yearOf(today), ...data.observations.filter((o) => o.harvestG || o.stems).map((o) => yearOf(o.date))])].sort((a, b) => b - a);
   const [year, setYear] = useState(years[0]);
   const sum = seasonSummary(data, year);
   const eur = (v: number) => `${fmtNum(v, lang, v < 100 ? 2 : 0)} €`;
@@ -277,9 +278,130 @@ export function SeasonView() {
       <p className="mt-3 text-[11px] leading-snug" style={{ color: INK500 }}>
         {tt('season.note')}
       </p>
+      <SeasonReviewPanel year={year} />
       <ForecastPanel />
       <ProExports year={year} />
     </div>
+  );
+}
+
+/** Fin de saison : fleurs coupées, résultats par planche, ce qui a marché et ce qui est à revoir. */
+function SeasonReviewPanel({ year }: { year: number }) {
+  const { data, today } = useGarden();
+  const { tt, lang } = useJT();
+  const nav = useNav();
+  const flowers = useMemo(() => cutFlowers(data, year), [data, year]);
+  const results = useMemo(() => plantResults(data, year, today), [data, year, today]);
+  const beds = useMemo(() => bedResults(data, year, today, results), [data, year, today, results]);
+  const review = seasonReview(results);
+  const pct = (r: number) => `${Math.round(r * 100)} %`;
+  const resultLine = (r: PlantResult) => (
+    <li key={r.plant.id}>
+      <button type="button" className="w-full rounded px-2 py-1.5 text-left text-sm" style={{ background: 'var(--color-paper-200)' }} onClick={() => nav.open({ type: 'plant', id: r.plant.id })}>
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="min-w-0 truncate">
+            {SPECIES_BY_ID[r.plant.speciesId]?.emoji} {plantTitle(r.plant, lang)} <span style={{ color: INK500 }}>· {data.beds.find((b) => b.id === r.plant.bedId)?.name}</span>
+          </span>
+          <span className="shrink-0 font-data text-xs">{r.harvestedKg > 0 ? `${fmtNum(r.harvestedKg, lang, 1)} / ${fmtNum(r.expectedKg, lang, 1)} kg · ${pct(r.ratio)}` : tt('review.noWeight')}</span>
+        </span>
+        {r.causes.length > 0 && (
+          <span className="mt-0.5 block text-[11px] leading-snug" style={{ color: INK700 }}>
+            {r.causes.map((c) => tt(`review.cause.${c}` as JKey, { n: r.problems })).join(' · ')}
+          </span>
+        )}
+      </button>
+    </li>
+  );
+  if (!flowers.rows.length && !beds.length && !results.length) return null;
+  return (
+    <section className="mt-5 space-y-4">
+      <h3 className="font-display text-base">🗒 {tt('review.title', { year })}</h3>
+      {flowers.rows.length > 0 && (
+        <div>
+          <p className="mb-1 text-sm font-medium">💐 {tt('review.flowers', { n: flowers.stems })}</p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs" style={{ color: INK500 }}>
+                <th className="py-1 pr-2 text-left font-normal">{tt('season.col.crop')}</th>
+                <th className="py-1 pr-2 text-right font-normal">{tt('review.col.stems')}</th>
+                <th className="py-1 pr-2 text-right font-normal">{tt('review.col.perPlant')}</th>
+                <th className="py-1 text-right font-normal">{tt('review.col.perM2')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {flowers.rows.map((r) => (
+                <tr key={r.speciesId} className="border-t" style={{ borderColor: 'var(--color-paper-300)' }}>
+                  <td className="py-1 pr-2">
+                    {SPECIES_BY_ID[r.speciesId]?.emoji} {speciesName(r.speciesId, lang)}
+                  </td>
+                  <td className="whitespace-nowrap py-1 pr-2 text-right font-data text-xs">{r.stems}</td>
+                  <td className="whitespace-nowrap py-1 pr-2 text-right font-data text-xs">{r.plants > 0 ? fmtNum(r.stems / r.plants, lang, 1) : '—'}</td>
+                  <td className="py-1 text-right font-data">{r.area > 0 ? fmtNum(r.stems / r.area, lang, 0) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {beds.length > 0 && (
+        <div>
+          <p className="mb-1 text-sm font-medium">▭ {tt('review.beds')}</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs" style={{ color: INK500 }}>
+                  <th className="py-1 pr-2 text-left font-normal">{tt('report.bed')}</th>
+                  <th className="py-1 pr-2 text-right font-normal">{tt('season.col.weight')}</th>
+                  <th className="py-1 pr-2 text-right font-normal">{tt('season.col.perM2')}</th>
+                  <th className="py-1 pr-2 text-right font-normal">{tt('review.col.vsExpected')}</th>
+                  <th className="py-1 text-right font-normal">☀</th>
+                </tr>
+              </thead>
+              <tbody>
+                {beds.map((b) => (
+                  <tr key={b.bedId} className="border-t align-top" style={{ borderColor: 'var(--color-paper-300)' }}>
+                    <td className="py-1 pr-2">
+                      <button type="button" className="text-left underline-offset-2 hover:underline" onClick={() => nav.open({ type: 'bed', id: b.bedId })}>
+                        {b.name}
+                      </button>
+                      <span className="block text-[11px] leading-snug" style={{ color: INK500 }}>
+                        {b.speciesIds.map((id) => SPECIES_BY_ID[id]?.emoji ?? '').join(' ')}
+                        {b.stems > 0 ? ` · ${tt('review.stemsShort', { n: b.stems })}` : ''}
+                        {b.mulched ? ` · ${tt('review.mulched')}` : ''}
+                        {b.problems > 0 ? ` · ${tt('review.problemsShort', { n: b.problems })}` : ''}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap py-1 pr-2 text-right font-data text-xs">{b.grams > 0 ? fmtG(b.grams, lang) : '—'}</td>
+                    <td className="whitespace-nowrap py-1 pr-2 text-right font-data text-xs">{b.grams > 0 ? `${fmtNum(b.grams / 1000 / b.area, lang, 1)} kg` : '—'}</td>
+                    <td className="whitespace-nowrap py-1 pr-2 text-right font-data text-xs" style={{ color: b.ratio === null ? INK500 : b.ratio >= 0.9 ? '#4a7f36' : b.ratio >= 0.5 ? '#b07a1a' : '#a5532f' }}>
+                      {b.ratio === null ? '—' : pct(b.ratio)}
+                    </td>
+                    <td className="whitespace-nowrap py-1 text-right font-data text-xs">{fmtNum(b.sunHours, lang, 1)} h</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <p className="mb-1 text-sm font-medium" style={{ color: '#4a7f36' }}>
+            ✓ {tt('review.worked')}
+          </p>
+          {review.worked.length ? <ul className="space-y-1">{review.worked.slice(0, 8).map(resultLine)}</ul> : <p className="text-xs" style={{ color: INK500 }}>{tt('review.workedNone')}</p>}
+        </div>
+        <div>
+          <p className="mb-1 text-sm font-medium" style={{ color: '#a5532f' }}>
+            ↻ {tt('review.toReview')}
+          </p>
+          {review.review.length ? <ul className="space-y-1">{review.review.slice(0, 8).map(resultLine)}</ul> : <p className="text-xs" style={{ color: INK500 }}>{tt('review.toReviewNone')}</p>}
+        </div>
+      </div>
+      <p className="text-[11px] leading-snug" style={{ color: INK500 }}>
+        {tt('review.note')}
+      </p>
+    </section>
   );
 }
 

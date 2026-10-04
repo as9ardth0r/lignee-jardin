@@ -41,6 +41,8 @@ import { growthReport, harvestProgress, referenceHeight, MATURE_HEIGHT } from '.
 import { countablePests, pestStatuses, pestTasks } from '../src/jardin/engine/pests';
 import { autoShopping, bestLot, convert, seedLevel, seedsUsedBy, stockForProduct, stockLevel } from '../src/jardin/engine/stock';
 import { ATELIERS, ATELIER_BY_ID } from '../src/ateliers/registry';
+import { bedResults, cutFlowers, plantResults, seasonReview } from '../src/jardin/engine/bilan';
+import { clockHourOf, compassPoint, dayOfYear as doyOfDate, equationOfTime, solarHourAt } from '../src/jardin/engine/sun';
 import { SPECIES_TYPES, speciesWithType } from '../src/jardin/data/speciesTypes';
 import { seasonalType, speciesOf } from '../src/jardin/engine/crop';
 import { plantTitle } from '../src/jardin/format';
@@ -1087,6 +1089,46 @@ test('fleurs : floraison, rappels et besoins', () => {
   ok(n.N > 0 && n.N < 20 && n.K2O > n.N, `besoins cosmos N ${n.N.toFixed(1)} g`);
   ok(forecastRows(d, '2026-08-01').every((r) => r.speciesId === 'tomato'), 'prévisions de récolte sans les fleurs');
   ok(hp(cos, d, '2026-08-01') === null, 'pas de récolte cumulée pour une fleur');
+});
+
+// --- Bilan de saison ------------------------------------------------------------
+
+test('bilan : fleurs coupées, planches, ce qui a marché', () => {
+  const d = demoGarden('2026-07-01');
+  const f = cutFlowers(d, 2026);
+  ok(f.stems === 65 && f.rows[0].speciesId === 'zinnia', `${f.stems} tiges`);
+  const beds = bedResults(d, 2026, '2026-07-01');
+  ok(beds.find((b) => b.bedId === 'demo-b2')?.stems === 65, 'tiges sur la planche 2');
+  const tom = plant({ id: 't', speciesId: 'tomato', count: 4, sowDate: '2026-03-01', status: 'ended', endDate: '2026-09-30' });
+  const car = plant({ id: 'c', speciesId: 'carrot', count: 100, sowDate: '2026-04-01', status: 'ended', endDate: '2026-08-30' });
+  const lea = plant({ id: 'l', speciesId: 'leek', count: 50, sowDate: '2026-04-01', status: 'ended', endDate: '2026-09-30' });
+  const g = data({
+    beds: [bed()],
+    plants: [tom, car, lea],
+    observations: [
+      { id: 'o1', plantId: 't', bedId: 'b1', date: '2026-08-10', note: '', harvestG: 30_000, photoIds: [] },
+      { id: 'o2', plantId: 'c', bedId: 'b1', date: '2026-08-20', note: '', harvestG: 200, photoIds: [] },
+    ],
+    treatments: [{ id: 'tr', plantId: 'c', bedId: 'b1', problemId: 'carrotFly', method: 'manual', date: '2026-06-01' }],
+  });
+  const res = plantResults(g, 2026, '2026-10-04');
+  const rv = seasonReview(res);
+  ok(rv.worked.some((r) => r.plant.id === 't'), 'tomates réussies');
+  const c = rv.review.find((r) => r.plant.id === 'c');
+  ok(Boolean(c && c.verdict === 'poor' && c.causes.includes('problems')), 'carottes décevantes, problème noté');
+  ok(rv.review.some((r) => r.plant.id === 'l' && r.causes.includes('unweighed')), 'poireaux jamais pesés');
+});
+
+// --- Ombres à l'heure du téléphone ----------------------------------------------------
+
+test('soleil : heure du téléphone → heure solaire', () => {
+  ok(Math.abs(equationOfTime(307)) > 15 && Math.abs(equationOfTime(43)) > 13, 'équation du temps (novembre +16 min, février −14 min)');
+  const d = new Date(Date.UTC(2026, 5, 21, 12, 0));
+  ok(Math.abs(solarHourAt(d, 0) - 12) < 0.05, 'Greenwich, midi UTC ≈ midi solaire');
+  ok(Math.abs(solarHourAt(d, 2.35) - 12.13) < 0.05, 'Paris : midi UTC = 12 h 08 solaire');
+  const back = clockHourOf(solarHourAt(d, 2.35), doyOfDate(d), 2.35, 2026);
+  ok(Math.abs(back - (d.getHours() + d.getMinutes() / 60)) < 0.02, 'aller-retour horloge ↔ soleil');
+  ok(compassPoint(180) === 'S' && compassPoint(225) === 'SW' && compassPoint(359) === 'N', 'points cardinaux');
 });
 
 if (failed) {
