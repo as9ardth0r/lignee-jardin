@@ -228,7 +228,7 @@ saison, titre et sauvegarde.
 Lune : phases sur des éclipses connues, déclinaison maximale de
 l'arrêt lunaire de 2025, alternance montante / descendante (~13,7 j),
 option désactivée par défaut.
-Ateliers : 15 ateliers et cultures reconnues, « Mes lignées » ajoutées
+Ateliers : 16 ateliers et cultures reconnues, « Mes lignées » ajoutées
 au jardin sans doublon (stockage corrompu ignoré).
 
 ```bash
@@ -347,6 +347,12 @@ formes Spencer, capuchon et naine Cupid et les hybrides avec
 *L. belinensis*. Ses « Mes lignées » arrivent au jardin comme variétés
 de pois de senteur.
 
+**Atelier Tournesol** : l'atelier 🌻 Tournesol montre la dominance
+incomplète du rouge (jaune × rouge = bicolore), les fleurs doubles
+« nounours », la ramification du tournesol sauvage, les plantes sans
+pollen pour la fleur coupée et la vigueur hybride. Ses « Mes lignées »
+arrivent au jardin comme variétés de tournesol.
+
 ## La Lune (option, tradition jardinière)
 
 Réglages → Affichage → « Afficher la Lune » (désactivé par défaut) :
@@ -363,11 +369,11 @@ tâches ni ses conseils.
 
 ## Les ateliers de sélection (onglet « Sélection »)
 
-Lignée Jardin est l'app principale : les quinze apps Lignée de
+Lignée Jardin est l'app principale : les seize apps Lignée de
 génétique y sont réunies comme **ateliers**, chacun ouvert depuis
 l'onglet 🧬 **Sélection** : tomate, piment et poivron, courge, melon,
 pastèque, haricot, pois, maïs, chou, carotte, pomme de terre, fraise,
-muflier, pois de senteur et cannabis.
+muflier, pois de senteur, tournesol et cannabis.
 
 - Chaque atelier est l'app d'origine, **copiée telle quelle** dans
   `src/ateliers/<id>/` (moteur, interface, textes FR/EN, tests) : mêmes
@@ -584,7 +590,7 @@ src/
 ├── Root.tsx, main.tsx, i18n/LanguageContext.tsx, components/LanguageSwitcher.tsx
 ├── utils/download.ts
 ├── ateliers/
-│   ├── registry.ts           # Les 15 ateliers : nom, couleur, chargement à la demande, « Mes lignées »
+│   ├── registry.ts           # Les 16 ateliers : nom, couleur, chargement à la demande, « Mes lignées »
 │   ├── pending.ts            # Variétés d'un atelier pas encore au jardin
 │   └── tomate/, piment/, courge/, melon/, pasteque/, haricot/, pois/,
 │       mais/, chou/, carotte/, patate/, fraise/, muflier/, cannabis/   # apps d'origine

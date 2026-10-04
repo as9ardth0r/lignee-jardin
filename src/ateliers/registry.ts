@@ -9,7 +9,7 @@
  */
 import type { ComponentType } from 'react';
 
-export type AtelierId = 'tomate' | 'piment' | 'courge' | 'melon' | 'pasteque' | 'haricot' | 'pois' | 'mais' | 'chou' | 'carotte' | 'patate' | 'fraise' | 'muflier' | 'pdsenteur' | 'cannabis';
+export type AtelierId = 'tomate' | 'piment' | 'courge' | 'melon' | 'pasteque' | 'haricot' | 'pois' | 'mais' | 'chou' | 'carotte' | 'patate' | 'fraise' | 'muflier' | 'pdsenteur' | 'tournesol' | 'cannabis';
 
 export interface Atelier {
   id: AtelierId;
@@ -38,6 +38,7 @@ export const ATELIERS: Atelier[] = [
   { id: 'fraise', name: { fr: 'Fraise', en: 'Strawberry' }, latin: 'Fragaria', emoji: '🍓', accent: ['#ef6f86', '#c8324f', '#97203a'], myVarieties: { key: 'lignee.fraise.myvarieties.v1', crop: 'fraise' }, load: () => import('./fraise/fraise/StrawberryApp') },
   { id: 'muflier', name: { fr: 'Muflier', en: 'Snapdragon' }, latin: 'Antirrhinum majus', emoji: '🌺', accent: ['#e46aa8', '#b0186e', '#84104f'], myVarieties: { key: 'lignee.muflier.myvarieties.v1', crop: 'muflier' }, load: () => import('./muflier/muflier/SnapdragonApp') },
   { id: 'pdsenteur', name: { fr: 'Pois de senteur', en: 'Sweet pea' }, latin: 'Lathyrus odoratus', emoji: '🌸', accent: ['#b48ae0', '#7a46b8', '#5a2c90'], myVarieties: { key: 'lignee.pdsenteur.myvarieties.v1', crop: 'pdsenteur' }, load: () => import('./pdsenteur/pdsenteur/SweetPeaApp') },
+  { id: 'tournesol', name: { fr: 'Tournesol', en: 'Sunflower' }, latin: 'Helianthus annuus', emoji: '🌻', accent: ['#f7a83a', '#d9730f', '#a85408'], myVarieties: { key: 'lignee.tournesol.myvarieties.v1', crop: 'tournesol' }, load: () => import('./tournesol/tournesol/SunflowerApp') },
   { id: 'cannabis', name: { fr: 'Cannabis', en: 'Cannabis' }, latin: 'Cannabis sativa', emoji: '🌿', accent: ['#d9ae52', '#c89b3c', '#a87d2b'], load: () => import('./cannabis/Entry') },
 ];
 
