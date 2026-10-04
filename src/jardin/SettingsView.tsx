@@ -13,6 +13,7 @@ import { useGarden } from './store';
 import { Button, Card, Chip, Field, INK500, INK700, Notice, Select, TextInput } from './ui';
 import { downloadTextFile, readFileAsText } from '../utils/download';
 import { LocationPicker } from './Weather';
+import { CompassButton } from './Locate';
 import { GardensCard, NotificationsCard } from './ProSettings';
 
 export const KINDS: GardenKind[] = ['vegetable', 'orchard', 'ornamental', 'balcony', 'greenhouse'];
@@ -172,8 +173,21 @@ export function SettingsView() {
             <Field label={tt('settings.planH')}>{(fid) => <TextInput id={fid} type="number" value={s.planH} onChange={(v) => set({ planH: Math.max(2, Math.min(200, Number(v) || 2)) })} />}</Field>
             <div className="col-span-2 sm:col-span-4">
               <Field label={tt('settings.planNorth')}>
-                {(fid) => <Select id={fid} value={String(s.planNorth)} onChange={(v) => set({ planNorth: Number(v) })} options={[0, 90, 180, 270].map((d) => ({ v: String(d), l: tt(`north.${d}` as JKey) }))} />}
+                {(fid) => (
+                  <Select
+                    id={fid}
+                    value={String(s.planNorth)}
+                    onChange={(v) => set({ planNorth: Number(v) })}
+                    options={[
+                      ...[0, 90, 180, 270].map((d) => ({ v: String(d), l: tt(`north.${d}` as JKey) })),
+                      ...([0, 90, 180, 270].includes(s.planNorth) ? [] : [{ v: String(s.planNorth), l: tt('north.custom', { d: s.planNorth }) }]),
+                    ]}
+                  />
+                )}
               </Field>
+              <div className="mt-1.5">
+                <CompassButton />
+              </div>
             </div>
           </div>
           <Block title={tt('onb.where')}>

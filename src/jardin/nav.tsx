@@ -11,6 +11,7 @@ export type SheetRequest =
   | { type: 'observe'; plantId?: string; bedId?: string }
   | { type: 'water'; bedId?: string; kind?: 'rain' | 'irrigation'; liters?: number }
   | { type: 'task' }
+  | { type: 'harvest' }
   | { type: 'obstacle'; id: string }
   | { type: 'diagnose'; plantId?: string; bedId?: string }
   | { type: 'seed'; id?: string; speciesId?: string }

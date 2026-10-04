@@ -32,6 +32,8 @@ const TASK_ICON: Record<Task['kind'], string> = {
   lime: '🪨',
   pest: '🐞',
   manual: '✎',
+  cover: '🌾',
+  compost: '♻',
 };
 
 /** Nombre de tâches montrées d'emblée (le reste derrière « voir tout »). */
@@ -88,6 +90,7 @@ export function TodayView() {
   const openTask = (t: Task) => {
     if (t.kind === 'water' && t.bedId) nav.open({ type: 'water', bedId: t.bedId, kind: 'irrigation', liters: Number(t.vars.liters) || undefined });
     else if (t.kind === 'observe' && t.plantId) nav.open({ type: 'observe', plantId: t.plantId });
+    else if (t.kind === 'compost') nav.setTab('garden');
     else if (t.plantId) nav.open({ type: 'plant', id: t.plantId });
     else if (t.bedId) nav.open({ type: 'bed', id: t.bedId });
   };
@@ -108,13 +111,18 @@ export function TodayView() {
               ? tt('today.season', { date: fmtDate(firstFrost, lang) })
               : tt('today.winter')}
         </p>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
           <Button kind="primary" onClick={() => nav.open({ type: 'observe' })}>
             📷 {tt('quick.observe')}
           </Button>
+          <Button kind="primary" onClick={() => nav.open({ type: 'harvest' })}>
+            🧺 {tt('quick.harvest')}
+          </Button>
           <Button onClick={() => nav.open({ type: 'water', kind: 'irrigation' })}>💧 {tt('quick.irrigation')}</Button>
           <Button onClick={() => nav.open({ type: 'water', kind: 'rain' })}>🌧 {tt('quick.rain')}</Button>
-          <Button onClick={() => nav.open({ type: 'addPlant' })}>🌱 {tt('quick.plant')}</Button>
+          <Button className="col-span-2 sm:col-span-1" onClick={() => nav.open({ type: 'addPlant' })}>
+            🌱 {tt('quick.plant')}
+          </Button>
         </div>
       </Card>
 

@@ -6,6 +6,7 @@
  * reproposera pas. Le nombre de tâches affichées est plafonné par l'écran
  * (pas de pluie de notifications).
  */
+import { compostTasks } from './compost';
 import { CLIMATES } from '../data/climate';
 import type { GardenData, ISODate, Plant } from '../model';
 import { addDays, dayOfYear, diffDays, weekKey } from './dates';
@@ -19,7 +20,7 @@ import { limeAdvice, limeSeason, soilFor } from './soil';
 import { pestTasks } from './pests';
 import { FLOWER_INFO } from '../data/flowers';
 
-export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual';
+export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual' | 'cover' | 'compost';
 
 export interface Task {
   key: string;
@@ -78,7 +79,12 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
     }
 
     const fl = sp.type === 'flower' ? FLOWER_INFO[sp.id] : undefined;
-    if (!fl) {
+    if (sp.type === 'cover') {
+      // Engrais vert : à faucher dans sa fenêtre de destruction (avant la montée en graines).
+      if (today >= addDays(info.harvestFrom, -LOOKAHEAD) && today <= info.harvestTo) {
+        tasks.push({ ...base, key: `cover:${p.id}:${weekKey(today)}`, kind: 'cover', due: today < info.harvestFrom ? info.harvestFrom : today, priority: today > addDays(info.harvestTo, -14) ? 1 : 2 });
+      }
+    } else if (!fl) {
       // Récolte : chaque semaine de la fenêtre de récolte.
       if (today >= addDays(info.harvestFrom, -LOOKAHEAD) && today <= info.harvestTo) {
         tasks.push({ ...base, key: `harvest:${p.id}:${weekKey(today)}`, kind: 'harvest', due: today < info.harvestFrom ? info.harvestFrom : today, priority: 2 });
@@ -98,7 +104,7 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
     }
 
     // Fertilisation : seulement si la culture est en place et qu'il y a vraiment quelque chose à apporter.
-    if (isActiveOn(p, today) && info.stage !== 'planned' && info.stage !== 'ended') {
+    if (isActiveOn(p, today) && info.stage !== 'planned' && info.stage !== 'ended' && sp.type !== 'cover') {
       const status = nutrientStatus(p, data, today);
       const recent = data.applications.some((a) => a.bedId === p.bedId && diffDays(a.date, today) < FEED_SPACING && a.date <= today);
       if (!recent && !status.legume && status.dueNow.N >= FEED_MIN_N) {
@@ -193,6 +199,11 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
   }
 
   // Tâches saisies à la main.
+  // Compost : retourner, rééquilibrer, tamiser quand c'est mûr.
+  for (const c of compostTasks(data, today)) {
+    tasks.push({ key: `compost:${c.heapId}:${c.what}:${c.what === 'ready' ? 'once' : weekKey(today)}`, kind: 'compost', due: today, priority: c.what === 'ready' ? 2 : 3, vars: { name: c.name, what: c.what } });
+  }
+
   for (const t of data.tasks) {
     if (t.done || t.due > horizon) continue;
     tasks.push({ key: t.id, manualId: t.id, kind: 'manual', due: t.due, priority: t.due < today ? 1 : 2, bedId: t.bedId, plantId: t.plantId, vars: { title: t.title } });

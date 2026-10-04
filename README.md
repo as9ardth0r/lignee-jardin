@@ -315,6 +315,30 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Engrais verts, compost, récoltes rapides
+
+- **Engrais verts** (catalogue → « Engrais vert ») : moutarde, radis
+  fourrager, seigle, avoine, ray-grass, vesce, mélange seigle-vesce,
+  trèfles, luzerne, sainfoin, pois fourrager. Tâche « à faucher » dans la
+  fenêtre de destruction ; une fois la culture marquée terminée, l'azote
+  rendu (3 à 12 g/m² selon l'espèce) est compté dans les apports de la
+  culture suivante sur la même planche.
+- **Compost** (onglet Jardin) : tas, bacs et lombricomposteurs ; apports
+  par matière (verts / bruns), C/N estimé avec la correction à faire,
+  retournements, température, date de maturité estimée ; le compost tamisé
+  passe au stock. Tâches « retourner » et « tamiser ».
+- **🧺 Récolte** (écran Aujourd'hui) : les cultures en récolte et les fleurs
+  en floraison, un champ par culture (g, kg ou tiges), tout s'enregistre
+  d'un coup.
+- **Préparer l'an prochain** depuis le bilan : le planificateur reprend les
+  cultures de l'année, réduit de moitié celles qui ont déçu et choisit des
+  planches mieux exposées et en bonne rotation.
+- **Étiquettes de graines** (catalogue → Mes graines) : planche A4 de
+  3 × 7 étiquettes (variété, année, conservation, germination, origine
+  Lignée).
+- **Localisation et boussole** : « 📍 Localiser le jardin » (GPS) et
+  « 🧭 Orienter avec la boussole » près des ombres et dans Réglages.
+
 ## Les aromatiques
 
 21 aromatiques s'ajoutent au basilic, au persil et à la ciboulette :

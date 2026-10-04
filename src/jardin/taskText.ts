@@ -19,6 +19,7 @@ export function taskText(task: Task, tt: TT, lang: 'fr' | 'en'): string {
     const where = species || String(task.vars.bed ?? '');
     return tt(`task.pest.${task.vars.what}` as JKey, { pest: PROBLEM_BY_ID[String(task.vars.pest)]?.name[lang] ?? '', where, value: task.vars.value, threshold: task.vars.threshold });
   }
+  if (task.kind === 'compost') return tt(`task.compost.${task.vars.what}` as JKey, { name: String(task.vars.name ?? '') });
   if (task.kind === 'lime') {
     return tt('task.lime', { ...task.vars, product: PRODUCT_BY_ID[String(task.vars.product)]?.name[lang] ?? '', total: fmtNum(Number(task.vars.total), lang, 1) });
   }

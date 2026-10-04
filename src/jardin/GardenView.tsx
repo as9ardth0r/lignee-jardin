@@ -15,6 +15,8 @@ import { useNav } from './nav';
 import { useGarden } from './store';
 import { Button, Card, Chip, Empty, Field, INK500, INK700, Meter, Notice, Select, Sheet, TextInput, Why } from './ui';
 import { BedSensors, SensorsCard } from './Sensors';
+import { LocateButtons } from './Locate';
+import { CompostCard } from './Compost';
 import { BedSoil, SoilCard } from './Soil';
 
 const BED_FILL: Record<BedKind, { fill: string; stroke: string }> = {
@@ -413,6 +415,7 @@ export function GardenView() {
                 {tt(sunMode === 'now' ? 'garden.shadowsNowHint' : 'garden.shadowsHint', { lat: fmtNum(lat, lang, 1), lon: fmtNum(lon, lang, 1) })}
                 {data.settings.lon === undefined ? ` ${tt('garden.shadowsNoLon')}` : ''}
               </p>
+              <LocateButtons compact />
             </div>
           )}
         </div>
@@ -450,6 +453,7 @@ export function GardenView() {
         )}
       </Card>
       <SoilCard />
+      <CompostCard />
       <SensorsCard />
     </div>
   );

@@ -60,6 +60,11 @@ export function NutritionPanel({ plant }: { plant: Plant }) {
           🍂 {tt('nut.mulch', { n: fmtNum(st.mulch.N, lang, 0), k: fmtNum(st.mulch.K2O, lang, 0) })}
         </p>
       )}
+      {st.cover >= 0.5 && (
+        <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-canopy-700)' }}>
+          🌾 {tt('nut.cover', { n: fmtNum(st.cover, lang, 0) })}
+        </p>
+      )}
 
       <table className="mt-3 w-full text-xs">
         <thead>

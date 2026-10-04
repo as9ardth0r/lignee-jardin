@@ -14,6 +14,8 @@
  */
 import type { Family, Feeding, Frost, MonthRange, Species, SpeciesExtra, Sun, Txt } from '../model';
 
+import { MORE_ORCHARD, MORE_ORCHARD_EXTRA, MORE_ORCHARD_HEIGHT, MORE_ORCHARD_MONTHS } from './orchardMore';
+
 const T = (fr: string, en: string): Txt => ({ fr, en });
 
 interface Def {
@@ -184,8 +186,8 @@ const DEFS: Def[] = [
 ];
 
 const BUILT = DEFS.map(fruit);
-export const ORCHARD: Species[] = BUILT.map((b) => b.species);
-export const ORCHARD_EXTRA: Record<string, SpeciesExtra> = Object.fromEntries(BUILT.map((b) => [b.species.id, b.extra]));
-export const ORCHARD_HEIGHT: Record<string, number> = Object.fromEntries(BUILT.map((b) => [b.species.id, b.height]));
+export const ORCHARD: Species[] = [...BUILT.map((b) => b.species), ...MORE_ORCHARD];
+export const ORCHARD_EXTRA: Record<string, SpeciesExtra> = { ...Object.fromEntries(BUILT.map((b) => [b.species.id, b.extra])), ...MORE_ORCHARD_EXTRA };
+export const ORCHARD_HEIGHT: Record<string, number> = { ...Object.fromEntries(BUILT.map((b) => [b.species.id, b.height])), ...MORE_ORCHARD_HEIGHT };
 /** Mois de récolte d'un fruitier adulte. */
-export const ORCHARD_MONTHS: Record<string, MonthRange> = Object.fromEntries(DEFS.map((d) => [d.id, d.months]));
+export const ORCHARD_MONTHS: Record<string, MonthRange> = { ...Object.fromEntries(DEFS.map((d) => [d.id, d.months])), ...MORE_ORCHARD_MONTHS };

@@ -81,7 +81,7 @@ function GardenLine({ engine, ind, garden }: { engine: HaEngine; ind: HaIndividu
   const loss = Math.round(out.totalLoss * 100);
   return (
     <p className="mt-2 text-[10px] font-data" style={{ color: loss >= 35 ? 'var(--color-tomato-500)' : INK500 }}>
-      🌦 {formatStems(out.realized, tt, language === 'fr' ? 'fr-FR' : 'en-US')} {tt('garden.inGarden')} (−{loss} %)
+      🌦 {out.potential <= 1 ? tt('garden.singleHead', { pct: loss }) : `${formatStems(out.realized, tt, language === 'fr' ? 'fr-FR' : 'en-US')} ${tt('garden.inGarden')} (−${loss} %)`}
     </p>
   );
 }

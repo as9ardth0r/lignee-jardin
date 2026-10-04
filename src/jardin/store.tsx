@@ -7,7 +7,7 @@
  * pourra être servie par SQLite (plugin Capacitor) plus tard.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Reading, type Sensor, type PestCount, type SeasonPlan, type ShoppingItem, type StockItem, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent, type MulchEntry } from './model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type CompostHeap, type Reading, type Sensor, type PestCount, type SeasonPlan, type ShoppingItem, type StockItem, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent, type MulchEntry } from './model';
 import { mergeWeather, needsRefresh, parseOpenMeteo, weatherURL } from './engine/weather';
 import { demoGarden, parseBackup, serializeBackup, type PhotoExport } from './engine/backup';
 import { todayISO } from './engine/dates';
@@ -159,6 +159,8 @@ export interface GardenStore {
   loadDemo: () => void;
   resetAll: () => Promise<void>;
   saveObstacle: (o: Obstacle) => void;
+  saveCompost: (h: CompostHeap) => void;
+  deleteCompost: (id: string) => void;
   deleteObstacle: (id: string) => void;
   addPhenoEvent: (e: Omit<PhenoEvent, 'id'>) => void;
   deletePhenoEvent: (id: string) => void;
@@ -505,6 +507,8 @@ export function GardenProvider({ children }: { children: ReactNode }) {
         setData(EMPTY_DATA);
       },
       saveObstacle: (o) => mutate((d) => ({ ...d, obstacles: upsert(d.obstacles, o) })),
+      saveCompost: (h) => mutate((d) => ({ ...d, compost: upsert(d.compost ?? [], h) })),
+      deleteCompost: (id) => mutate((d) => ({ ...d, compost: (d.compost ?? []).filter((x) => x.id !== id) })),
       deleteObstacle: (id) => mutate((d) => ({ ...d, obstacles: d.obstacles.filter((o) => o.id !== id) })),
       addPhenoEvent: (e) => mutate((d) => ({ ...d, phenoEvents: [...d.phenoEvents.filter((x) => !(x.plantId === e.plantId && x.stage === e.stage)), { ...e, id: uid('ph') }] })),
       deletePhenoEvent: (id) => mutate((d) => ({ ...d, phenoEvents: d.phenoEvents.filter((x) => x.id !== id) })),

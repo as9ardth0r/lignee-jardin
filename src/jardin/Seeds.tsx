@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { forecast, forecastByMonth, multiYear } from './engine/report';
-import { bedResults, cutFlowers, plantResults, seasonReview, type PlantResult } from './engine/bilan';
+import { bedResults, cutFlowers, plantResults, seasonReview, wishesFromReview, type PlantResult } from './engine/bilan';
 import { toCSV } from './engine/backup';
 import { monthName, plantTitle } from './format';
 import { saveFile } from '../utils/download';
@@ -32,9 +32,27 @@ export function SeedsPanel() {
           {tt('seeds.count', { n: lots.length })}
           {toTest > 0 && ` · ${tt('seeds.toTest', { n: toTest })}`}
         </p>
-        <Button small kind="primary" onClick={() => nav.open({ type: 'seed' })}>
-          + {tt('seeds.add')}
-        </Button>
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {lots.length > 0 && (
+            <Button
+              small
+              kind="ghost"
+              onClick={async () => {
+                try {
+                  const { buildSeedLabelsPdf } = await import('./labelsPdf');
+                  await saveFile(`lignee-jardin-etiquettes-graines.pdf`, await buildSeedLabelsPdf(data, lots, lang), 'application/pdf');
+                } catch {
+                  nav.toast(tt('report.error'));
+                }
+              }}
+            >
+              🏷 {tt('seeds.labels')}
+            </Button>
+          )}
+          <Button small kind="primary" onClick={() => nav.open({ type: 'seed' })}>
+            + {tt('seeds.add')}
+          </Button>
+        </div>
       </div>
       <div className="mt-3">
         {lots.length === 0 ? (
@@ -287,7 +305,8 @@ export function SeasonView() {
 
 /** Fin de saison : fleurs coupées, résultats par planche, ce qui a marché et ce qui est à revoir. */
 function SeasonReviewPanel({ year }: { year: number }) {
-  const { data, today } = useGarden();
+  const store = useGarden();
+  const { data, today } = store;
   const { tt, lang } = useJT();
   const nav = useNav();
   const flowers = useMemo(() => cutFlowers(data, year), [data, year]);
@@ -401,6 +420,24 @@ function SeasonReviewPanel({ year }: { year: number }) {
       <p className="text-[11px] leading-snug" style={{ color: INK500 }}>
         {tt('review.note')}
       </p>
+      <div>
+        <Button
+          small
+          kind="primary"
+          onClick={() => {
+            const wishes = wishesFromReview(data, year, today);
+            if (!wishes.length) return nav.toast(tt('plan.noLastYear'));
+            if (data.plan?.wishes.length && data.plan.year === year + 1 && !window.confirm(tt('review.replanConfirm', { year: year + 1 }))) return;
+            store.setPlan({ year: year + 1, wishes });
+            nav.toast(tt('review.replanned', { year: year + 1, n: wishes.length }));
+          }}
+        >
+          🗓 {tt('review.replan', { year: year + 1 })}
+        </Button>
+        <p className="mt-1 text-[11px] leading-snug" style={{ color: INK500 }}>
+          {tt('review.replanHint')}
+        </p>
+      </div>
     </section>
   );
 }

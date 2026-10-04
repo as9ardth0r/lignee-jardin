@@ -14,6 +14,7 @@
  */
 import type { Family, Feeding, Frost, MonthRange, Species, SpeciesExtra, Sun, Txt } from '../model';
 import { MORE_FLOWER_DEFS, MORE_FLOWER_EXTRA } from './flowersMore';
+import { EXTRA_FLOWER_DEFS, EXTRA_FLOWER_EXTRA } from './flowersExtra';
 
 export type FlowerColor = 'white' | 'yellow' | 'orange' | 'red' | 'pink' | 'purple' | 'blue';
 export const FLOWER_COLORS: FlowerColor[] = ['white', 'yellow', 'orange', 'red', 'pink', 'purple', 'blue'];
@@ -415,7 +416,7 @@ const DEFS: Def[] = [
   },
 ];
 
-const BUILT = [...DEFS, ...MORE_FLOWER_DEFS].map(flower);
+const BUILT = [...DEFS, ...MORE_FLOWER_DEFS, ...EXTRA_FLOWER_DEFS].map(flower);
 export const FLOWERS: Species[] = BUILT.map((b) => b.species);
 export const FLOWER_INFO: Record<string, FlowerInfo> = Object.fromEntries(BUILT.map((b) => [b.species.id, b.info]));
 
@@ -439,6 +440,7 @@ const x = (seedLife: number, pollination: SpeciesExtra['pollination'], isolation
 /** Garder ses graines de fleurs : fidélité, isolement, récolte. Ordres de grandeur des guides de semences au jardin. */
 export const FLOWER_EXTRA: Record<string, SpeciesExtra> = {
   ...MORE_FLOWER_EXTRA,
+  ...EXTRA_FLOWER_EXTRA,
   cosmos: x(3, 'insect', 200, 'mostly', 'Récolter les graines noires en aiguilles quand elles se détachent du cœur sec. Les couleurs se mélangent entre variétés voisines.', 'Collect the black needle-like seeds once they come away from the dry centre. Colours mix between neighbouring varieties.'),
   zinnia: x(4, 'insect', 200, 'mostly', 'Laisser sécher la fleur sur pied ; les graines sont à la base des pétales. Les séries naines « Profusion » sont des F1 stériles.', 'Let the flower dry on the plant; seeds sit at the base of the petals. Dwarf “Profusion” series are sterile F1s.', true),
   calendula: x(5, 'insect', 50, 'mostly', 'Graines en croissant à récolter brunes et sèches ; il se ressème de lui-même.', 'Crescent-shaped seeds, collect brown and dry; it self-seeds anyway.'),

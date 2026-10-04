@@ -30,7 +30,7 @@ export function forecast(data: GardenData, today: ISODate): ForecastRow[] {
   const harvested = new Map<string, number>();
   for (const o of data.observations) if (o.plantId && o.harvestG) harvested.set(o.plantId, (harvested.get(o.plantId) ?? 0) + o.harvestG / 1000);
   return data.plants
-    .filter((p) => p.status !== 'ended' && speciesOf(p).type !== 'flower')
+    .filter((p) => p.status !== 'ended' && speciesOf(p).type !== 'flower' && speciesOf(p).type !== 'cover')
     .map((p) => {
       const tl = timeline(p, data, today);
       const expectedKg = expectedYieldKg(p);

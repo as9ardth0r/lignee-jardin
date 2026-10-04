@@ -14,6 +14,8 @@
  */
 import type { Family, Feeding, Frost, MonthRange, Species, SpeciesExtra, Sun, Txt } from '../model';
 
+import { MORE_HERBS, MORE_HERB_EXTRA, MORE_HERB_HEIGHT } from './herbsMore';
+
 const T = (fr: string, en: string): Txt => ({ fr, en });
 
 interface Def {
@@ -219,6 +221,6 @@ const DEFS: Def[] = [
 ];
 
 const BUILT = DEFS.map(herb);
-export const HERBS: Species[] = BUILT.map((b) => b.species);
-export const HERB_EXTRA: Record<string, SpeciesExtra> = Object.fromEntries(BUILT.map((b) => [b.species.id, b.extra]));
-export const HERB_HEIGHT: Record<string, number> = Object.fromEntries(BUILT.map((b) => [b.species.id, b.height]));
+export const HERBS: Species[] = [...BUILT.map((b) => b.species), ...MORE_HERBS];
+export const HERB_EXTRA: Record<string, SpeciesExtra> = { ...Object.fromEntries(BUILT.map((b) => [b.species.id, b.extra])), ...MORE_HERB_EXTRA };
+export const HERB_HEIGHT: Record<string, number> = { ...Object.fromEntries(BUILT.map((b) => [b.species.id, b.height])), ...MORE_HERB_HEIGHT };

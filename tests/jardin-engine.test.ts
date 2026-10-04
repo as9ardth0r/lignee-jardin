@@ -41,7 +41,9 @@ import { growthReport, harvestProgress, referenceHeight, MATURE_HEIGHT } from '.
 import { countablePests, pestStatuses, pestTasks } from '../src/jardin/engine/pests';
 import { autoShopping, bestLot, convert, seedLevel, seedsUsedBy, stockForProduct, stockLevel } from '../src/jardin/engine/stock';
 import { ATELIERS, ATELIER_BY_ID } from '../src/ateliers/registry';
-import { bedResults, cutFlowers, plantResults, seasonReview } from '../src/jardin/engine/bilan';
+import { bedResults, cutFlowers, harvestCandidates, plantResults, seasonReview, wishesFromReview } from '../src/jardin/engine/bilan';
+import { cnAdvice, heapCN, heapStatus } from '../src/jardin/engine/compost';
+import { coverCredit } from '../src/jardin/engine/nutrition';
 import { clockHourOf, compassPoint, dayOfYear as doyOfDate, equationOfTime, solarHourAt } from '../src/jardin/engine/sun';
 import { SPECIES_TYPES, speciesWithType } from '../src/jardin/data/speciesTypes';
 import { seasonalType, speciesOf } from '../src/jardin/engine/crop';
@@ -74,8 +76,8 @@ const data = (over: Partial<GardenData>): GardenData => ({ ...EMPTY_DATA, settin
 
 // --- Catalogue ------------------------------------------------------------
 
-test('catalogue : 59 légumes, 21 aromatiques, 17 fruitiers et 141 fleurs, identifiants uniques', () => {
-  ok(VEGETABLES.length + MORE_VEGETABLES.length === 59 && HERBS.length === 21 && ORCHARD.length === 17 && FLOWERS.length === 141 && SPECIES.length === 238, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
+test('catalogue : 85 légumes, 32 aromatiques, 40 fruitiers, 156 fleurs et 12 engrais verts, identifiants uniques', () => {
+  ok(VEGETABLES.length + MORE_VEGETABLES.length === 85 && HERBS.length === 32 && ORCHARD.length === 40 && FLOWERS.length === 156 && SPECIES.filter((x) => x.type === 'cover').length === 12 && SPECIES.length === 325, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
   ok(MORE_VEGETABLES.every((v) => SPECIES_EXTRA[v.id]?.seedTip && MATURE_HEIGHT[v.id] > 0), 'nouveaux légumes : fiches complètes');
   ok(ORCHARD.every((f) => f.type === 'orchard' && f.life === 'perennial' && SPECIES_EXTRA[f.id]?.seedTip && MATURE_HEIGHT[f.id] > 0), 'fruitiers : fiches complètes');
   ok(HERBS.every((h) => h.type === 'herb' && SPECIES_EXTRA[h.id]?.seedTip && MATURE_HEIGHT[h.id] > 0), 'aromatiques : fiches complètes');
@@ -89,8 +91,8 @@ test('catalogue : valeurs cohérentes', () => {
     ok(s.daysToHarvest[0] <= s.daysToHarvest[1] && s.daysToHarvest[1] <= s.season, `${s.id} : récolte hors saison`);
     ok(s.kc.every((k) => k >= 0.2 && k <= 1.3), `${s.id} : Kc`);
     ok(s.yieldM2[0] < s.yieldM2[1], `${s.id} : rendement`);
-    ok(s.pH[0] < s.pH[1] && s.pH[0] >= 5 && s.pH[1] <= 8, `${s.id} : pH`);
-    ok(s.rootDepth >= 0.15 && s.rootDepth <= 1, `${s.id} : racines`);
+    ok(s.pH[0] < s.pH[1] && s.pH[0] >= 4.5 && s.pH[1] <= 8.5, `${s.id} : pH`);
+    ok(s.rootDepth >= 0.15 && s.rootDepth <= (s.type === 'orchard' ? 2 : 1), `${s.id} : racines`);
     ok(s.sowIndoor || s.sowOutdoor || s.plantOut, `${s.id} : aucun calendrier`);
     for (const r of [...(s.sowIndoor ?? []), ...(s.sowOutdoor ?? []), ...(s.plantOut ?? [])]) ok(r.every((m) => m >= 1 && m <= 12), `${s.id} : mois`);
     ok(s.exports.N > 0 && s.exports.K2O > 0, `${s.id} : exportations`);
@@ -1129,6 +1131,42 @@ test('soleil : heure du téléphone → heure solaire', () => {
   const back = clockHourOf(solarHourAt(d, 2.35), doyOfDate(d), 2.35, 2026);
   ok(Math.abs(back - (d.getHours() + d.getMinutes() / 60)) < 0.02, 'aller-retour horloge ↔ soleil');
   ok(compassPoint(180) === 'S' && compassPoint(225) === 'SW' && compassPoint(359) === 'N', 'points cardinaux');
+});
+
+// --- Engrais verts, compost, récoltes rapides, jardin d'exemple ---------------------------
+
+test('engrais vert : azote rendu à la culture suivante', () => {
+  const vetch = plant({ id: 'v', speciesId: 'commonvetch', count: 1, area: 4, sowDate: '2025-10-01', status: 'ended', endDate: '2026-04-20' });
+  const squash = plant({ id: 's', speciesId: 'squash', count: 2, area: 2, sowDate: '2026-04-25', indoor: true, transplantDate: '2026-05-20' });
+  const g = data({ beds: [bed()], plants: [vetch, squash] });
+  ok(coverCredit(squash, g) === 16, `${coverCredit(squash, g)} g N`);
+  ok(coverCredit({ ...squash, bedId: 'b2' }, g) === 0, 'autre planche');
+  const tasks = generateTasks(data({ beds: [bed()], plants: [{ ...vetch, status: 'growing', endDate: undefined }] }), '2026-03-25');
+  ok(tasks.some((t) => t.kind === 'cover'), 'tâche « faucher »');
+});
+
+test('compost : C/N, maturité, tâches', () => {
+  const heap = { id: 'h', name: 'Tas', kind: 'heap' as const, started: '2026-03-01', inputs: [{ date: '2026-03-01', material: 'grass' as const, liters: 300 }], turns: [], temps: [] };
+  ok(cnAdvice(heapCN(heap)!) === 'tooGreen', `tonte seule : C/N ${heapCN(heap)}`);
+  const mixed = { ...heap, inputs: [...heap.inputs, { date: '2026-03-01', material: 'leaves' as const, liters: 400 }] };
+  ok(cnAdvice(heapCN(mixed)!) === 'good', `tonte + feuilles : C/N ${heapCN(mixed)}`);
+  const slow = heapStatus(mixed, '2026-06-01');
+  const fast = heapStatus({ ...mixed, turns: ['2026-04-01', '2026-05-01'], temps: [{ date: '2026-03-20', c: 60 }] }, '2026-06-01');
+  ok(fast.readyOn! < slow.readyOn!, 'retourné et chaud : plus vite mûr');
+  ok(slow.turnDue, 'à retourner');
+  ok(generateTasks(data({ beds: [bed()], compost: [mixed] }), '2026-06-01').some((t) => t.kind === 'compost'), 'tâche compost');
+});
+
+test('récolte rapide et jardin d’exemple hors saison', () => {
+  const d = demoGarden('2026-07-01');
+  const c = harvestCandidates(d, '2026-07-01');
+  ok(c.some((x) => x.plant.speciesId === 'zinnia' && x.unit === 'stems'), 'fleurs en floraison');
+  ok(c.some((x) => x.plant.speciesId === 'zucchini' && x.unit === 'g'), 'courgettes en récolte');
+  const off = demoGarden('2026-10-04');
+  ok(off.plants.find((p) => p.speciesId === 'bean')!.sowDate === '2027-05-10', 'haricots au printemps prochain');
+  ok(off.plants.filter((p) => p.status === 'ended').length === 4, 'cultures d’été terminées');
+  const w = wishesFromReview(off, 2026, '2026-10-04');
+  ok(w.some((x) => x.speciesId === 'tomato') && w.length >= 4, `envies ${w.length}`);
 });
 
 if (failed) {

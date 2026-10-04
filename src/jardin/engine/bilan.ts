@@ -5,13 +5,15 @@
  * rotation non respectée, problèmes sanitaires notés, aucune pesée.
  */
 import { SPECIES_EXTRA } from '../data/speciesExtra';
-import type { GardenData, ISODate, Plant } from '../model';
-import { plantArea, speciesOf } from './crop';
-import { yearOf } from './dates';
+import type { GardenData, ISODate, Plant, Wish } from '../model';
+import { inWindow, plantArea, shiftWindows, speciesOf } from './crop';
+import { FLOWER_INFO } from '../data/flowers';
+import { addDays, yearOf } from './dates';
 import { bedIsMulched } from './mulch';
 import { expectedYieldKg } from './nutrition';
 import { timeline } from './phenology';
 import { rotationWarning } from './rotation';
+import { wishesFromYear } from './planner';
 import { bedSun, DEFAULT_LAT, sunMismatch } from './sun';
 
 /** Une culture compte pour l'année si elle a été semée, récoltée ou arrêtée cette année-là, ou si elle est en place. */
@@ -80,7 +82,7 @@ export function plantResults(data: GardenData, year: number, today: ISODate): Pl
   const out: PlantResult[] = [];
   for (const p of data.plants) {
     const sp = speciesOf(p);
-    if (sp.type === 'flower' || !plantInYear(p, data, year)) continue;
+    if (sp.type === 'flower' || sp.type === 'cover' || !plantInYear(p, data, year)) continue;
     const expectedKg = expectedYieldKg(p);
     if (expectedKg <= 0) continue;
     const harvestedKg = data.observations.filter((o) => o.plantId === p.id && o.harvestG && yearOf(o.date) === year).reduce((s, o) => s + (o.harvestG ?? 0), 0) / 1000;
@@ -173,4 +175,51 @@ export function seasonReview(results: PlantResult[]): SeasonReview {
     worked: results.filter((r) => r.verdict === 'great'),
     review: results.filter((r) => r.verdict === 'poor' || r.verdict === 'unweighed').sort((a, b) => a.ratio - b.ratio),
   };
+}
+
+export interface HarvestCandidate {
+  plant: Plant;
+  /** Fleurs : on compte des tiges ; sinon on pèse. */
+  unit: 'g' | 'stems';
+  /** Déjà noté aujourd'hui (g ou tiges). */
+  todayAmount: number;
+}
+
+/**
+ * Cultures à récolter en ce moment : légumes et fruits dans leur fenêtre de
+ * récolte (une semaine d'avance, deux de retard), fleurs en floraison ce
+ * mois-ci. Sert à la saisie rapide des récoltes.
+ */
+export function harvestCandidates(data: GardenData, today: ISODate, all = false): HarvestCandidate[] {
+  const month = Number(today.slice(5, 7));
+  const out: Array<HarvestCandidate & { from: string }> = [];
+  for (const p of data.plants) {
+    if (p.status === 'planned' || (p.status === 'ended' && (!p.endDate || p.endDate < addDays(today, -10)))) continue;
+    const sp = speciesOf(p);
+    if (sp.type === 'cover') continue;
+    const todayObs = data.observations.filter((o) => o.plantId === p.id && o.date === today);
+    if (sp.type === 'flower') {
+      const bloom = FLOWER_INFO[sp.id]?.bloom ?? [];
+      const inBloom = inWindow(month, shiftWindows(bloom, data.settings.climate));
+      if (all || inBloom) out.push({ plant: p, unit: 'stems', todayAmount: todayObs.reduce((s, o) => s + (o.stems ?? 0), 0), from: inBloom ? '0' : '9' });
+      continue;
+    }
+    const tl = timeline(p, data, today);
+    const inWin = tl.harvestFrom <= addDays(today, 7) && tl.harvestTo >= addDays(today, -14);
+    if (all || inWin) out.push({ plant: p, unit: 'g', todayAmount: todayObs.reduce((s, o) => s + (o.harvestG ?? 0), 0), from: inWin ? tl.harvestFrom : `9${tl.harvestFrom}` });
+  }
+  return out.sort((a, b) => a.from.localeCompare(b.from)).map(({ from: _from, ...c }) => c);
+}
+
+/**
+ * Envies pour la saison suivante tirées du bilan : on reprend les cultures
+ * annuelles de l'année (avec leur surface) ; celles qui ont déçu sont
+ * réduites de moitié. Le planificateur choisit ensuite les planches
+ * (exposition, rotation), ce qui corrige les causes « soleil » et « rotation ».
+ */
+export function wishesFromReview(data: GardenData, year: number, today: ISODate): Wish[] {
+  const results = plantResults(data, year, today);
+  const poor = new Set(results.filter((r) => r.verdict === 'poor').map((r) => r.plant.speciesId));
+  const good = new Set(results.filter((r) => r.verdict === 'great' || r.verdict === 'ok').map((r) => r.plant.speciesId));
+  return wishesFromYear(data, year).map((w) => (poor.has(w.speciesId) && !good.has(w.speciesId) ? { ...w, area: Math.max(0.5, Math.round(w.area * 5) / 10) } : w));
 }

@@ -71,7 +71,21 @@ export type Family =
   | 'vitaceae'
   | 'moraceae'
   | 'betulaceae'
-  | 'aizoaceae';
+  | 'aizoaceae'
+  | 'oxalidaceae'
+  | 'basellaceae'
+  | 'elaeagnaceae'
+  | 'viburnaceae'
+  | 'juglandaceae'
+  | 'fagaceae'
+  | 'oleaceae'
+  | 'rutaceae'
+  | 'myrtaceae'
+  | 'ebenaceae'
+  | 'cannabaceae'
+  | 'rubiaceae'
+  | 'zingiberaceae'
+  | 'anacardiaceae';
 
 export const FAMILIES: Family[] = [
   'solanaceae',
@@ -132,11 +146,25 @@ export const FAMILIES: Family[] = [
   'moraceae',
   'betulaceae',
   'aizoaceae',
+  'oxalidaceae',
+  'basellaceae',
+  'elaeagnaceae',
+  'viburnaceae',
+  'juglandaceae',
+  'fagaceae',
+  'oleaceae',
+  'rutaceae',
+  'myrtaceae',
+  'ebenaceae',
+  'cannabaceae',
+  'rubiaceae',
+  'zingiberaceae',
+  'anacardiaceae',
 ];
 
 /** Type de culture : décide la répartition des besoins par stade. */
-export type CropType = 'fruit' | 'leaf' | 'root' | 'legume' | 'bulb' | 'herb' | 'perennial' | 'orchard' | 'flower';
-export const CROP_TYPES: CropType[] = ['fruit', 'leaf', 'root', 'legume', 'bulb', 'herb', 'perennial', 'orchard', 'flower'];
+export type CropType = 'fruit' | 'leaf' | 'root' | 'legume' | 'bulb' | 'herb' | 'perennial' | 'orchard' | 'flower' | 'cover';
+export const CROP_TYPES: CropType[] = ['fruit', 'leaf', 'root', 'legume', 'bulb', 'herb', 'perennial', 'orchard', 'flower', 'cover'];
 
 export type StageId = 'germination' | 'vegetative' | 'flowering' | 'fruiting' | 'bulking' | 'harvest';
 export const STAGE_IDS: StageId[] = ['germination', 'vegetative', 'flowering', 'fruiting', 'bulking', 'harvest'];
@@ -555,6 +583,31 @@ export type StockKind = 'product' | 'substrate' | 'other';
  * engrais du catalogue, les apports notés ensuite sont déduits
  * automatiquement (rien n'est réécrit : la fusion de jardins reste simple).
  */
+export type CompostMaterial = 'kitchen' | 'grass' | 'greens' | 'manure' | 'leaves' | 'browns' | 'straw' | 'woodChips';
+export type CompostKind = 'heap' | 'bin' | 'worm';
+
+export interface CompostInput {
+  date: ISODate;
+  material: CompostMaterial;
+  /** Volume apporté (L). */
+  liters: number;
+}
+
+/** Tas ou bac de compost (ou lombricomposteur). */
+export interface CompostHeap extends Meta {
+  id: string;
+  name: string;
+  kind: CompostKind;
+  started: ISODate;
+  inputs: CompostInput[];
+  /** Dates de retournement. */
+  turns: ISODate[];
+  /** Températures relevées au cœur du tas (°C). */
+  temps: Array<{ date: ISODate; c: number }>;
+  /** Tamisé ou vidé : le compost mûr est passé au stock. */
+  harvested?: { date: ISODate; liters: number };
+}
+
 export interface StockItem extends Meta {
   id: string;
   kind: StockKind;
@@ -691,6 +744,7 @@ export interface GardenData {
   applications: Application[];
   /** Paillages et broyats posés sur les planches. */
   mulches: MulchEntry[];
+  compost: CompostHeap[];
   water: WaterEvent[];
   tasks: ManualTask[];
   taskStates: TaskState[];
@@ -723,6 +777,7 @@ export const EMPTY_DATA: GardenData = {
   observations: [],
   applications: [],
   mulches: [],
+  compost: [],
   water: [],
   tasks: [],
   taskStates: [],

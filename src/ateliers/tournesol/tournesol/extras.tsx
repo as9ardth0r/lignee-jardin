@@ -305,7 +305,7 @@ export function ComparePanel({ engine, a, b, garden }: { engine: HaEngine; a: Ha
   const locale = language === 'fr' ? 'fr-FR' : 'en-US';
   const gardenShort = (x: HaIndividual) => {
     const o = gardenOutcome(engine, x, garden);
-    return formatStems(o.realized, tt, locale);
+    return o.potential <= 1 ? tt('garden.chance', { pct: Math.round((1 - o.totalLoss) * 100) }) : formatStems(o.realized, tt, locale);
   };
   const res = (x: HaIndividual) => engine.resistanceCode(x) || '—';
   const sCode = (x: HaIndividual) => `${x.genotype.s.join('/')} · ${tt(engine.isSelfIncompatible(x) ? 'fruit.selfIncompatible' : 'fruit.selfCompatible')}`;
@@ -790,7 +790,7 @@ export function GardenSheet({ engine, ind, garden }: { engine: HaEngine; ind: Ha
             {tt('garden.realized')}
           </p>
           <p className="font-data text-sm" style={{ color: out.totalLoss > 0.35 ? 'var(--color-tomato-500)' : 'var(--color-leaf-500)' }}>
-            {formatStems(out.realized, tt, locale)}
+            {out.potential <= 1 ? tt('garden.chance', { pct: Math.round((1 - out.totalLoss) * 100) }) : formatStems(out.realized, tt, locale)}
           </p>
         </div>
         <div className="rounded p-2" style={{ background: 'var(--color-paper-200)' }}>

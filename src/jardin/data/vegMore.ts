@@ -9,6 +9,8 @@
  */
 import type { Family, Feeding, Frost, MonthRange, Species, SpeciesExtra, StageId, Sun, Txt, CropType } from '../model';
 
+import { EXTRA_VEGETABLES, EXTRA_VEG_EXTRA, EXTRA_VEG_HEIGHT } from './vegExtra';
+
 const T = (fr: string, en: string): Txt => ({ fr, en });
 
 interface Def {
@@ -228,6 +230,6 @@ const DEFS: Def[] = [
 ];
 
 const BUILT = DEFS.map(veg);
-export const MORE_VEGETABLES: Species[] = BUILT.map((b) => b.species);
-export const MORE_VEG_EXTRA: Record<string, SpeciesExtra> = Object.fromEntries(BUILT.map((b) => [b.species.id, b.extra]));
-export const MORE_VEG_HEIGHT: Record<string, number> = Object.fromEntries(BUILT.map((b) => [b.species.id, b.height]));
+export const MORE_VEGETABLES: Species[] = [...BUILT.map((b) => b.species), ...EXTRA_VEGETABLES];
+export const MORE_VEG_EXTRA: Record<string, SpeciesExtra> = { ...Object.fromEntries(BUILT.map((b) => [b.species.id, b.extra])), ...EXTRA_VEG_EXTRA };
+export const MORE_VEG_HEIGHT: Record<string, number> = { ...Object.fromEntries(BUILT.map((b) => [b.species.id, b.height])), ...EXTRA_VEG_HEIGHT };

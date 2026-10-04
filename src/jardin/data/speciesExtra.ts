@@ -13,6 +13,7 @@ import { FLOWER_EXTRA } from './flowers';
 import { HERB_EXTRA } from './herbs';
 import { ORCHARD_EXTRA } from './orchard';
 import { MORE_VEG_EXTRA } from './vegMore';
+import { COVER_EXTRA } from './covers';
 
 const e = (seedLife: number, pollination: SpeciesExtra['pollination'], isolation: number, priceKg: number): SpeciesExtra => ({ seedLife, pollination, isolation, priceKg });
 
@@ -62,6 +63,7 @@ export const SPECIES_EXTRA: Record<string, SpeciesExtra> = {
   ...MORE_VEG_EXTRA,
   ...HERB_EXTRA,
   ...ORCHARD_EXTRA,
+  ...COVER_EXTRA,
   ...FLOWER_EXTRA,
 };
 

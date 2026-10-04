@@ -5,9 +5,10 @@
  * Tout est exprimé comme sur les étiquettes et les analyses françaises :
  * N, P₂O₅, K₂O (oxydes). La conversion en éléments n'est qu'un affichage.
  */
+import { COVER_INFO } from '../data/covers';
 import { PRODUCT_BY_ID } from '../data/products';
 import type { Application, CropType, GardenData, ISODate, Plant, Product, Settings, StageId } from '../model';
-import { addDays } from './dates';
+import { addDays, diffDays } from './dates';
 import { isActiveOn, plantArea, speciesOf } from './crop';
 import { timeline } from './phenology';
 import { nCredit, soilFor } from './soil';
@@ -74,6 +75,12 @@ const SPLIT: Record<CropType, Record<Nutrient, Partial<Record<StageId, number>>>
     P2O5: { vegetative: 0.45, flowering: 0.25, fruiting: 0.3, harvest: 0.3 },
     K2O: { vegetative: 0.25, flowering: 0.15, fruiting: 0.6, harvest: 0.6 },
   },
+  // Engrais verts : croissance végétative seulement.
+  cover: {
+    N: { germination: 0.05, vegetative: 0.95 },
+    P2O5: { germination: 0.1, vegetative: 0.9 },
+    K2O: { germination: 0.05, vegetative: 0.95 },
+  },
   // Fleurs : l'azote pour le feuillage, la potasse pour la floraison.
   flower: {
     N: { germination: 0.03, vegetative: 0.62, flowering: 0.35 },
@@ -109,6 +116,8 @@ export interface NutrientStatus {
   soil?: { date: ISODate; fromLab: boolean; P2O5: number; K2O: number; nCredit: number };
   /** Éléments libérés par le paillage de la planche pendant la saison (g, déjà comptés dans « applied »). */
   mulch: NPK;
+  /** Azote rendu par un engrais vert détruit avant la culture (g). */
+  cover: number;
 }
 
 export function expectedYieldKg(plant: Plant): number {
@@ -165,6 +174,25 @@ export function shareOf(app: Application, plant: Plant, plants: Plant[]): number
   return total > 0 ? plantArea(plant) / total : 0;
 }
 
+/**
+ * Azote rendu à une culture par les engrais verts détruits sur la même
+ * planche dans les 8 mois avant sa mise en place (ou jusqu'à 2 semaines
+ * après) : g N, au prorata de la surface commune.
+ */
+export function coverCredit(plant: Plant, data: GardenData): number {
+  if (COVER_INFO[plant.speciesId]) return 0;
+  const start = plant.transplantDate ?? plant.sowDate;
+  let n = 0;
+  for (const c of data.plants) {
+    const info = COVER_INFO[c.speciesId];
+    if (!info || c.id === plant.id || c.bedId !== plant.bedId || !c.endDate) continue;
+    const gap = diffDays(c.endDate, start);
+    if (gap < -15 || gap > 240) continue;
+    n += info.nReturn * Math.min(plantArea(plant), plantArea(c));
+  }
+  return Math.round(n * 10) / 10;
+}
+
 export function nutrientStatus(plant: Plant, data: GardenData, today: ISODate): NutrientStatus {
   const sp = speciesOf(plant);
   const info = timeline(plant, data, today);
@@ -196,6 +224,9 @@ export function nutrientStatus(plant: Plant, data: GardenData, today: ISODate): 
     const s = supplied(product, app.amount);
     for (const n of NUTRIENTS) applied[n] += s[n] * share;
   }
+  // Engrais vert détruit sur la planche juste avant la culture : azote rendu.
+  const cover = coverCredit(plant, data);
+  applied.N += cover;
   // Paillage et broyat : ce que la couche libère pendant la saison de la culture.
   const mulch = mulchForPlant(plant, data.beds.find((b) => b.id === plant.bedId), data, info.seasonEnd);
   for (const n of NUTRIENTS) applied[n] += mulch[n];
@@ -227,6 +258,7 @@ export function nutrientStatus(plant: Plant, data: GardenData, today: ISODate): 
     excess,
     soil,
     mulch,
+    cover,
   };
 }
 

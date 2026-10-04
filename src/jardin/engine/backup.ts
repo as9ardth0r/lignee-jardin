@@ -4,7 +4,7 @@
  */
 import { SPECIES_BY_ID } from '../data/species';
 import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Sensor, type PestCount, type ShoppingItem, type StockItem, type GardenData, type ISODate, type PhotoMeta, type Variety } from '../model';
-import { addDays, isValidISO, yearOf } from './dates';
+import { addDays, diffDays, isValidISO, yearOf } from './dates';
 
 export const BACKUP_APP = 'lignee-jardin';
 export const BACKUP_VERSION = 1;
@@ -45,6 +45,7 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
     varieties: arr(d.varieties, (v) => hasId(v) && obj(v) && typeof v.name === 'string'),
     observations: arr(d.observations, (v) => hasId(v) && obj(v) && isValidISO(v.date)),
     applications: arr(d.applications, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
+    compost: arr(d.compost, (v) => hasId(v) && obj(v) && typeof v.name === 'string' && isValidISO(v.started) && Array.isArray(v.inputs) && Array.isArray(v.turns) && Array.isArray(v.temps)),
     mulches: arr(d.mulches, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.bedId === 'string' && typeof v.depthCm === 'number' && typeof v.material === 'string'),
     water: arr(d.water, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
     tasks: arr(d.tasks, (v) => hasId(v) && obj(v) && isValidISO(v.due)),
@@ -136,6 +137,16 @@ export function parseLigneeVarieties(raw: string): Variety[] {
 
 /** Trois planches et quelques cultures datées par rapport à aujourd'hui, pour découvrir l'app. */
 export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): GardenData {
+  // Le jardin d'exemple montre toujours une vraie saison : de mi-mai à fin juillet il suit la date du jour ;
+  // plus tard, il montre la saison écoulée (arrêtée fin juillet, cultures d'été terminées fin septembre) ;
+  // en hiver et au printemps, celle de l'an dernier.
+  const y = yearOf(today);
+  const md = today.slice(5);
+  const ref: ISODate = md < '05-15' ? `${y - 1}-07-31` : md > '07-31' ? `${y}-07-31` : today;
+  const seasonEnd: ISODate = `${yearOf(ref)}-09-30`;
+  const live = ref === today;
+  // Haricots prévus : dans deux jours en saison, sinon au prochain printemps.
+  const beanSow = live ? 2 : diffDays(ref, `${md < '05-15' ? y : y + 1}-05-10`);
   const bed = (id: string, name: string, x: number, y: number, w: number, h: number, mulch: boolean, kind: 'bed' | 'greenhouse' = 'bed') => ({ id, name, kind, x, y, w, h, mulch, drip: false, createdAt: today });
   const beds = [bed('demo-b1', 'Planche 1', 0.5, 0.5, 4, 1.2, true), bed('demo-b2', 'Planche 2', 0.5, 2.3, 4, 1.2, false), bed('demo-b3', 'Serre', 6, 0.5, 3, 2.5, true, 'greenhouse')];
   const plant = (id: string, speciesId: string, bedId: string, count: number, sowOffset: number, indoor: boolean, transplantOffset?: number, varietyName?: string) => ({
@@ -145,10 +156,10 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
     count,
     indoor,
     status: (sowOffset > 0 ? 'planned' : 'growing') as 'planned' | 'growing',
-    sowDate: addDays(today, sowOffset),
-    transplantDate: transplantOffset !== undefined ? addDays(today, transplantOffset) : undefined,
+    sowDate: addDays(ref, sowOffset),
+    transplantDate: transplantOffset !== undefined ? addDays(ref, transplantOffset) : undefined,
     varietyName,
-    createdAt: today,
+    createdAt: ref,
   });
   return {
     ...base,
@@ -159,43 +170,58 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
       plant('demo-p2', 'lettuce', 'demo-b1', 12, -40, false),
       plant('demo-p3', 'carrot', 'demo-b1', 60, -55, false),
       plant('demo-p4', 'zucchini', 'demo-b2', 3, -70, true, -45),
-      plant('demo-p5', 'bean', 'demo-b2', 40, 2, false),
+      plant('demo-p5', 'bean', 'demo-b2', 40, beanSow, false),
       plant('demo-p6', 'zinnia', 'demo-b2', 6, -80, true, -50, 'Benary’s Giant'),
-    ],
+    ].map((p) =>
+      // Hors saison, les cultures d'été sont terminées (les carottes restent en terre).
+      !live && ['demo-p1', 'demo-p2', 'demo-p4', 'demo-p6'].includes(p.id) ? { ...p, status: 'ended' as const, endDate: seasonEnd < today ? seasonEnd : today } : p,
+    ),
     varieties: [],
     observations: [
-      { id: 'demo-g0', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -55), note: '', heightCm: 30, photoIds: [] },
-      { id: 'demo-g1', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -40), note: '', heightCm: 90, photoIds: [] },
-      { id: 'demo-g2', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -25), note: '', heightCm: 135, photoIds: [] },
-      { id: 'demo-g3', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -10), note: 'Fleurs au 6e bouquet', heightCm: 150, photoIds: [] },
-      { id: 'demo-h5', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -1), note: '', harvestG: 2600, photoIds: [] },
-      { id: 'demo-h1', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -12), note: 'Premières courgettes', harvestG: 1400, photoIds: [] },
-      { id: 'demo-h2', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -4), note: '', harvestG: 2100, photoIds: [] },
-      { id: 'demo-h3', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(today, -3), note: 'Premières tomates mûres', harvestG: 900, photoIds: [] },
-      { id: 'demo-h4', plantId: 'demo-p2', bedId: 'demo-b1', date: addDays(today, -2), note: '', harvestG: 650, photoIds: [] },
-      { id: 'demo-f1', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(today, -14), note: 'Premier bouquet', stems: 18, photoIds: [] },
-      { id: 'demo-f2', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(today, -7), note: '', stems: 25, photoIds: [] },
-      { id: 'demo-f3', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(today, -1), note: '', stems: 22, photoIds: [] },
+      { id: 'demo-g0', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, -55), note: '', heightCm: 30, photoIds: [] },
+      { id: 'demo-g1', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, -40), note: '', heightCm: 90, photoIds: [] },
+      { id: 'demo-g2', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, -25), note: '', heightCm: 135, photoIds: [] },
+      { id: 'demo-g3', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, -10), note: 'Fleurs au 6e bouquet', heightCm: 150, photoIds: [] },
+      { id: 'demo-h5', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, -1), note: '', harvestG: 2600, photoIds: [] },
+      { id: 'demo-h1', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(ref, -12), note: 'Premières courgettes', harvestG: 1400, photoIds: [] },
+      { id: 'demo-h2', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(ref, -4), note: '', harvestG: 2100, photoIds: [] },
+      { id: 'demo-h3', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, -3), note: 'Premières tomates mûres', harvestG: 900, photoIds: [] },
+      { id: 'demo-h4', plantId: 'demo-p2', bedId: 'demo-b1', date: addDays(ref, -2), note: '', harvestG: 650, photoIds: [] },
+      { id: 'demo-f1', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(ref, -14), note: 'Premier bouquet', stems: 18, photoIds: [] },
+      { id: 'demo-f2', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(ref, -7), note: '', stems: 25, photoIds: [] },
+      { id: 'demo-f3', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(ref, -1), note: '', stems: 22, photoIds: [] },
+      // Hors saison : les récoltes d'août et septembre de la saison écoulée.
+      ...(live
+        ? []
+        : [
+            { id: 'demo-h6', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, 10), note: '', harvestG: 4200, photoIds: [] },
+            { id: 'demo-h7', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, 25), note: 'Pleine saison', harvestG: 5100, photoIds: [] },
+            { id: 'demo-h8', plantId: 'demo-p1', bedId: 'demo-b3', date: addDays(ref, 42), note: '', harvestG: 3600, photoIds: [] },
+            { id: 'demo-h9', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(ref, 12), note: '', harvestG: 3200, photoIds: [] },
+            { id: 'demo-h10', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(ref, 30), note: 'Oïdium sur les feuilles', harvestG: 2600, photoIds: [] },
+            { id: 'demo-f4', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(ref, 14), note: '', stems: 30, photoIds: [] },
+            { id: 'demo-f5', plantId: 'demo-p6', bedId: 'demo-b2', date: addDays(ref, 35), note: '', stems: 24, photoIds: [] },
+          ]),
     ],
     applications: [
-      { id: 'demo-a1', bedId: 'demo-b3', productId: 'organicNPK', amount: 600, date: addDays(today, -50), cost: 4.5 },
-      { id: 'demo-a2', bedId: 'demo-b1', productId: 'poultry', amount: 300, date: addDays(today, -40), cost: 2 },
-      { id: 'demo-a3', bedId: 'demo-b2', productId: 'organicNPK', amount: 500, date: addDays(today, -45), cost: 3.8 },
+      { id: 'demo-a1', bedId: 'demo-b3', productId: 'organicNPK', amount: 600, date: addDays(ref, -50), cost: 4.5 },
+      { id: 'demo-a2', bedId: 'demo-b1', productId: 'poultry', amount: 300, date: addDays(ref, -40), cost: 2 },
+      { id: 'demo-a3', bedId: 'demo-b2', productId: 'organicNPK', amount: 500, date: addDays(ref, -45), cost: 3.8 },
     ],
     water: [
-      ...[-30, -24, -18, -12, -6].map((d, i) => ({ id: `demo-w${i}`, kind: 'irrigation' as const, amount: 120, bedId: 'demo-b3', date: addDays(today, d) })),
-      { id: 'demo-r1', kind: 'rain' as const, amount: 12, date: addDays(today, -9) },
-      { id: 'demo-r2', kind: 'rain' as const, amount: 6, date: addDays(today, -3) },
+      ...[-30, -24, -18, -12, -6].map((d, i) => ({ id: `demo-w${i}`, kind: 'irrigation' as const, amount: 120, bedId: 'demo-b3', date: addDays(ref, d) })),
+      { id: 'demo-r1', kind: 'rain' as const, amount: 12, date: addDays(ref, -9) },
+      { id: 'demo-r2', kind: 'rain' as const, amount: 6, date: addDays(ref, -3) },
     ],
     tasks: [],
     taskStates: [],
     // Pucerons sur les courgettes, coccinelles au travail : on attend et on recompte.
     pestCounts: [
-      { id: 'demo-pc1', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -8), pestId: 'aphids', value: 45, beneficials: [] },
-      { id: 'demo-pc2', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(today, -2), pestId: 'aphids', value: 40, beneficials: ['ladybird', 'mummies'] },
+      { id: 'demo-pc1', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(ref, -8), pestId: 'aphids', value: 45, beneficials: [] },
+      { id: 'demo-pc2', plantId: 'demo-p4', bedId: 'demo-b2', date: addDays(ref, -2), pestId: 'aphids', value: 40, beneficials: ['ladybird', 'mummies'] },
     ],
     // Analyse de terre du printemps : sol un peu acide, riche en phosphore, pauvre en magnésie.
-    soilTests: [{ id: 'demo-soil', date: addDays(today, -180), pH: 6.0, om: 2.8, pMethod: 'olsen' as const, P2O5: 120, K2O: 210, MgO: 90, cec: 12, lab: 'Laboratoire (exemple)' }],
+    soilTests: [{ id: 'demo-soil', date: addDays(ref, -180), pH: 6.0, om: 2.8, pMethod: 'olsen' as const, P2O5: 120, K2O: 210, MgO: 90, cec: 12, lab: 'Laboratoire (exemple)' }],
     // Une sonde d'humidité relevée chaque matin sur la planche 1.
     sensors: [{ id: 'demo-s1', name: 'Sonde Planche 1', kind: 'soilMoisture', bedId: 'demo-b1', source: 'manual' }],
     readings: {
@@ -222,5 +248,22 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
       { id: 'demo-st2', kind: 'substrate', name: 'Terreau de semis', qty: 40, unit: 'L', since: addDays(today, -30), min: 20 },
     ],
     shopping: [{ id: 'demo-sh1', label: 'Ficelle de palissage' }],
+    // Un tas de compost commencé au printemps, retourné deux fois.
+    compost: [
+      {
+        id: 'demo-cmp',
+        name: 'Tas du fond',
+        kind: 'heap' as const,
+        started: addDays(ref, -120),
+        inputs: [
+          { date: addDays(ref, -120), material: 'leaves' as const, liters: 200 },
+          { date: addDays(ref, -100), material: 'kitchen' as const, liters: 60 },
+          { date: addDays(ref, -80), material: 'grass' as const, liters: 120 },
+          { date: addDays(ref, -60), material: 'greens' as const, liters: 150 },
+        ],
+        turns: [addDays(ref, -45), addDays(ref, -15)],
+        temps: [{ date: addDays(ref, -55), c: 58 }],
+      },
+    ],
   };
 }

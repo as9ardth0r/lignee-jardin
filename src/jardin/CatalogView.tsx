@@ -11,6 +11,7 @@ import { companionsOf, SPECIES_EXTRA } from './data/speciesExtra';
 import { speciesWithType, typesOf } from './data/speciesTypes';
 import { COLOR_HEX, FLOWER_COLORS, FLOWER_INFO, isFlower, type FlowerColor } from './data/flowers';
 import { ORCHARD_MONTHS } from './data/orchard';
+import { COVER_INFO } from './data/covers';
 import { seedState } from './engine/season';
 import { SeedsPanel } from './Seeds';
 import { StocksView } from './Stocks';
@@ -195,6 +196,7 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
   const cal = cropCalendar(s, data.settings.climate);
   const varieties = data.varieties.filter((v) => v.speciesId === s.id);
   const fl = isFlower(s) ? FLOWER_INFO[s.id] : undefined;
+  const cv = COVER_INFO[s.id];
   const rows: Array<[string, string]> = [
     [tt('sp.family'), tt(`family.${s.family as Family}` as JKey)],
     [tt('sp.type'), `${tt(`type.${s.type}` as JKey)} · ${tt(`life.${s.life}` as JKey)}`],
@@ -208,7 +210,12 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
           [tt('sp.height'), tt('sp.heightV', { lo: fl.height[0], hi: fl.height[1] })],
           [tt('sp.bloomDays'), tt(isPlanted(s) ? 'sp.bloomDaysPlanted' : 'sp.bloomDaysSown', { lo: s.daysToHarvest[0], hi: s.daysToHarvest[1] })],
         ] as Array<[string, string]>)
-      : ([
+      : cv && s.type === 'cover'
+        ? ([
+            [tt('cover.destroyAfter'), tt('cover.destroyDays', { lo: s.daysToHarvest[0], hi: s.daysToHarvest[1] })],
+            [tt('cover.biomass'), tt('sp.yieldV', { lo: s.yieldM2[0], hi: s.yieldM2[1] })],
+          ] as Array<[string, string]>)
+        : ([
           [tt('sp.harvest'), ORCHARD_MONTHS[s.id] ? tt('sp.harvestOrchard', { years: Math.max(1, Math.round(s.daysToHarvest[0] / 365)), from: monthName(ORCHARD_MONTHS[s.id][0], lang, 'long'), to: monthName(ORCHARD_MONTHS[s.id][1], lang, 'long') }) : tt(isPlanted(s) ? 'types.harvestPlanted' : 'types.harvestSown', { lo: s.daysToHarvest[0], hi: s.daysToHarvest[1] })],
           [tt('sp.yield'), tt('sp.yieldV', { lo: s.yieldM2[0], hi: s.yieldM2[1] })],
           [tt('sp.exports'), tt('sp.exportsV', { n: s.exports.N, p: s.exports.P2O5, k: s.exports.K2O })],
@@ -245,6 +252,15 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
             ]}
           />
         </section>
+        {cv && (
+          <section className="space-y-1.5 rounded px-3 py-2 text-sm" style={{ background: '#e6efdc', color: '#2f4a22' }}>
+            <p className="font-medium">🌾 {tt('cover.title')}</p>
+            <p>{tt(cv.fixes ? 'cover.fixes' : 'cover.recycles', { n: cv.nReturn })}</p>
+            <p>✂ {cv.destroy[lang]}</p>
+            {cv.frostKilled && <p>❄ {tt('cover.frostKilled')}</p>}
+            {cv.caution && <p>⚠ {cv.caution[lang]}</p>}
+          </section>
+        )}
         {fl && (
           <section className="space-y-2">
             {fl.toxic && <Notice tone="warn">☠ {fl.toxic[lang]}</Notice>}
