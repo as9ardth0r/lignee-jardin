@@ -7,7 +7,7 @@
  * pourra être servie par SQLite (plugin Capacitor) plus tard.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Reading, type Sensor, type PestCount, type SeasonPlan, type ShoppingItem, type StockItem, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent } from './model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Reading, type Sensor, type PestCount, type SeasonPlan, type ShoppingItem, type StockItem, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent, type MulchEntry } from './model';
 import { mergeWeather, needsRefresh, parseOpenMeteo, weatherURL } from './engine/weather';
 import { demoGarden, parseBackup, serializeBackup, type PhotoExport } from './engine/backup';
 import { todayISO } from './engine/dates';
@@ -146,6 +146,8 @@ export interface GardenStore {
   deleteObservation: (id: string) => void;
   addApplication: (app: Omit<Application, 'id'>) => void;
   deleteApplication: (id: string) => void;
+  addMulch: (m: Omit<MulchEntry, 'id'>) => void;
+  deleteMulch: (id: string) => void;
   addWater: (e: Omit<WaterEvent, 'id'>) => void;
   deleteWater: (id: string) => void;
   saveTask: (t: ManualTask) => void;
@@ -374,6 +376,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
             plants: d.plants.filter((p) => p.bedId !== id),
             observations: d.observations.filter((o) => o.bedId !== id && !(o.plantId && plantIds.has(o.plantId))),
             applications: d.applications.filter((a) => a.bedId !== id),
+            mulches: (d.mulches ?? []).filter((m) => m.bedId !== id),
             water: d.water.filter((w) => w.bedId !== id),
             phenoEvents: d.phenoEvents.filter((e) => !plantIds.has(e.plantId)),
             treatments: d.treatments.filter((t) => t.bedId !== id && !(t.plantId && plantIds.has(t.plantId))),
@@ -427,6 +430,8 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       },
       addApplication: (app) => mutate((d) => ({ ...d, applications: [...d.applications, { ...app, id: uid('app') }] })),
       deleteApplication: (id) => mutate((d) => ({ ...d, applications: d.applications.filter((a) => a.id !== id) })),
+      addMulch: (m) => mutate((d) => ({ ...d, mulches: [...(d.mulches ?? []), { ...m, id: uid('mul') }] })),
+      deleteMulch: (id) => mutate((d) => ({ ...d, mulches: (d.mulches ?? []).filter((x) => x.id !== id) })),
       addWater: (e) => mutate((d) => ({ ...d, water: [...d.water, { ...e, id: uid('w') }] })),
       deleteWater: (id) => mutate((d) => ({ ...d, water: d.water.filter((w) => w.id !== id) })),
       saveTask: (t) => mutate((d) => ({ ...d, tasks: upsert(d.tasks, t) })),

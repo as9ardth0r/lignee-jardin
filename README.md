@@ -267,6 +267,23 @@ chinois, pak-choï, pourpier, tétragone, pissenlit, physalis, gombo,
 scorsonère, haricot d'Espagne et pois chiche. Les vivaces retrouvent
 leur récolte chaque année (asperge : rien les deux premières années).
 
+## Rotation et paillage
+
+**Rotation** : dans l'onglet Jardin, « 🔄 Rotation des cultures » colore
+chaque planche selon le groupe qui y a dominé l'année choisie
+(solanacées, cucurbitacées, choux, légumineuses, alliums, ombellifères,
+feuilles, vivaces, fleurs) et entoure de rouge les planches où une
+famille revient trop tôt. La fiche de chaque planche montre son
+historique sur 4 ans.
+
+**Paillage et broyat** : dans la fiche d'une planche, notez chaque
+couche (broyat d'herbe et de trèfle, tonte, foin, feuilles, paille,
+broyat de branches, compost en surface) avec sa date et son épaisseur.
+L'app estime l'azote et la potasse que la couche libère (rapide pour un
+broyat vert riche en trèfle, presque nul pour la paille ou le bois), les
+compte dans les apports des cultures de la planche et réduit
+l'évaporation dans le calcul d'arrosage pendant un an.
+
 ## Les aromatiques
 
 21 aromatiques s'ajoutent au basilic, au persil et à la ciboulette :

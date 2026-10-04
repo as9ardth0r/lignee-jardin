@@ -55,6 +55,11 @@ export function NutritionPanel({ plant }: { plant: Plant }) {
           🪨 {tt('nut.soil', { date: fmtDate(st.soil.date, lang, true), p: fmtNum(st.soil.P2O5, lang, 1), k: fmtNum(st.soil.K2O, lang, 1), n: fmtNum(st.soil.nCredit, lang, 0) })}
         </p>
       )}
+      {(st.mulch.N >= 0.5 || st.mulch.K2O >= 0.5) && (
+        <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-canopy-700)' }}>
+          🍂 {tt('nut.mulch', { n: fmtNum(st.mulch.N, lang, 0), k: fmtNum(st.mulch.K2O, lang, 0) })}
+        </p>
+      )}
 
       <table className="mt-3 w-full text-xs">
         <thead>

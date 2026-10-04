@@ -16,7 +16,7 @@
 import type { GardenData, Meta, Reading, TaskState } from '../model';
 
 /** Collections d'enregistrements identifiés par `id`. */
-export const COLLECTIONS = ['beds', 'plants', 'varieties', 'observations', 'applications', 'water', 'tasks', 'obstacles', 'phenoEvents', 'treatments', 'seeds', 'sensors', 'tankChanges', 'soilTests', 'pestCounts', 'stocks', 'shopping'] as const;
+export const COLLECTIONS = ['beds', 'plants', 'varieties', 'observations', 'applications', 'mulches', 'water', 'tasks', 'obstacles', 'phenoEvents', 'treatments', 'seeds', 'sensors', 'tankChanges', 'soilTests', 'pestCounts', 'stocks', 'shopping'] as const;
 export type CollectionKey = (typeof COLLECTIONS)[number];
 
 type Rec = Meta & { id: string };
@@ -32,8 +32,8 @@ export function stampChanges(prev: GardenData, next: GardenData, nowISO: string,
   let out = next;
   let deleted = next.deleted;
   for (const key of COLLECTIONS) {
-    const before = prev[key] as Rec[];
-    const after = next[key] as Rec[];
+    const before = (prev[key] ?? []) as Rec[];
+    const after = (next[key] ?? []) as Rec[];
     if (before === after) continue;
     const old = new Map(before.map((r) => [r.id, r]));
     let changed = false;
@@ -129,7 +129,7 @@ export function mergeGardens(local: GardenData, remote: GardenData): { data: Gar
   for (const [id, at] of Object.entries(local.deleted)) if (!deleted[id] || at > deleted[id]) deleted[id] = at;
   let data: GardenData = { ...local, deleted };
   for (const key of COLLECTIONS) {
-    data = { ...data, [key]: mergeList(local[key] as Rec[], remote[key] as Rec[], deleted, stats) };
+    data = { ...data, [key]: mergeList((local[key] ?? []) as Rec[], (remote[key] ?? []) as Rec[], deleted, stats) };
   }
   data.readings = mergeReadings(local.readings, remote.readings);
   data.taskStates = mergeTaskStates(local.taskStates, remote.taskStates);

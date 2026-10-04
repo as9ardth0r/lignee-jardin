@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEven
 import { TEXTURES } from './data/climate';
 import { PRODUCT_BY_ID } from './data/products';
 import { SPECIES_BY_ID } from './data/species';
-import { uid, type Bed, type BedKind, type Obstacle, type ObstacleKind, type Texture } from './model';
+import { uid, type Bed, type BedKind, type Obstacle, type ObstacleKind, type Texture, type MulchMaterial } from './model';
 import { bedSun, DEFAULT_LAT, shadowPolygon, sunMismatch, sunPosition } from './engine/sun';
 import { isActiveOn, speciesOf } from './engine/crop';
+import { MULCH_INFO, MULCH_MATERIALS, bedMulchSummary, mulchContentM2 } from './engine/mulch';
 import { bedCropsOfYear, bedGroupOfYear, bedRotationIssues, rotationGroup, ROTATION_COLOR, ROTATION_GROUPS, type RotationGroup } from './engine/rotation';
 import { bedArea, waterAdvice, WATER_THRESHOLD, type WaterAdvice, type WaterDay } from './engine/water';
 import type { TT } from './i18n';
@@ -426,6 +427,90 @@ function RotationPanel({ year, thisYear, onYear }: { year: number | null; thisYe
   );
 }
 
+/** Paillage et broyat de la planche : couches posées, azote libéré. */
+function BedMulch({ bed }: { bed: Bed }) {
+  const store = useGarden();
+  const { data, today } = store;
+  const { tt, lang } = useJT();
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(today);
+  const [material, setMaterial] = useState<MulchMaterial>('meadow');
+  const [depth, setDepth] = useState(10);
+  const sum = bedMulchSummary(bed, data, today);
+  const all = (data.mulches ?? []).filter((m) => m.bedId === bed.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+  const info = MULCH_INFO[material];
+  const preview = mulchContentM2({ material, depthCm: depth });
+  const area = bedArea(bed);
+  return (
+    <section>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <h3 className="font-display text-lg">🍂 {tt('mulch.title')}</h3>
+        <Button small kind={open ? 'ghost' : 'primary'} onClick={() => setOpen((v) => !v)}>
+          {open ? tt('common.cancel') : `+ ${tt('mulch.add')}`}
+        </Button>
+      </div>
+      {sum.active.length > 0 ? (
+        <p className="text-sm">
+          {tt('mulch.summary', { n: fmtNum(sum.yearN, lang, 1), nBed: fmtNum(sum.yearN * area, lang, 0), k: fmtNum(sum.yearK, lang, 1), sofar: fmtNum(sum.soFarN, lang, 1) })}
+        </p>
+      ) : (
+        <p className="text-sm" style={{ color: INK500 }}>
+          {tt('mulch.none')}
+        </p>
+      )}
+      {sum.lockup && (
+        <div className="mt-2">
+          <Notice tone="warn">{tt('mulch.lockup')}</Notice>
+        </div>
+      )}
+      {open && (
+        <div className="mt-2 space-y-2 rounded p-3" style={{ background: 'var(--color-paper-200)' }}>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label={tt('mulch.date')}>{(fid) => <TextInput id={fid} type="date" value={date} onChange={setDate} />}</Field>
+            <Field label={tt('mulch.depth')}>{(fid) => <TextInput id={fid} type="number" value={depth} onChange={(v) => setDepth(Math.max(0.5, Math.min(40, Number(v) || 0.5)))} />}</Field>
+          </div>
+          <Field label={tt('mulch.material')}>
+            {(fid) => <Select id={fid} value={material} onChange={(v) => setMaterial(v as MulchMaterial)} options={MULCH_MATERIALS.map((m) => ({ v: m, l: `${MULCH_INFO[m].emoji} ${MULCH_INFO[m].name[lang]}` }))} />}
+          </Field>
+          <p className="text-xs leading-relaxed" style={{ color: INK700 }}>
+            {tt('mulch.preview', { kg: fmtNum(depth * 10 * info.density, lang, 1), n: fmtNum(preview.N, lang, 0), avail: Math.round(info.nAvail * 100), cn: info.cn, lo: info.depth[0], hi: info.depth[1] })}
+          </p>
+          <p className="text-xs leading-relaxed" style={{ color: INK700 }}>
+            💡 {info.tip[lang]}
+          </p>
+          <Button
+            kind="primary"
+            onClick={() => {
+              store.addMulch({ bedId: bed.id, date, material, depthCm: depth });
+              if (!bed.mulch) store.saveBed({ ...bed, mulch: true });
+              setOpen(false);
+            }}
+          >
+            {tt('mulch.save')}
+          </Button>
+        </div>
+      )}
+      {all.length > 0 && (
+        <ul className="mt-2 space-y-1 text-sm">
+          {all.map((m) => (
+            <li key={m.id} className="flex items-center justify-between gap-2 rounded px-2 py-1" style={{ background: 'var(--color-paper-200)' }}>
+              <span>
+                {fmtDate(m.date, lang, true)} · {MULCH_INFO[m.material].emoji} {MULCH_INFO[m.material].name[lang]} · {fmtNum(m.depthCm, lang, 0)} cm
+              </span>
+              <button type="button" onClick={() => store.deleteMulch(m.id)} className="text-xs underline" style={{ color: INK500 }}>
+                {tt('common.delete')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-1 text-[11px] leading-snug" style={{ color: INK500 }}>
+        {tt('mulch.hint')}
+      </p>
+    </section>
+  );
+}
+
 /** Historique de la planche sur 4 ans, par groupe de rotation. */
 function BedHistory({ bedId }: { bedId: string }) {
   const { data, today } = useGarden();
@@ -667,6 +752,7 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
         </section>
 
         {bed.kind !== 'hydro' && <BedHistory bedId={bed.id} />}
+        {bed.kind !== 'hydro' && bed.kind !== 'pot' && <BedMulch bed={bed} />}
 
         {sun && (
           <section>

@@ -12,6 +12,7 @@ import { isActiveOn, kcAt, speciesOf, varietyScale } from './crop';
 import { eqAge } from './phenology';
 import { activeWeather, rainNext } from './weather';
 import { moistureByDay } from './sensors';
+import { bedIsMulched } from './mulch';
 
 /** Réduction d'évaporation par un paillage (hypothèse de départ, à recaler). */
 export const MULCH_FACTOR = 0.75;
@@ -92,7 +93,7 @@ export function simulateBed(bed: Bed, data: GardenData, from: ISODate, to: ISODa
     const w = wx.get(date);
     const et0 = w ? w.et0 : clim.et0[m - 1];
     const kc = kcOfBed(active, date, data);
-    const etc = kc * et0 * (bed.mulch ? MULCH_FACTOR : 1);
+    const etc = kc * et0 * (bedIsMulched(bed, data, date) ? MULCH_FACTOR : 1);
     // Pluie : relevé du pluviomètre, sinon météo locale (sauf si le jardinier note tout), sinon moyenne du climat.
     let rain = 0;
     if (bed.kind !== 'greenhouse') {

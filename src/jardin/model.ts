@@ -666,6 +666,20 @@ export interface TankChange extends Meta {
   note?: string;
 }
 
+/** Paillis : broyat d'herbe et de trèfle, tonte, foin, feuilles, paille, broyat de branches, compost en surface. */
+export type MulchMaterial = 'meadow' | 'grass' | 'hay' | 'leaves' | 'straw' | 'woodChips' | 'compost';
+
+/** Couche de paillage posée sur une planche. */
+export interface MulchEntry extends Meta {
+  id: string;
+  bedId: string;
+  date: ISODate;
+  material: MulchMaterial;
+  /** Épaisseur posée (cm). */
+  depthCm: number;
+  note?: string;
+}
+
 export interface GardenData {
   settings: Settings;
   beds: Bed[];
@@ -673,6 +687,8 @@ export interface GardenData {
   varieties: Variety[];
   observations: Observation[];
   applications: Application[];
+  /** Paillages et broyats posés sur les planches. */
+  mulches: MulchEntry[];
   water: WaterEvent[];
   tasks: ManualTask[];
   taskStates: TaskState[];
@@ -704,6 +720,7 @@ export const EMPTY_DATA: GardenData = {
   varieties: [],
   observations: [],
   applications: [],
+  mulches: [],
   water: [],
   tasks: [],
   taskStates: [],

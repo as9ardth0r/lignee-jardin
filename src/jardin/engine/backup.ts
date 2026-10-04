@@ -45,6 +45,7 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
     varieties: arr(d.varieties, (v) => hasId(v) && obj(v) && typeof v.name === 'string'),
     observations: arr(d.observations, (v) => hasId(v) && obj(v) && isValidISO(v.date)),
     applications: arr(d.applications, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
+    mulches: arr(d.mulches, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.bedId === 'string' && typeof v.depthCm === 'number' && typeof v.material === 'string'),
     water: arr(d.water, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
     tasks: arr(d.tasks, (v) => hasId(v) && obj(v) && isValidISO(v.due)),
     taskStates: arr(d.taskStates, (v) => obj(v) && typeof v.key === 'string'),

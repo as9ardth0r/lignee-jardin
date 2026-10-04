@@ -9,6 +9,7 @@ import { FLOWERS, FLOWER_INFO, FLOWER_USES } from '../src/jardin/data/flowers';
 import { HERBS } from '../src/jardin/data/herbs';
 import { ORCHARD } from '../src/jardin/data/orchard';
 import { MORE_VEGETABLES } from '../src/jardin/data/vegMore';
+import { mulchMassKgM2, mulchReleasedM2 } from '../src/jardin/engine/mulch';
 import { bedCropsOfYear, bedGroupOfYear, bedRotationIssues, rotationGroup } from '../src/jardin/engine/rotation';
 import { forecast as forecastRows } from '../src/jardin/engine/report';
 import { seasonNeed as needOf } from '../src/jardin/engine/nutrition';
@@ -1044,6 +1045,23 @@ test('rotation : couleurs du plan et ail après ail', () => {
   ok(bedCropsOfYear('b1', plants, 2026).some((p) => p.id === 'r4'), 'le pommier compte chaque année');
   const issues = bedRotationIssues('b1', plants, 2026);
   ok(issues.length === 1 && issues[0].plant.id === 'r2' && issues[0].warning.previous.id === 'r1', `oignon après ail signalé (${issues.length})`);
+});
+
+test('paillage : broyat d’herbe et trèfle, paille, azote crédité', () => {
+  const meadow = { id: 'm1', bedId: 'b1', date: '2026-01-15', material: 'meadow' as const, depthCm: 10 };
+  const straw = { id: 'm2', bedId: 'b1', date: '2026-01-15', material: 'straw' as const, depthCm: 10 };
+  const yr = mulchReleasedM2(meadow, '2026-01-15', '2027-01-15');
+  ok(Math.abs(mulchMassKgM2(meadow) - 6) < 1e-9 && yr.N > 15 && yr.N < 25, `broyat 10 cm : ${yr.N.toFixed(1)} g N/m²/an`);
+  ok(mulchReleasedM2(straw, '2026-01-15', '2027-01-15').N === 0, 'la paille ne libère pas d’azote');
+  const half = mulchReleasedM2(meadow, '2026-01-15', '2026-05-01').N;
+  ok(half > yr.N * 0.5 && half < yr.N, `libération rapide au printemps (${half.toFixed(1)} g)`);
+  const tom = plant({ id: 'mp', speciesId: 'tomato', count: 4, sowDate: '2026-05-10' });
+  const d0 = data({ beds: [bed()], plants: [tom] });
+  const d1 = data({ beds: [bed()], plants: [tom], mulches: [meadow] });
+  const s0 = nutrientStatus(tom, d0, '2026-07-01');
+  const s1 = nutrientStatus(tom, d1, '2026-07-01');
+  ok(s1.mulch.N > 0 && s1.applied.N > s0.applied.N && s1.remaining.N < s0.remaining.N, `azote du paillage compté (${s1.mulch.N.toFixed(1)} g)`);
+  ok(parseBackup(serializeBackup(d1, [])).data.mulches.length === 1, 'sauvegarde');
 });
 
 test('fleurs : floraison, rappels et besoins', () => {

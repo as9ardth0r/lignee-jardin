@@ -11,6 +11,7 @@ import { addDays } from './dates';
 import { isActiveOn, plantArea, speciesOf } from './crop';
 import { timeline } from './phenology';
 import { nCredit, soilFor } from './soil';
+import { mulchForPlant } from './mulch';
 
 export type Nutrient = 'N' | 'P2O5' | 'K2O';
 export const NUTRIENTS: Nutrient[] = ['N', 'P2O5', 'K2O'];
@@ -106,6 +107,8 @@ export interface NutrientStatus {
   excess: Nutrient[];
   /** Correction par l'analyse de sol (si elle existe) : facteurs P/K et azote fourni par le sol (g). */
   soil?: { date: ISODate; fromLab: boolean; P2O5: number; K2O: number; nCredit: number };
+  /** Éléments libérés par le paillage de la planche pendant la saison (g, déjà comptés dans « applied »). */
+  mulch: NPK;
 }
 
 export function expectedYieldKg(plant: Plant): number {
@@ -193,6 +196,9 @@ export function nutrientStatus(plant: Plant, data: GardenData, today: ISODate): 
     const s = supplied(product, app.amount);
     for (const n of NUTRIENTS) applied[n] += s[n] * share;
   }
+  // Paillage et broyat : ce que la couche libère pendant la saison de la culture.
+  const mulch = mulchForPlant(plant, data.beds.find((b) => b.id === plant.bedId), data, info.seasonEnd);
+  for (const n of NUTRIENTS) applied[n] += mulch[n];
 
   // Besoins cumulés jusqu'à la fin du stade en cours.
   let idx = -1;
@@ -220,6 +226,7 @@ export function nutrientStatus(plant: Plant, data: GardenData, today: ISODate): 
     remaining,
     excess,
     soil,
+    mulch,
   };
 }
 
