@@ -6,6 +6,7 @@
  * reproposera pas. Le nombre de tâches affichées est plafonné par l'écran
  * (pas de pluie de notifications).
  */
+import { lowTanks } from './rainTank';
 import { compostTasks } from './compost';
 import { CLIMATES } from '../data/climate';
 import type { GardenData, ISODate, Plant } from '../model';
@@ -20,7 +21,7 @@ import { limeAdvice, limeSeason, soilFor } from './soil';
 import { pestTasks } from './pests';
 import { FLOWER_INFO } from '../data/flowers';
 
-export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual' | 'cover' | 'compost';
+export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual' | 'cover' | 'compost' | 'raintank';
 
 export interface Task {
   key: string;
@@ -199,6 +200,11 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
   }
 
   // Tâches saisies à la main.
+  // Récupérateurs d'eau presque vides.
+  for (const { tank, status } of lowTanks(data, today)) {
+    tasks.push({ key: `raintank:${tank.id}:${today}`, kind: 'raintank', due: today, priority: 2, vars: { name: tank.name, pct: Math.round(status.ratio * 100), days: status.daysLeft ?? -1 } });
+  }
+
   // Compost : retourner, rééquilibrer, tamiser quand c'est mûr.
   for (const c of compostTasks(data, today)) {
     tasks.push({ key: `compost:${c.heapId}:${c.what}:${c.what === 'ready' ? 'once' : weekKey(today)}`, kind: 'compost', due: today, priority: c.what === 'ready' ? 2 : 3, vars: { name: c.name, what: c.what } });

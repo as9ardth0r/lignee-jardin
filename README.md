@@ -315,6 +315,13 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Disposition sur la planche, voisinages, eau de pluie
+
+- **Disposition** : la fiche d'une planche dessine ses cultures en rectangles à l'échelle. On les fait glisser (pas de 5 cm) et on les agrandit par le coin ; la surface de la culture suit, donc ses besoins et sa récolte attendue aussi. Les cultures pas encore placées sont posées par l'app à la première place libre (pointillés) ; « Garder les places proposées » les enregistre. Surface libre, chevauchements et manque de place sont signalés.
+- **Voisinages** : les bons et mauvais compagnons connus à moins de 50 cm, sur la même planche ou d'une planche voisine. Les rectangles placés à la main apparaissent sur le plan du jardin, entourés de rouge en cas de mauvais voisin. Beaucoup d'associations sont des traditions de jardinier : l'app le dit quand l'effet n'est pas démontré.
+- **Compostage en place** : dans le paillage, « restes de cuisine » et « fumier » s'ajoutent aux matériaux, avec une saisie en litres pour les petits carrés et une estimation de l'équilibre carbone/azote de ce qui est en surface (conseil : ajouter du broyat ou des tontes).
+- **Récupérateurs d'eau de pluie** : chaque cuve (capacité, surface de toit) a un niveau estimé : pluie du pluviomètre ou de la météo × toit × 0,8, moins les arrosages notés « puisés dans la cuve ». L'app indique les jours de réserve, les débordements et une tâche quand la cuve est presque vide. Un relevé du niveau recale l'estimation.
+
 ## Engrais verts, compost, récoltes rapides
 
 - **Engrais verts** (catalogue → « Engrais vert ») : moutarde, radis

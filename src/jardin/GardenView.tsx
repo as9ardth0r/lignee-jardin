@@ -5,7 +5,8 @@ import { SPECIES_BY_ID } from './data/species';
 import { uid, type Bed, type BedKind, type Obstacle, type ObstacleKind, type Texture, type MulchMaterial } from './model';
 import { bedSun, clockHourOf, compassPoint, dayOfYear, DEFAULT_LAT, DEFAULT_LON, shadowPolygon, solarHourAt, sunDir, sunMismatch, sunPosition } from './engine/sun';
 import { isActiveOn, speciesOf } from './engine/crop';
-import { MULCH_INFO, MULCH_MATERIALS, bedMulchSummary, mulchContentM2 } from './engine/mulch';
+import { MULCH_INFO, MULCH_MATERIALS, bedMulchSummary, bedSurfaceCN, litersToDepth, mulchContentM2 } from './engine/mulch';
+import { cnAdvice } from './engine/compost';
 import { bedCropsOfYear, bedGroupOfYear, bedRotationIssues, rotationGroup, ROTATION_COLOR, ROTATION_GROUPS, type RotationGroup } from './engine/rotation';
 import { bedArea, waterAdvice, WATER_THRESHOLD, type WaterAdvice, type WaterDay } from './engine/water';
 import type { TT } from './i18n';
@@ -17,6 +18,9 @@ import { Button, Card, Chip, Empty, Field, INK500, INK700, Meter, Notice, Select
 import { BedSensors, SensorsCard } from './Sensors';
 import { LocateButtons } from './Locate';
 import { CompostCard } from './Compost';
+import { RainTankCard } from './RainTank';
+import { BedLayout } from './BedLayout';
+import { layoutBed, neighbours } from './engine/layout';
 import { BedSoil, SoilCard } from './Soil';
 
 const BED_FILL: Record<BedKind, { fill: string; stroke: string }> = {
@@ -152,6 +156,9 @@ function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } 
   for (let y = 0; y <= planH; y++) grid.push(<line key={`y${y}`} x1={0} y1={y} x2={planW} y2={y} stroke={y % 5 === 0 ? '#4f7458' : '#3b5942'} strokeWidth={gw(y)} />);
 
   const sunPos = sun ? sunPosition(lat, sun.doy, sun.hour) : null;
+  // Emplacements des cultures placées à la main, et mauvais voisins à signaler.
+  const footprints = useMemo(() => new Map(data.beds.map((b) => [b.id, layoutBed(data, b).filter((l) => !l.auto)])), [data]);
+  const badPlants = useMemo(() => new Set(neighbours(data).filter((n) => n.effect === 'bad').flatMap((n) => [n.a.id, n.b.id])), [data]);
   const obstaclesLive = data.obstacles.map((o) => ({ ...o, ...pos(o) }));
   // Rose des vents : flèche vers le nord dans le coin haut droit.
   const nr = (planNorth * Math.PI) / 180;
@@ -198,6 +205,22 @@ function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } 
             <g key={b.id} onPointerDown={(e) => onDown(e, 'bed', b)} style={{ cursor: 'grab' }}>
               <rect x={x} y={y} width={b.w} height={b.h} rx={b.kind === 'pot' ? Math.min(b.w, b.h) / 2 : 0.08} fill={c.fill} fillOpacity={b.kind === 'greenhouse' && rotationYear === null ? 0.35 : 1} stroke={issue ? '#ff3b2f' : c.stroke} strokeWidth={issue ? Math.max(0.08, planW / 250) : 0.05} strokeDasharray={issue ? '0.25 0.12' : undefined} />
               {b.mulch && <rect x={x + 0.06} y={y + 0.06} width={Math.max(0, b.w - 0.12)} height={Math.max(0, b.h - 0.12)} rx={0.05} fill="none" stroke="#e8d79a" strokeWidth={0.03} strokeDasharray="0.12 0.08" />}
+              {rotationYear === null &&
+                (footprints.get(b.id) ?? []).map((l) => (
+                  <rect
+                    key={l.plant.id}
+                    x={x + l.pos.x + 0.03}
+                    y={y + l.pos.y + 0.03}
+                    width={Math.max(0.02, l.pos.w - 0.06)}
+                    height={Math.max(0.02, l.pos.h - 0.06)}
+                    rx={0.04}
+                    fill="#faf7ee"
+                    fillOpacity={l.plant.status === 'planned' ? 0.08 : 0.16}
+                    stroke={badPlants.has(l.plant.id) ? '#ff3b2f' : 'rgba(250,247,238,.55)'}
+                    strokeWidth={badPlants.has(l.plant.id) ? 0.05 : 0.025}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                ))}
               <g transform={vertical ? `rotate(-90 ${tcx} ${tcy})` : undefined}>
                 <text x={tcx} y={tcy - (emojis ? fs * 0.25 : -fs * 0.35)} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', fontWeight: 600, paintOrder: 'stroke', stroke: 'rgba(0,0,0,.35)', strokeWidth: fs * 0.08 }}>
                   {issue ? '⚠ ' : ''}
@@ -454,6 +477,7 @@ export function GardenView() {
       </Card>
       <SoilCard />
       <CompostCard />
+      <RainTankCard />
       <SensorsCard />
     </div>
   );
@@ -512,9 +536,14 @@ function BedMulch({ bed }: { bed: Bed }) {
   const { tt, lang } = useJT();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(today);
-  const [material, setMaterial] = useState<MulchMaterial>('meadow');
-  const [depth, setDepth] = useState(10);
+  // Petit carré ou bac : on y verse surtout des restes de cuisine, comptés en litres.
+  const small = bed.w * bed.h <= 4;
+  const [material, setMaterial] = useState<MulchMaterial>(small ? 'kitchen' : 'meadow');
+  const [unit, setUnit] = useState<'cm' | 'L'>(small ? 'L' : 'cm');
+  const [amount, setAmount] = useState(small ? 5 : 10);
+  const depth = unit === 'cm' ? amount : litersToDepth(amount, bed);
   const sum = bedMulchSummary(bed, data, today);
+  const surf = bedSurfaceCN(bed, data, today);
   const all = (data.mulches ?? []).filter((m) => m.bedId === bed.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
   const info = MULCH_INFO[material];
   const preview = mulchContentM2({ material, depthCm: depth });
@@ -536,6 +565,11 @@ function BedMulch({ bed }: { bed: Bed }) {
           {tt('mulch.none')}
         </p>
       )}
+      {surf && surf.layers >= 2 && (
+        <p className="mt-1 text-xs" style={{ color: cnAdvice(surf.cn) === 'good' ? '#4a7f36' : '#a5532f' }}>
+          {tt('mulch.cn', { cn: fmtNum(surf.cn, lang, 0) })} {tt(`mulch.cn.${cnAdvice(surf.cn)}` as JKey)}
+        </p>
+      )}
       {sum.lockup && (
         <div className="mt-2">
           <Notice tone="warn">{tt('mulch.lockup')}</Notice>
@@ -545,7 +579,14 @@ function BedMulch({ bed }: { bed: Bed }) {
         <div className="mt-2 space-y-2 rounded p-3" style={{ background: 'var(--color-paper-200)' }}>
           <div className="grid grid-cols-2 gap-2">
             <Field label={tt('mulch.date')}>{(fid) => <TextInput id={fid} type="date" value={date} onChange={setDate} />}</Field>
-            <Field label={tt('mulch.depth')}>{(fid) => <TextInput id={fid} type="number" value={depth} onChange={(v) => setDepth(Math.max(0.5, Math.min(40, Number(v) || 0.5)))} />}</Field>
+            <Field label={unit === 'cm' ? tt('mulch.depth') : tt('mulch.liters')}>
+              {(fid) => (
+                <div className="flex gap-1.5">
+                  <TextInput id={fid} type="number" value={amount} onChange={(v) => setAmount(Math.max(0.1, Math.min(unit === 'cm' ? 40 : 2000, Number(v) || 0.1)))} />
+                  <Select value={unit} onChange={(v) => setUnit(v as 'cm' | 'L')} options={[{ v: 'cm', l: 'cm' }, { v: 'L', l: 'L' }]} />
+                </div>
+              )}
+            </Field>
           </div>
           <Field label={tt('mulch.material')}>
             {(fid) => <Select id={fid} value={material} onChange={(v) => setMaterial(v as MulchMaterial)} options={MULCH_MATERIALS.map((m) => ({ v: m, l: `${MULCH_INFO[m].emoji} ${MULCH_INFO[m].name[lang]}` }))} />}
@@ -573,7 +614,7 @@ function BedMulch({ bed }: { bed: Bed }) {
           {all.map((m) => (
             <li key={m.id} className="flex items-center justify-between gap-2 rounded px-2 py-1" style={{ background: 'var(--color-paper-200)' }}>
               <span>
-                {fmtDate(m.date, lang, true)} · {MULCH_INFO[m.material].emoji} {MULCH_INFO[m.material].name[lang]} · {fmtNum(m.depthCm, lang, 0)} cm
+                {fmtDate(m.date, lang, true)} · {MULCH_INFO[m.material].emoji} {MULCH_INFO[m.material].name[lang]} · {m.depthCm >= 1 ? `${fmtNum(m.depthCm, lang, 0)} cm` : `${fmtNum(m.depthCm * area * 10, lang, 0)} L`}
               </span>
               <button type="button" onClick={() => store.deleteMulch(m.id)} className="text-xs underline" style={{ color: INK500 }}>
                 {tt('common.delete')}
@@ -829,6 +870,7 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
           </p>
         </section>
 
+        {bed.kind !== 'hydro' && <BedLayout bed={bed} />}
         {bed.kind !== 'hydro' && <BedHistory bedId={bed.id} />}
         {bed.kind !== 'hydro' && bed.kind !== 'pot' && <BedMulch bed={bed} />}
 

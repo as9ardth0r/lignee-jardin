@@ -42,7 +42,7 @@ export interface MulchInfo {
 
 const T = (fr: string, en: string): Txt => ({ fr, en });
 
-export const MULCH_MATERIALS: MulchMaterial[] = ['meadow', 'grass', 'hay', 'leaves', 'straw', 'woodChips', 'compost'];
+export const MULCH_MATERIALS: MulchMaterial[] = ['meadow', 'grass', 'hay', 'leaves', 'straw', 'woodChips', 'compost', 'kitchen', 'manure'];
 
 export const MULCH_INFO: Record<MulchMaterial, MulchInfo> = {
   meadow: {
@@ -72,6 +72,14 @@ export const MULCH_INFO: Record<MulchMaterial, MulchInfo> = {
   compost: {
     name: T('Compost mûr en surface', 'Mature compost on the surface'), emoji: '🟫', density: 0.5, N: 0.6, P2O5: 0.4, K2O: 0.6, cn: 12, nAvail: 0.1, tau: 365, depth: [1, 3],
     tip: T('Amendement plus que paillis : il libère son azote lentement sur plusieurs années.', 'More soil improver than mulch: it releases its nitrogen slowly over several years.'),
+  },
+  kitchen: {
+    name: T('Restes de cuisine (compostage en place)', 'Kitchen scraps (composting in place)'), emoji: '🍎', density: 0.5, N: 0.35, P2O5: 0.1, K2O: 0.35, cn: 18, nAvail: 0.4, tau: 45, depth: [1, 3],
+    tip: T('Compostage en place : glisser les restes sous le broyat ou les enfouir de quelques centimètres (mouches, rongeurs), sans viande, poisson ni laitages. Alterner avec des « bruns » (broyat, feuilles) pour garder l’équilibre.', 'Composting in place: tuck scraps under the wood chips or bury them a few centimetres (flies, rodents), no meat, fish or dairy. Alternate with “browns” (chips, leaves) to keep the balance.'),
+  },
+  manure: {
+    name: T('Fumier décomposé', 'Rotted manure'), emoji: '🐴', density: 0.6, N: 0.6, P2O5: 0.4, K2O: 0.7, cn: 18, nAvail: 0.3, tau: 180, depth: [2, 5],
+    tip: T('En surface à l’automne, bien décomposé : frais, il brûle les racines et apporte des graines d’herbes. Éviter avant carottes et panais (racines fourchues).', 'On the surface in autumn, well rotted: fresh, it burns roots and brings weed seeds. Avoid before carrots and parsnips (forked roots).'),
   },
 };
 
@@ -148,3 +156,29 @@ export function bedMulchSummary(bed: Bed, data: GardenData, today: ISODate): { a
 export function bedIsMulched(bed: Bed, data: GardenData, today: ISODate): boolean {
   return bed.mulch || (data.mulches ?? []).some((m) => m.bedId === bed.id && m.date <= today && diffDays(m.date, today) < 365);
 }
+
+/**
+ * Équilibre carbone / azote des apports en surface de l'année sur la planche
+ * (restes de cuisine, tontes, broyat, feuilles…) : moyenne pondérée par
+ * l'azote apporté. Même repères que pour le compost : 22 à 40 = équilibré.
+ */
+export function bedSurfaceCN(bed: Bed, data: GardenData, today: ISODate): { cn: number; layers: number } | null {
+  let c = 0;
+  let n = 0;
+  let layers = 0;
+  for (const m of data.mulches ?? []) {
+    if (m.bedId !== bed.id || m.date > today || diffDays(m.date, today) >= 365) continue;
+    const info = MULCH_INFO[m.material];
+    const nG = mulchContentM2(m).N;
+    n += nG;
+    c += nG * info.cn;
+    layers++;
+  }
+  return n > 0 ? { cn: Math.round((c / n) * 10) / 10, layers } : null;
+}
+
+/** Épaisseur équivalente (cm) d'un volume (L) étalé sur la planche. */
+export function litersToDepth(liters: number, bed: Pick<Bed, 'w' | 'h'>): number {
+  return Math.round((liters / (Math.max(0.01, bed.w * bed.h) * 10)) * 100) / 100;
+}
+

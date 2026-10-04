@@ -416,6 +416,14 @@ export interface Variety extends Meta {
 
 export type PlantStatus = 'planned' | 'growing' | 'ended';
 
+/** Rectangle occupé par une culture sur sa planche (mètres, repère de la planche). */
+export interface PlantPos {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface Plant extends Meta {
   id: string;
   speciesId: string;
@@ -437,6 +445,8 @@ export interface Plant extends Meta {
   endDate?: ISODate;
   /** Rendement visé (kg/m²) — sinon le milieu de la fourchette du catalogue. */
   yieldTarget?: number;
+  /** Emplacement sur la planche (m, depuis le coin haut gauche de la planche) ; sinon placé automatiquement à l'affichage. */
+  pos?: PlantPos;
   note?: string;
   /** Lot de graines utilisé (pour décompter le stock). */
   seedLotId?: string;
@@ -483,6 +493,21 @@ export interface WaterEvent extends Meta {
   amount: number;
   bedId?: string;
   date: ISODate;
+  /** Arrosage puisé dans un récupérateur d'eau de pluie. */
+  tankId?: string;
+}
+
+/** Récupérateur d'eau de pluie (cuve branchée sur une gouttière). */
+export interface RainTank extends Meta {
+  id: string;
+  name: string;
+  /** Contenance (L). */
+  capacityL: number;
+  /** Surface de toit qui alimente la cuve (m², projection au sol). */
+  roofM2: number;
+  /** Niveau relevé (L) à la date `since`. */
+  level: number;
+  since: ISODate;
 }
 
 export interface ManualTask extends Meta {
@@ -722,7 +747,7 @@ export interface TankChange extends Meta {
 }
 
 /** Paillis : broyat d'herbe et de trèfle, tonte, foin, feuilles, paille, broyat de branches, compost en surface. */
-export type MulchMaterial = 'meadow' | 'grass' | 'hay' | 'leaves' | 'straw' | 'woodChips' | 'compost';
+export type MulchMaterial = 'meadow' | 'grass' | 'hay' | 'leaves' | 'straw' | 'woodChips' | 'compost' | 'kitchen' | 'manure';
 
 /** Couche de paillage posée sur une planche. */
 export interface MulchEntry extends Meta {
@@ -745,6 +770,7 @@ export interface GardenData {
   /** Paillages et broyats posés sur les planches. */
   mulches: MulchEntry[];
   compost: CompostHeap[];
+  rainTanks: RainTank[];
   water: WaterEvent[];
   tasks: ManualTask[];
   taskStates: TaskState[];
@@ -778,6 +804,7 @@ export const EMPTY_DATA: GardenData = {
   applications: [],
   mulches: [],
   compost: [],
+  rainTanks: [],
   water: [],
   tasks: [],
   taskStates: [],

@@ -34,6 +34,7 @@ const TASK_ICON: Record<Task['kind'], string> = {
   manual: '✎',
   cover: '🌾',
   compost: '♻',
+  raintank: '🛢',
 };
 
 /** Nombre de tâches montrées d'emblée (le reste derrière « voir tout »). */

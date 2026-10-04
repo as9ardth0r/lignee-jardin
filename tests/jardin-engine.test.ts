@@ -44,6 +44,9 @@ import { ATELIERS, ATELIER_BY_ID } from '../src/ateliers/registry';
 import { bedResults, cutFlowers, harvestCandidates, plantResults, seasonReview, wishesFromReview } from '../src/jardin/engine/bilan';
 import { cnAdvice, heapCN, heapStatus } from '../src/jardin/engine/compost';
 import { coverCredit } from '../src/jardin/engine/nutrition';
+import { tankStatus as rainTankStatus } from '../src/jardin/engine/rainTank';
+import { bedSurfaceCN, litersToDepth } from '../src/jardin/engine/mulch';
+import { clampPos, defaultFootprint, freeArea, layoutBed, neighbours, overlaps } from '../src/jardin/engine/layout';
 import { clockHourOf, compassPoint, dayOfYear as doyOfDate, equationOfTime, solarHourAt } from '../src/jardin/engine/sun';
 import { SPECIES_TYPES, speciesWithType } from '../src/jardin/data/speciesTypes';
 import { seasonalType, speciesOf } from '../src/jardin/engine/crop';
@@ -1167,6 +1170,56 @@ test('récolte rapide et jardin d’exemple hors saison', () => {
   ok(off.plants.filter((p) => p.status === 'ended').length === 4, 'cultures d’été terminées');
   const w = wishesFromReview(off, 2026, '2026-10-04');
   ok(w.some((x) => x.speciesId === 'tomato') && w.length >= 4, `envies ${w.length}`);
+});
+
+// --- Disposition sur la planche et voisinages -------------------------------------------
+
+test('disposition : emplacements, place libre, voisins', () => {
+  const long = bed({ id: 'L', w: 25, h: 1 });
+  const fp = defaultFootprint({ speciesId: 'tomato', count: 6 }, long);
+  ok(fp.h === 1 && fp.w > 1, `planche étroite : bande de ${fp.w} × ${fp.h} m`);
+  const tom = plant({ id: 't', speciesId: 'tomato', bedId: 'L', count: 6 });
+  const pot = plant({ id: 'p', speciesId: 'potato', bedId: 'L', count: 10, pos: { x: 20, y: 0, w: 3, h: 1 } });
+  const bas = plant({ id: 'b', speciesId: 'basil', bedId: 'L', count: 4 });
+  const g = data({ beds: [long], plants: [tom, pot, bas] });
+  const laid = layoutBed(g, long);
+  ok(laid.length === 3 && laid.find((l) => l.plant.id === 'p')!.auto === false && laid.find((l) => l.plant.id === 'p')!.pos.x === 20 && laid.filter((l) => l.auto).every((l) => l.pos.x < 5), 'placés à gauche, la pomme de terre reste où on l’a mise');
+  ok(overlaps(laid).length === 0, 'aucun chevauchement');
+  ok(Math.abs(freeArea(long, laid) - (25 - laid.reduce((s, l) => s + l.pos.w * l.pos.h, 0))) < 0.05, 'surface libre');
+  const n = neighbours(g);
+  ok(n.some((x) => x.effect === 'good' && [x.a.id, x.b.id].sort().join() === 'b,t'), 'tomate + basilic voisins');
+  ok(!n.some((x) => x.effect === 'bad'), 'pomme de terre loin des tomates : pas d’alerte');
+  const g2 = data({ beds: [long], plants: [tom, { ...pot, pos: { x: 2.5, y: 0, w: 3, h: 1 } }] });
+  ok(neighbours(g2).some((x) => x.effect === 'bad'), 'pomme de terre collée aux tomates : alerte');
+  ok(clampPos({ x: 30, y: 2, w: 2, h: 3 }, long).x === 23 && clampPos({ x: 30, y: 2, w: 2, h: 3 }, long).h === 1, 'reste dans la planche');
+});
+
+test('récupérateur d’eau : pluie sur le toit, arrosages puisés, débordement', () => {
+  const tank = { id: 'rt', name: 'Cuve', capacityL: 300, roofM2: 20, level: 100, since: '2026-06-01' };
+  const g = data({
+    beds: [bed()],
+    rainTanks: [tank],
+    water: [
+      { id: 'r1', kind: 'rain', amount: 10, date: '2026-06-02' },
+      { id: 'i1', kind: 'irrigation', amount: 50, bedId: 'b1', date: '2026-06-03', tankId: 'rt' },
+      { id: 'i2', kind: 'irrigation', amount: 40, bedId: 'b1', date: '2026-06-03' },
+      { id: 'r2', kind: 'rain', amount: 30, date: '2026-06-04' },
+    ],
+    settings: { ...DEFAULT_SETTINGS, onboarded: true, rainSource: 'manual' },
+  });
+  const st = rainTankStatus(tank, g, '2026-06-05');
+  ok(st.history[0].level === 260, `pluie de 10 mm : 100 + 160 L = ${st.history[0].level}`);
+  ok(st.history[1].level === 210, 'arrosage puisé dans la cuve (pas celui au réseau)');
+  ok(st.level === 300 && st.overflowL === 390, `pleine et débordement ${st.overflowL} L`);
+});
+
+test('carré en compostage en place : restes de cuisine et broyat', () => {
+  const sq = bed({ id: 'sq', w: 1.2, h: 1.2 });
+  ok(litersToDepth(14.4, sq) === 1, '14,4 L sur 1,44 m² = 1 cm');
+  const g = data({ beds: [sq], mulches: [{ id: 'm1', bedId: 'sq', date: '2026-05-01', material: 'kitchen', depthCm: 2 }] });
+  ok(bedSurfaceCN(sq, g, '2026-06-01')!.cn < 22, 'restes seuls : trop vert');
+  const g2 = data({ beds: [sq], mulches: [...g.mulches, { id: 'm2', bedId: 'sq', date: '2026-05-02', material: 'woodChips', depthCm: 4 }] });
+  ok(bedSurfaceCN(sq, g2, '2026-06-01')!.cn > bedSurfaceCN(sq, g, '2026-06-01')!.cn, 'broyat : rééquilibre');
 });
 
 if (failed) {

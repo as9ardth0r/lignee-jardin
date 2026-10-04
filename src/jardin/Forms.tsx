@@ -150,11 +150,13 @@ export function WaterSheet({ bedId, kind = 'irrigation', liters, onClose }: { be
   const [bed, setBed] = useState(bedId ?? data.beds[0]?.id ?? '');
   const [amount, setAmount] = useState(liters ? String(liters) : '');
   const [date, setDate] = useState(today);
+  const tanks = data.rainTanks ?? [];
+  const [tank, setTank] = useState(tanks.length ? tanks[0].id : '');
   const bedObj = data.beds.find((b) => b.id === bed);
   const qty = num(amount);
   const save = () => {
     if (!qty) return;
-    store.addWater({ kind: k, amount: qty, date, bedId: k === 'irrigation' ? bed : undefined });
+    store.addWater({ kind: k, amount: qty, date, bedId: k === 'irrigation' ? bed : undefined, tankId: k === 'irrigation' && tank ? tank : undefined });
     nav.toast(k === 'rain' ? tt('toast.rain') : tt('toast.watered', { liters: `${fmtNum(qty, lang, 1)} L` }));
     onClose();
   };
@@ -180,6 +182,11 @@ export function WaterSheet({ bedId, kind = 'irrigation', liters, onClose }: { be
             {(fid) => <TextInput id={fid} type="number" value={amount} onChange={setAmount} />}
           </Field>
           <Field label={tt('obs.date')}>{(fid) => <TextInput id={fid} type="date" value={date} onChange={(v) => v && setDate(v)} />}</Field>
+          {k === 'irrigation' && tanks.length > 0 && (
+            <Field label={tt('tankRain.source')}>
+              {(fid) => <Select id={fid} value={tank} onChange={setTank} options={[...tanks.map((t) => ({ v: t.id, l: `🛢 ${t.name}` })), { v: '', l: tt('tankRain.mains') }]} />}
+            </Field>
+          )}
         </div>
         <div className="flex justify-end gap-2">
           <Button kind="ghost" onClick={onClose}>

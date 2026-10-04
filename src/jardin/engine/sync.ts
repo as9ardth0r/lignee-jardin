@@ -16,7 +16,7 @@
 import type { GardenData, Meta, Reading, TaskState } from '../model';
 
 /** Collections d'enregistrements identifiés par `id`. */
-export const COLLECTIONS = ['beds', 'plants', 'varieties', 'observations', 'applications', 'mulches', 'compost', 'water', 'tasks', 'obstacles', 'phenoEvents', 'treatments', 'seeds', 'sensors', 'tankChanges', 'soilTests', 'pestCounts', 'stocks', 'shopping'] as const;
+export const COLLECTIONS = ['beds', 'plants', 'varieties', 'observations', 'applications', 'mulches', 'compost', 'rainTanks', 'water', 'tasks', 'obstacles', 'phenoEvents', 'treatments', 'seeds', 'sensors', 'tankChanges', 'soilTests', 'pestCounts', 'stocks', 'shopping'] as const;
 export type CollectionKey = (typeof COLLECTIONS)[number];
 
 type Rec = Meta & { id: string };

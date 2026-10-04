@@ -45,6 +45,7 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
     varieties: arr(d.varieties, (v) => hasId(v) && obj(v) && typeof v.name === 'string'),
     observations: arr(d.observations, (v) => hasId(v) && obj(v) && isValidISO(v.date)),
     applications: arr(d.applications, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
+    rainTanks: arr(d.rainTanks, (v) => hasId(v) && obj(v) && typeof v.capacityL === 'number' && typeof v.roofM2 === 'number' && typeof v.level === 'number' && isValidISO(v.since)),
     compost: arr(d.compost, (v) => hasId(v) && obj(v) && typeof v.name === 'string' && isValidISO(v.started) && Array.isArray(v.inputs) && Array.isArray(v.turns) && Array.isArray(v.temps)),
     mulches: arr(d.mulches, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.bedId === 'string' && typeof v.depthCm === 'number' && typeof v.material === 'string'),
     water: arr(d.water, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.amount === 'number'),
@@ -170,8 +171,10 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
       plant('demo-p2', 'lettuce', 'demo-b1', 12, -40, false),
       plant('demo-p3', 'carrot', 'demo-b1', 60, -55, false),
       plant('demo-p4', 'zucchini', 'demo-b2', 3, -70, true, -45),
-      plant('demo-p5', 'bean', 'demo-b2', 40, beanSow, false),
+      plant('demo-p5', 'bean', 'demo-b2', 32, beanSow, false),
       plant('demo-p6', 'zinnia', 'demo-b2', 6, -80, true, -50, 'Benary’s Giant'),
+      plant('demo-p7', 'basil', 'demo-b3', 6, -70, true, -40, 'Grand vert'),
+      plant('demo-p8', 'nasturtium', 'demo-b2', 3, -60, false),
     ].map((p) =>
       // Hors saison, les cultures d'été sont terminées (les carottes restent en terre).
       !live && ['demo-p1', 'demo-p2', 'demo-p4', 'demo-p6'].includes(p.id) ? { ...p, status: 'ended' as const, endDate: seasonEnd < today ? seasonEnd : today } : p,
@@ -209,7 +212,7 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
       { id: 'demo-a3', bedId: 'demo-b2', productId: 'organicNPK', amount: 500, date: addDays(ref, -45), cost: 3.8 },
     ],
     water: [
-      ...[-30, -24, -18, -12, -6].map((d, i) => ({ id: `demo-w${i}`, kind: 'irrigation' as const, amount: 120, bedId: 'demo-b3', date: addDays(ref, d) })),
+      ...[-30, -24, -18, -12, -6].map((d, i) => ({ id: `demo-w${i}`, kind: 'irrigation' as const, amount: 120, bedId: 'demo-b3', date: addDays(ref, d), tankId: d >= -12 ? 'demo-rt' : undefined })),
       { id: 'demo-r1', kind: 'rain' as const, amount: 12, date: addDays(ref, -9) },
       { id: 'demo-r2', kind: 'rain' as const, amount: 6, date: addDays(ref, -3) },
     ],
@@ -248,6 +251,8 @@ export function demoGarden(today: ISODate, base: GardenData = EMPTY_DATA): Garde
       { id: 'demo-st2', kind: 'substrate', name: 'Terreau de semis', qty: 40, unit: 'L', since: addDays(today, -30), min: 20 },
     ],
     shopping: [{ id: 'demo-sh1', label: 'Ficelle de palissage' }],
+    // Une cuve de 500 L sous la gouttière de la maison.
+    rainTanks: [{ id: 'demo-rt', name: 'Cuve de la maison', capacityL: 500, roofM2: 25, level: 380, since: addDays(ref, -14) }],
     // Un tas de compost commencé au printemps, retourné deux fois.
     compost: [
       {
