@@ -31,7 +31,7 @@ import { PROBLEMS, REMEDY_BY_ID } from '../src/jardin/data/problems';
 import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
-import { mergeGardens, photoIdsOf, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
+import { mergeGardens, mergeSynced, photoIdsOf, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
 import { addReadings, moistureToFraction, parseDateTime, parseReadingsCSV, tankStatus, tankTarget, toMinutes } from '../src/jardin/engine/sensors';
 import { notificationId, planNotifications } from '../src/jardin/engine/notify';
 import { forecast, forecastByMonth, multiYear, reportData } from '../src/jardin/engine/report';
@@ -1220,6 +1220,25 @@ test('carré en compostage en place : restes de cuisine et broyat', () => {
   ok(bedSurfaceCN(sq, g, '2026-06-01')!.cn < 22, 'restes seuls : trop vert');
   const g2 = data({ beds: [sq], mulches: [...g.mulches, { id: 'm2', bedId: 'sq', date: '2026-05-02', material: 'woodChips', depthCm: 4 }] });
   ok(bedSurfaceCN(sq, g2, '2026-06-01')!.cn > bedSurfaceCN(sq, g, '2026-06-01')!.cn, 'broyat : rééquilibre');
+});
+
+test('synchronisation PC ↔ téléphone : réglages partagés et propres à l’appareil', () => {
+  const phone = data({ beds: [bed()], settings: { ...DEFAULT_SETTINGS, onboarded: true, planW: 15, notify: true, author: 'Joel', sync: { url: 'http://pc:8787', code: 'ABCD-1234' } } });
+  const pcFresh = data({ settings: { ...DEFAULT_SETTINGS, onboarded: false } });
+  // Un PC neuf adopte le jardin et ses réglages, mais garde les siens pour l'appareil.
+  const a = mergeSynced(pcFresh, phone).data;
+  ok(a.settings.onboarded && a.settings.planW === 15 && a.beds.length === 1, 'PC neuf : jardin et réglages adoptés');
+  ok(!a.settings.notify && a.settings.author === undefined && a.settings.sync === undefined, 'notifications, auteur et connexion restent propres à l’appareil');
+  // Une modification des réglages partagés est datée et l'emporte de l'autre côté.
+  const edited = stampChanges(a, { ...a, settings: { ...a.settings, planW: 18 } }, '2026-10-04T18:00:00Z', undefined);
+  ok(edited.settingsMod === '2026-10-04T18:00:00Z', 'réglage partagé daté');
+  const back = mergeSynced(phone, edited).data;
+  ok(back.settings.planW === 18 && back.settings.notify && back.settings.sync?.code === 'ABCD-1234', 'le téléphone reçoit la nouvelle taille et garde sa connexion');
+  // Changer un réglage propre à l'appareil ne date pas les réglages partagés.
+  const n = stampChanges(back, { ...back, settings: { ...back.settings, notifyHour: 6 } }, '2026-10-04T19:00:00Z', undefined);
+  ok(n.settingsMod === back.settingsMod, 'heure des notifications : pas de date partagée');
+  // L'ancien réglage ne revient pas écraser le récent.
+  ok(mergeSynced(edited, phone).data.settings.planW === 18, 'les réglages les plus récents gagnent');
 });
 
 if (failed) {

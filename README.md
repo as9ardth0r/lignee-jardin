@@ -315,6 +315,48 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Version ordinateur synchronisée avec le téléphone
+
+La version ordinateur est la même application, servie par votre PC, qui sert aussi de relais. Les modifications faites sur le PC arrivent sur le téléphone en quelques secondes, et inversement, dès que le téléphone est sur le même Wi-Fi. Il n'y a ni compte ni service en ligne : le jardin reste chez vous.
+
+**Lancer la version ordinateur** (dans le dossier du projet, après `npm install`) :
+
+```bash
+npm run pc
+```
+
+Ouvrez ensuite http://localhost:8787 dans le navigateur du PC. Le terminal affiche l'adresse du PC sur le réseau et un code (par exemple `http://192.168.1.20:8787` et `K7QM-2XPA`). Ils sont aussi rappelés dans Réglages → « Synchronisation avec le PC » de la version ordinateur.
+
+**Relier le téléphone** : dans l'app, ouvrez Réglages → « Synchronisation avec le PC », saisissez l'adresse et le code, puis touchez **Connecter**. C'est tout. Le jardin du téléphone part sur le PC, et un PC neuf adopte ce jardin avec ses réglages (taille du plan, lieu, climat).
+
+**Fonctionnement**
+- Chaque appareil garde une copie complète et fonctionne seul : sans Wi-Fi ou PC éteint, rien ne se perd, et l'échange reprend au retour.
+- Les deux copies sont fusionnées fiche par fiche, et la modification la plus récente gagne. Si une même fiche est modifiée des deux côtés entre deux échanges, c'est la plus récente qui reste.
+- Les réglages propres à l'appareil (notifications, auteur, connexion) ne sont pas échangés.
+- Les photos et les notes vocales restent sur l'appareil où elles ont été prises.
+- La copie de référence est enregistrée dans `~/.lignee-jardin/jardin.json`, et le code dans `~/.lignee-jardin/config.json`. Supprimez ce dernier pour obtenir un nouveau code.
+- Le navigateur du PC n'a pas besoin du code. Tout autre appareil le doit.
+- Pare-feu : autorisez le port 8787 (`sudo ufw allow 8787/tcp` si ufw est actif).
+- Hors de la maison, un réseau privé comme Tailscale permet de garder la synchronisation : utilisez l'adresse Tailscale du PC.
+- Autre port : `JARDIN_PORT=9000 npm run pc`. Autre dossier : `JARDIN_DIR=…`. Une fois l'app construite, `npm run pc:start` relance le serveur sans reconstruire.
+
+**Démarrage automatique (facultatif)** : un service utilisateur systemd, `~/.config/systemd/user/lignee-jardin.service` :
+
+```ini
+[Unit]
+Description=Lignée Jardin (version ordinateur)
+
+[Service]
+WorkingDirectory=%h/Téléchargements/lignee-jardin
+ExecStart=/usr/bin/env npm run pc:start
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+Activez-le ensuite avec `systemctl --user enable --now lignee-jardin`.
+
 ## Plan du jardin : zoom et herbe
 
 Le plan s'ouvre cadré sur ce qui est dessiné (planches et obstacles). On zoome en pinçant avec deux doigts, avec les boutons − et +, d'un double-clic sur l'herbe ou avec Ctrl + molette. On se déplace en faisant glisser l'herbe. « Planches » recadre sur les planches et « Tout » montre le terrain entier. Une barre d'échelle indique la longueur réelle. De près, le quadrillage passe à 50 cm puis à 10 cm, et chaque planche montre ses cultures à leur place, avec leur nom quand il tient. Le fond est en herbe, les planches en terre avec un cadre en bois, et la dernière vue est gardée quand on change d'onglet.

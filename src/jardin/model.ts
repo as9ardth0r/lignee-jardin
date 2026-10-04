@@ -343,6 +343,8 @@ export interface Settings {
   notifyMax: number;
   /** Date de la dernière sauvegarde exportée (rappel mensuel). */
   lastBackup?: ISODate;
+  /** Synchronisation avec la version ordinateur (propre à cet appareil). */
+  sync?: { url: string; code: string };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -793,6 +795,8 @@ export interface GardenData {
   plan?: SeasonPlan;
   /** Enregistrements supprimés (identifiant → date ISO), pour la fusion de jardins. */
   deleted: Record<string, string>;
+  /** Date de la dernière modification des réglages partagés (synchronisation PC ↔ téléphone). */
+  settingsMod?: string;
 }
 
 export const EMPTY_DATA: GardenData = {

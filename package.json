@@ -9,6 +9,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "pc": "npm run build && tsx server/jardin-pc.ts",
+    "pc:start": "tsx server/jardin-pc.ts",
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
     "android:assets": "npx capacitor-assets generate --android --iconBackgroundColor '#152218' --iconBackgroundColorDark '#152218' --assetPath assets && node scripts/android-icon-extras.mjs",

@@ -13,7 +13,7 @@
  * l'autre en entier ; les relevés de capteurs et les états de tâches,
  * eux, s'additionnent.
  */
-import type { GardenData, Meta, Reading, TaskState } from '../model';
+import type { GardenData, Meta, Reading, Settings, TaskState } from '../model';
 
 /** Collections d'enregistrements identifiés par `id`. */
 export const COLLECTIONS = ['beds', 'plants', 'varieties', 'observations', 'applications', 'mulches', 'compost', 'rainTanks', 'water', 'tasks', 'obstacles', 'phenoEvents', 'treatments', 'seeds', 'sensors', 'tankChanges', 'soilTests', 'pestCounts', 'stocks', 'shopping'] as const;
@@ -57,7 +57,37 @@ export function stampChanges(prev: GardenData, next: GardenData, nowISO: string,
     out = { ...out, taskStates: next.taskStates.map((s) => (old.has(s) ? s : { ...s, mod: nowISO, by: by || s.by })) };
   }
   if (deleted !== next.deleted) out = { ...out, deleted };
+  // Réglages partagés modifiés (taille du plan, lieu, climat…) : datés pour la synchronisation.
+  if (prev.settings !== next.settings && JSON.stringify(sharedSettings(prev.settings)) !== JSON.stringify(sharedSettings(next.settings))) out = { ...out, settingsMod: nowISO };
   return out;
+}
+
+/** Réglages propres à chaque appareil, jamais échangés (notifications, auteur, synchronisation). */
+export const DEVICE_SETTINGS = ['notify', 'notifyHour', 'notifyMax', 'lastBackup', 'author', 'sync'] as const;
+
+/** Réglages communs à tous les appareils d'un même jardin. */
+export function sharedSettings(s: Settings): Partial<Settings> {
+  const out: Partial<Settings> = { ...s };
+  for (const k of DEVICE_SETTINGS) delete out[k];
+  return out;
+}
+
+/**
+ * Fusion pour la synchronisation PC ↔ téléphone : comme mergeGardens, et en
+ * plus les réglages communs les plus récents gagnent (un appareil neuf, pas
+ * encore configuré, adopte ceux du jardin) ; les réglages propres à
+ * l'appareil restent les siens.
+ */
+export function mergeSynced(local: GardenData, remote: GardenData): { data: GardenData; stats: MergeStats } {
+  const { data, stats } = mergeGardens(local, remote);
+  const lm = local.settingsMod ?? '';
+  const rm = remote.settingsMod ?? '';
+  const takeRemote = rm > lm || (rm === lm && !local.settings.onboarded && remote.settings.onboarded);
+  if (!takeRemote) return { data, stats };
+  const settings = { ...local.settings, ...sharedSettings(remote.settings), onboarded: local.settings.onboarded || remote.settings.onboarded };
+  // Le cache météo suit le lieu adopté.
+  const weather = remote.weather ?? data.weather;
+  return { data: { ...data, settings, settingsMod: rm || lm || undefined, weather }, stats };
 }
 
 /** Oublie les traces de suppression trop anciennes. */

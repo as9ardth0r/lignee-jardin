@@ -12,6 +12,7 @@ import { Onboarding } from './Onboarding';
 import { AddPlantSheet, PlantSheet, PlantsView } from './PlantsView';
 import { SettingsView } from './SettingsView';
 import { GardenProvider, useGarden } from './store';
+import { useRemoteSync } from './remoteSync';
 import { TodayView } from './TodayView';
 import { SensorSheet } from './Sensors';
 import { SoilTestSheet } from './Soil';
@@ -25,6 +26,7 @@ const TAB_ICON: Record<Tab, string> = { today: '☀', garden: '▦', plants: '�
 
 function Shell() {
   const store = useGarden();
+  useRemoteSync();
   const { tt, lang } = useJT();
   const [tab, setTabState] = useState<Tab>('today');
   const [stack, setStack] = useState<SheetRequest[]>([]);

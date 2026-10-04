@@ -11,7 +11,7 @@ import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type CompostHeap, type RainTank, typ
 import { mergeWeather, needsRefresh, parseOpenMeteo, weatherURL } from './engine/weather';
 import { demoGarden, parseBackup, serializeBackup, type PhotoExport } from './engine/backup';
 import { todayISO } from './engine/dates';
-import { mergeGardens, photoIdsOf, pruneDeleted, stampChanges, type MergeStats } from './engine/sync';
+import { mergeGardens, mergeSynced, photoIdsOf, pruneDeleted, stampChanges, type MergeStats } from './engine/sync';
 import { addReadings } from './engine/sensors';
 
 const DB_NAME = 'lignee-jardin';
@@ -177,6 +177,10 @@ export interface GardenStore {
   /** Plusieurs jardins sur l'appareil. */
   gardens: GardenRef[];
   activeGarden: string;
+  /** Synchronisation PC ↔ téléphone : nombre de modifications faites ici, copie actuelle, fusion d'une copie reçue. */
+  syncEdits: () => number;
+  syncSnapshot: () => GardenData;
+  syncApply: (remote: GardenData) => void;
   switchGarden: (id: string) => Promise<void>;
   createGarden: () => Promise<void>;
   deleteGarden: (id: string) => Promise<void>;
@@ -259,7 +263,9 @@ export function GardenProvider({ children }: { children: ReactNode }) {
    * Les enregistrements modifiés sont datés et signés (jardin partagé),
    * sauf pour un import ou une fusion qui gardent les dates d'origine.
    */
+  const edits = useRef(0);
   const mutate = useCallback((fn: (d: GardenData) => GardenData, stamp = true) => {
+    if (stamp) edits.current++;
     setData((prev) => {
       const raw = fn(prev);
       const next = stamp ? stampChanges(prev, raw, new Date().toISOString(), raw.settings.author?.trim() || undefined) : raw;
@@ -531,6 +537,9 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       weatherBusy,
       gardens: index.list,
       activeGarden: index.active,
+      syncEdits: () => edits.current,
+      syncSnapshot: () => latest.current,
+      syncApply: (remote) => mutate((d) => mergeSynced(d, remote).data, false),
       switchGarden: async (id) => {
         if (id === indexRef.current.active || !indexRef.current.list.some((g) => g.id === id)) return;
         await writeNow();

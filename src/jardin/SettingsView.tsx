@@ -15,6 +15,7 @@ import { downloadTextFile, readFileAsText } from '../utils/download';
 import { LocationPicker } from './Weather';
 import { CompassButton } from './Locate';
 import { GardensCard, NotificationsCard } from './ProSettings';
+import { SyncCard } from './SyncCard';
 
 export const KINDS: GardenKind[] = ['vegetable', 'orchard', 'ornamental', 'balcony', 'greenhouse'];
 export const PRACTICES: Practice[] = ['conventional', 'livingSoil', 'permaculture', 'organic', 'soilless'];
@@ -254,6 +255,8 @@ export function SettingsView() {
           </span>
         </label>
       </Card>
+
+      <SyncCard />
 
       <NotificationsCard />
 
