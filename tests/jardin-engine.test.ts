@@ -24,7 +24,7 @@ import { generateTasks } from '../src/jardin/engine/tasks';
 import { rotationWarning } from '../src/jardin/engine/rotation';
 import { ALERT, suggestClimate, mergeWeather, needsRefresh, normalDay, parseOpenMeteo, recentContext, weatherAlerts, weatherURL } from '../src/jardin/engine/weather';
 import { eqAge, referenceStart, speciesFactor, timeline } from '../src/jardin/engine/phenology';
-import { bedSun, exposureOf, inShadow, shadowPolygon, sunPosition, sunMismatch } from '../src/jardin/engine/sun';
+import { bedSun, exposureOf, heightAt, inShadow, shadowPolygon, sunPosition, sunMismatch } from '../src/jardin/engine/sun';
 import { diagnose } from '../src/jardin/engine/diagnosis';
 import { germRate, seasonSummary, seedState, seedsFor } from '../src/jardin/engine/season';
 import { PROBLEMS, REMEDY_BY_ID } from '../src/jardin/data/problems';
@@ -1239,6 +1239,26 @@ test('synchronisation PC ↔ téléphone : réglages partagés et propres à l�
   ok(n.settingsMod === back.settingsMod, 'heure des notifications : pas de date partagée');
   // L'ancien réglage ne revient pas écraser le récent.
   ok(mergeSynced(edited, phone).data.settings.planW === 18, 'les réglages les plus récents gagnent');
+});
+
+test('maison à toit à deux pans : ombre plus courte qu’un bloc plein', () => {
+  // Maison 14 × 8 m (grand côté est-ouest), gouttière 3 m, faîtage 7 m ; soleil plein sud à 30°.
+  const box = { id: 'h', name: 'Maison', kind: 'building' as const, x: 0, y: 10, w: 14, h: 8, height: 7 };
+  const gable = { ...box, roof: 'gable' as const, eaveHeight: 3 };
+  const sun = { alt: 30, az: 180 };
+  ok(heightAt(gable, 7, 14) === 7 && heightAt(gable, 7, 10) === 3 && Math.abs(heightAt(gable, 7, 12) - 5) < 1e-9, 'hauteur : 3 m à la gouttière, 7 m au faîtage');
+  // Ombre au nord : bloc plein ≈ 12,1 m, toit à deux pans ≈ 8,1 m (le faîtage est à 4 m en retrait).
+  ok(inShadow(7, 10 - 10, sun, [box], 0) && !inShadow(7, 0, sun, [gable], 0), 'à 10 m au nord : ombre du bloc, soleil avec le toit');
+  ok(inShadow(7, 10 - 7, sun, [gable], 0), 'à 7 m au nord : toujours à l’ombre du faîtage');
+  ok(!inShadow(7, 10 - 8.5, sun, [gable], 0), 'à 8,5 m : au soleil');
+  // Faîtage dans l'autre sens : pignon face au soleil, l'ombre du faîtage s'allonge au milieu.
+  const turned = { ...gable, ridge: 'short' as const };
+  ok(inShadow(7, 0, sun, [turned], 0) && !inShadow(0.5, 0, sun, [turned], 0), 'faîtage nord-sud : longue ombre au milieu, courte au bord');
+  const area = (p: Array<[number, number]>) => Math.abs(p.reduce((s, [x, y], i) => s + x * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * y, 0)) / 2;
+  const reach = (p: Array<[number, number]>) => 10 - Math.min(...p.map(([, y]) => y));
+  ok(Math.abs(reach(shadowPolygon(gable, sun, 0)) - 8.12) < 0.05 && Math.abs(reach(shadowPolygon(box, sun, 0)) - 12.12) < 0.05, `ombre dessinée : ${reach(shadowPolygon(gable, sun, 0)).toFixed(1)} m au lieu de ${reach(shadowPolygon(box, sun, 0)).toFixed(1)} m`);
+  ok(area(shadowPolygon(gable, sun, 0)) < area(shadowPolygon(box, sun, 0)), 'ombre dessinée plus petite');
+  ok(!inShadow(7, 30, sun, [gable], 0) && !inShadow(20, 5, sun, [gable], 0), 'au sud et à côté : soleil');
 });
 
 if (failed) {

@@ -402,8 +402,14 @@ export interface Obstacle extends Meta {
   y: number;
   w: number;
   h: number;
-  /** Hauteur (m). */
+  /** Hauteur (m) : pour un bâtiment à toit en pente, hauteur au faîtage. */
   height: number;
+  /** Bâtiment : toit plat (bloc plein, par défaut) ou à deux pans. */
+  roof?: 'flat' | 'gable';
+  /** Toit à deux pans : hauteur sous gouttière (m). */
+  eaveHeight?: number;
+  /** Toit à deux pans : faîtage parallèle au grand côté (par défaut) ou au petit. */
+  ridge?: 'long' | 'short';
 }
 
 export interface Variety extends Meta {

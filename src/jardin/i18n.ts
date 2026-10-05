@@ -1443,6 +1443,15 @@ const fr = {
   'sync.state.otherGarden': 'Ce jardin n’est pas celui qui est synchronisé avec le téléphone.',
   'sync.howto': 'Sur le PC, lancez « npm run pc » dans le dossier de l’app : l’adresse et le code s’affichent.',
   'sync.note': 'Les deux appareils gardent chacun une copie complète : chacun marche sans l’autre. Fiche par fiche, la modification la plus récente gagne. Les photos et notes vocales restent sur l’appareil où elles ont été prises.',
+  'obstacle.roof': 'Toit',
+  'obstacle.roof.flat': 'Plat (bloc plein)',
+  'obstacle.roof.gable': 'Deux pans',
+  'obstacle.heightRidge': 'Hauteur au faîtage (m)',
+  'obstacle.eave': 'Hauteur sous gouttière (m)',
+  'obstacle.ridge': 'Faîtage parallèle au',
+  'obstacle.ridge.long': 'grand côté',
+  'obstacle.ridge.short': 'petit côté',
+  'obstacle.roofHint': 'Le toit monte de la gouttière (bas des pans) au faîtage (sommet) : l’ombre est plus courte côté gouttières, plus longue côté pignons. Le trait sur le plan montre le faîtage. Hauteurs courantes : gouttière 2,5–3 m en plain-pied, 5–6 m avec un étage.',
 };
 
 const en: Record<keyof typeof fr, string> = {
@@ -2883,6 +2892,15 @@ const en: Record<keyof typeof fr, string> = {
   'sync.state.otherGarden': 'This garden is not the one synced with the phone.',
   'sync.howto': 'On the computer, run “npm run pc” in the app folder: the address and code are shown.',
   'sync.note': 'Each device keeps a full copy and works without the other. Record by record, the most recent change wins. Photos and voice notes stay on the device where they were taken.',
+  'obstacle.roof': 'Roof',
+  'obstacle.roof.flat': 'Flat (solid block)',
+  'obstacle.roof.gable': 'Gable (two slopes)',
+  'obstacle.heightRidge': 'Ridge height (m)',
+  'obstacle.eave': 'Eave height (m)',
+  'obstacle.ridge': 'Ridge parallel to the',
+  'obstacle.ridge.long': 'long side',
+  'obstacle.ridge.short': 'short side',
+  'obstacle.roofHint': 'The roof rises from the eaves (bottom of the slopes) to the ridge (top): the shadow is shorter on the eaves side, longer on the gable ends. The line on the plan shows the ridge. Typical heights: eaves 2.5–3 m for a single storey, 5–6 m with an upper floor.',
 };
 
 export type JKey = keyof typeof fr;

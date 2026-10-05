@@ -315,6 +315,10 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Toits à deux pans
+
+Un bâtiment peut avoir un toit plat (bloc plein, comme avant) ou un toit à deux pans. On renseigne alors la hauteur sous gouttière, la hauteur au faîtage et le sens du faîtage (parallèle au grand côté ou au petit côté). Les heures de soleil des planches et l'ombre dessinée suivent la vraie forme du toit : l'ombre est plus courte côté gouttières et plus longue côté pignons. Le faîtage est tracé sur le plan.
+
 ## Version ordinateur synchronisée avec le téléphone
 
 La version ordinateur est la même application, servie par votre PC, qui sert aussi de relais. Les modifications faites sur le PC arrivent sur le téléphone en quelques secondes, et inversement, dès que le téléphone est sur le même Wi-Fi. Il n'y a ni compte ni service en ligne : le jardin reste chez vous.

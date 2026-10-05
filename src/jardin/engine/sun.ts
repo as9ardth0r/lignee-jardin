@@ -61,6 +61,36 @@ function rayRect(px: number, py: number, dx: number, dy: number, o: Obstacle): n
   return tmin;
 }
 
+/** Distance le long du rayon jusqu'à la sortie du rectangle (le rayon y est entré). */
+function rayRectExit(px: number, py: number, dx: number, dy: number, o: Obstacle): number {
+  let tmax = Infinity;
+  for (const [p, d, lo, hi] of [
+    [px, dx, o.x, o.x + o.w],
+    [py, dy, o.y, o.y + o.h],
+  ] as const) {
+    if (Math.abs(d) < 1e-9) continue;
+    tmax = Math.min(tmax, Math.max((lo - p) / d, (hi - p) / d));
+  }
+  return tmax;
+}
+
+/** Toit à deux pans : le faîtage court-il le long de x (sinon le long de y) ? */
+const ridgeAlongX = (o: Obstacle) => (o.ridge === 'short' ? o.w < o.h : o.w >= o.h);
+
+/** Hauteur sous gouttière effective (bornée par le faîtage). */
+const eaveOf = (o: Obstacle) => Math.max(0, Math.min(o.height, o.eaveHeight ?? o.height));
+
+/** Le bâtiment a-t-il un vrai toit à deux pans ? */
+export const isGable = (o: Obstacle) => o.kind === 'building' && o.roof === 'gable' && eaveOf(o) < o.height;
+
+/** Hauteur de l'obstacle au-dessus d'un point de son emprise (toit à deux pans : linéaire de la gouttière au faîtage). */
+export function heightAt(o: Obstacle, x: number, y: number): number {
+  if (!isGable(o)) return o.height;
+  const eave = eaveOf(o);
+  const [d, half] = ridgeAlongX(o) ? [Math.abs(y - (o.y + o.h / 2)), o.h / 2] : [Math.abs(x - (o.x + o.w / 2)), o.w / 2];
+  return o.height - (o.height - eave) * Math.min(1, d / Math.max(1e-6, half));
+}
+
 /** Un point est-il à l'ombre d'un obstacle pour cette position du soleil ? */
 export function inShadow(x: number, y: number, pos: SunPos, obstacles: Obstacle[], planNorth: number): boolean {
   if (pos.alt <= 0) return true;
@@ -68,7 +98,20 @@ export function inShadow(x: number, y: number, pos: SunPos, obstacles: Obstacle[
   const tanAlt = Math.tan(pos.alt * RAD);
   for (const o of obstacles) {
     const t = rayRect(x, y, dx, dy, o);
-    if (t !== null && o.height > t * tanAlt) return true;
+    if (t === null) continue;
+    if (!isGable(o)) {
+      if (o.height > t * tanAlt) return true;
+      continue;
+    }
+    // Toit à deux pans : la hauteur sous le rayon est linéaire par morceaux (cassure au faîtage),
+    // on la compare à celle du rayon à l'entrée, à la sortie et au passage du faîtage.
+    const t2 = rayRectExit(x, y, dx, dy, o);
+    const ts = [t, t2];
+    if (ridgeAlongX(o) ? Math.abs(dy) > 1e-9 : Math.abs(dx) > 1e-9) {
+      const tr = ridgeAlongX(o) ? (o.y + o.h / 2 - y) / dy : (o.x + o.w / 2 - x) / dx;
+      if (tr > t && tr < t2) ts.push(tr);
+    }
+    if (ts.some((tt) => heightAt(o, x + dx * tt, y + dy * tt) > tt * tanAlt)) return true;
   }
   return false;
 }
@@ -128,15 +171,27 @@ export function sunMismatch(need: Sun, got: Sun): boolean {
 export function shadowPolygon(o: Obstacle, pos: SunPos, planNorth: number): Array<[number, number]> {
   if (pos.alt <= 0) return [];
   const [dx, dy] = sunDir(pos.az, planNorth);
-  const len = Math.min(60, o.height / Math.tan(pos.alt * RAD));
+  // Longueur d'ombre d'un point à la hauteur z (plafonnée à 60 m au ras de l'horizon).
+  const k = Math.min(60 / Math.max(0.1, o.height), 1 / Math.tan(pos.alt * RAD));
+  const proj = ([x, y]: [number, number], z: number): [number, number] => [x - dx * z * k, y - dy * z * k];
   const corners: Array<[number, number]> = [
     [o.x, o.y],
     [o.x + o.w, o.y],
     [o.x + o.w, o.y + o.h],
     [o.x, o.y + o.h],
   ];
-  const pts = [...corners, ...corners.map(([x, y]) => [x - dx * len, y - dy * len] as [number, number])];
-  return convexHull(pts);
+  if (!isGable(o)) return convexHull([...corners, ...corners.map((c) => proj(c, o.height))]);
+  // Toit à deux pans (volume convexe) : murs jusqu'à la gouttière, puis les deux bouts du faîtage.
+  const ridgeEnds: Array<[number, number]> = ridgeAlongX(o)
+    ? [
+        [o.x, o.y + o.h / 2],
+        [o.x + o.w, o.y + o.h / 2],
+      ]
+    : [
+        [o.x + o.w / 2, o.y],
+        [o.x + o.w / 2, o.y + o.h],
+      ];
+  return convexHull([...corners, ...corners.map((c) => proj(c, eaveOf(o))), ...ridgeEnds.map((c) => proj(c, o.height))]);
 }
 
 function convexHull(points: Array<[number, number]>): Array<[number, number]> {

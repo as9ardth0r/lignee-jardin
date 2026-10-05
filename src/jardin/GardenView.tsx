@@ -3,7 +3,7 @@ import { TEXTURES } from './data/climate';
 import { PRODUCT_BY_ID } from './data/products';
 import { SPECIES_BY_ID } from './data/species';
 import { uid, type Bed, type BedKind, type Obstacle, type ObstacleKind, type Texture, type MulchMaterial } from './model';
-import { bedSun, clockHourOf, compassPoint, dayOfYear, DEFAULT_LAT, DEFAULT_LON, shadowPolygon, solarHourAt, sunDir, sunMismatch, sunPosition } from './engine/sun';
+import { bedSun, clockHourOf, compassPoint, dayOfYear, DEFAULT_LAT, DEFAULT_LON, isGable, shadowPolygon, solarHourAt, sunDir, sunMismatch, sunPosition } from './engine/sun';
 import { isActiveOn, speciesOf } from './engine/crop';
 import { MULCH_INFO, MULCH_MATERIALS, bedMulchSummary, bedSurfaceCN, litersToDepth, mulchContentM2 } from './engine/mulch';
 import { cnAdvice } from './engine/compost';
@@ -58,11 +58,12 @@ export const SUN_DAYS: Array<{ doy: number; key: 'march' | 'june' | 'sept' | 'de
 /** Taille maximale du terrain (m). */
 export const PLAN_MAX = 200;
 
-/** Agrandit le terrain si une planche ou un obstacle en dépasse (marge de 0,5 m). */
+/** Agrandit le terrain si une planche ou un obstacle en dépasse (avec 0,5 m de marge). */
 function fitPlan(store: { data: { settings: { planW: number; planH: number } }; updateSettings: (p: { planW?: number; planH?: number }) => void }, it: { x: number; y: number; w: number; h: number }) {
   const { planW, planH } = store.data.settings;
-  const needW = Math.min(PLAN_MAX, Math.ceil(it.x + it.w + 0.5));
-  const needH = Math.min(PLAN_MAX, Math.ceil(it.y + it.h + 0.5));
+  // Seulement si l'élément dépasse vraiment (un élément posé contre le bord ne change rien).
+  const needW = it.x + it.w > planW + 1e-6 ? Math.min(PLAN_MAX, Math.ceil(it.x + it.w + 0.5)) : planW;
+  const needH = it.y + it.h > planH + 1e-6 ? Math.min(PLAN_MAX, Math.ceil(it.y + it.h + 0.5)) : planH;
   if (needW > planW || needH > planH) store.updateSettings({ planW: Math.max(planW, needW), planH: Math.max(planH, needH) });
 }
 
@@ -481,12 +482,26 @@ function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } 
                     <ellipse cx={x + o.w * 0.4} cy={y + o.h * 0.38} rx={o.w * 0.22} ry={o.h * 0.18} fill="#5a8a46" fillOpacity={0.6} />
                   </>
                 ) : (
-                  <rect x={x} y={y} width={o.w} height={o.h} rx={o.kind === 'hedge' ? 0.2 : 0.03} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                  <>
+                    <rect x={x} y={y} width={o.w} height={o.h} rx={o.kind === 'hedge' ? 0.2 : 0.03} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+                    {isGable(o) &&
+                      ((o.ridge === 'short' ? o.w < o.h : o.w >= o.h) ? (
+                        <>
+                          <rect x={x} y={y} width={o.w} height={o.h / 2} fill="#fff" fillOpacity={0.06} style={{ pointerEvents: 'none' }} />
+                          <line x1={x} y1={y + o.h / 2} x2={x + o.w} y2={y + o.h / 2} stroke="#2a251c" strokeOpacity={0.6} strokeWidth={1.5} vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'none' }} />
+                        </>
+                      ) : (
+                        <>
+                          <rect x={x} y={y} width={o.w / 2} height={o.h} fill="#fff" fillOpacity={0.06} style={{ pointerEvents: 'none' }} />
+                          <line x1={x + o.w / 2} y1={y} x2={x + o.w / 2} y2={y + o.h} stroke="#2a251c" strokeOpacity={0.6} strokeWidth={1.5} vectorEffect="non-scaling-stroke" style={{ pointerEvents: 'none' }} />
+                        </>
+                      ))}
+                  </>
                 )}
                 <text x={x + o.w / 2} y={y + o.h / 2 - fs * 0.2} textAnchor="middle" fontSize={fs} fill="#faf7ee" style={{ pointerEvents: 'none', paintOrder: 'stroke', stroke: 'rgba(0,0,0,.4)', strokeWidth: fs * 0.08 }}>
                   {o.name}
                   <tspan x={x + o.w / 2} dy={fs * 1.15} fontSize={fs * 0.85} opacity={0.9}>
-                    ↑ {fmtNum(o.height, lang, 1)} m
+                    ↑ {isGable(o) ? `${fmtNum(o.eaveHeight ?? o.height, lang, 1)}–${fmtNum(o.height, lang, 1)}` : fmtNum(o.height, lang, 1)} m
                   </tspan>
                 </text>
               </g>
@@ -918,6 +933,7 @@ export function ObstacleSheet({ id, onClose }: { id: string; onClose: () => void
     fitPlan(store, next);
   };
   const num = (v: string, min: number, max: number) => Math.max(min, Math.min(max, Number(v.replace(',', '.')) || min));
+  const gable = o.kind === 'building' && o.roof === 'gable';
   return (
     <Sheet title={o.name || tt('obstacle.title')} onClose={onClose} closeLabel={tt('common.close')}>
       <div className="space-y-4">
@@ -928,10 +944,35 @@ export function ObstacleSheet({ id, onClose }: { id: string; onClose: () => void
           </Field>
           <Field label={tt('bed.w')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={o.w} onChange={(v) => set({ w: num(v, 0.1, PLAN_MAX) })} />}</Field>
           <Field label={tt('bed.h')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={o.h} onChange={(v) => set({ h: num(v, 0.1, PLAN_MAX) })} />}</Field>
-          <Field label={tt('obstacle.height')} hint={tt('obstacle.heightHint')}>
+          {o.kind === 'building' && (
+            <Field label={tt('obstacle.roof')}>
+              {(fid) => (
+                <Select
+                  id={fid}
+                  value={o.roof ?? 'flat'}
+                  onChange={(v) => set(v === 'gable' ? { roof: 'gable', eaveHeight: o.eaveHeight ?? Math.round(Math.min(o.height - 0.5, Math.max(2.5, o.height * 0.45)) * 10) / 10 } : { roof: 'flat' })}
+                  options={(['flat', 'gable'] as const).map((k) => ({ v: k, l: tt(`obstacle.roof.${k}` as JKey) }))}
+                />
+              )}
+            </Field>
+          )}
+          <Field label={gable ? tt('obstacle.heightRidge') : tt('obstacle.height')} hint={gable ? undefined : tt('obstacle.heightHint')}>
             {(fid) => <TextInput id={fid} type="number" step={0.5} value={o.height} onChange={(v) => set({ height: num(v, 0.2, 40) })} />}
           </Field>
+          {gable && (
+            <>
+              <Field label={tt('obstacle.eave')}>{(fid) => <TextInput id={fid} type="number" step={0.1} value={o.eaveHeight ?? o.height} onChange={(v) => set({ eaveHeight: num(v, 0, o.height) })} />}</Field>
+              <Field label={tt('obstacle.ridge')}>
+                {(fid) => <Select id={fid} value={o.ridge ?? 'long'} onChange={(v) => set({ ridge: v })} options={(['long', 'short'] as const).map((k) => ({ v: k, l: tt(`obstacle.ridge.${k}` as JKey) }))} />}
+              </Field>
+            </>
+          )}
         </div>
+        {gable && (
+          <p className="text-[11px] leading-snug" style={{ color: INK500 }}>
+            {tt('obstacle.roofHint')}
+          </p>
+        )}
         <Button
           kind="danger"
           onClick={() => {
