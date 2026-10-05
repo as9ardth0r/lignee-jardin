@@ -31,6 +31,7 @@ import { PROBLEMS, REMEDY_BY_ID } from '../src/jardin/data/problems';
 import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
+import { nurseryStatus, sowIndoorNow } from '../src/jardin/engine/nursery';
 import { mergeGardens, mergeSynced, photoIdsOf, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
 import { addReadings, moistureToFraction, parseDateTime, parseReadingsCSV, tankStatus, tankTarget, toMinutes } from '../src/jardin/engine/sensors';
 import { notificationId, planNotifications } from '../src/jardin/engine/notify';
@@ -290,7 +291,10 @@ test('tâches : semis prévu, fait, reporté', () => {
 test('tâches : repiquage, arrosage, gelées tardives', () => {
   const seedling = plant({ id: 's', indoor: true, sowDate: '2026-02-20' });
   const d = data({ beds: [bed()], plants: [seedling] });
-  ok(generateTasks(d, '2026-04-12').some((t) => t.kind === 'transplant'), 'repiquage');
+  // Tomate dehors : endurcissement d'abord, mise en place une fois les gelées passées ; en serre, plus tôt.
+  ok(generateTasks(d, '2026-04-12').some((t) => t.kind === 'nursery' && t.vars.what === 'harden') && !generateTasks(d, '2026-04-12').some((t) => t.kind === 'transplant'), 'endurcissement avant les gelées');
+  ok(generateTasks(d, '2026-04-22').some((t) => t.kind === 'transplant'), 'repiquage après les gelées');
+  ok(generateTasks(data({ beds: [bed({ kind: 'greenhouse' })], plants: [seedling] }), '2026-04-12').some((t) => t.kind === 'transplant'), 'repiquage en serre sans attendre');
   const lettuce = plant({ id: 'l', speciesId: 'lettuce', count: 12, sowDate: '2026-06-01' });
   const dry = data({ beds: [bed()], plants: [lettuce], settings: { ...DEFAULT_SETTINGS, rainSource: 'manual' } });
   ok(generateTasks(dry, '2026-07-10').some((t) => t.kind === 'water'), 'arrosage');
@@ -1259,6 +1263,32 @@ test('maison à toit à deux pans : ombre plus courte qu’un bloc plein', () =>
   ok(Math.abs(reach(shadowPolygon(gable, sun, 0)) - 8.12) < 0.05 && Math.abs(reach(shadowPolygon(box, sun, 0)) - 12.12) < 0.05, `ombre dessinée : ${reach(shadowPolygon(gable, sun, 0)).toFixed(1)} m au lieu de ${reach(shadowPolygon(box, sun, 0)).toFixed(1)} m`);
   ok(area(shadowPolygon(gable, sun, 0)) < area(shadowPolygon(box, sun, 0)), 'ombre dessinée plus petite');
   ok(!inShadow(7, 30, sun, [gable], 0) && !inShadow(20, 5, sun, [gable], 0), 'au sud et à côté : soleil');
+});
+
+test('coin semis : levée, godets, endurcissement, mise en place', () => {
+  const tom = plant({ id: 'n1', indoor: true, sowDate: '2026-03-01' });
+  const d = data({ beds: [bed()], plants: [tom], settings: { ...DEFAULT_SETTINGS, climate: 'parisian' } });
+  const s0 = nurseryStatus(tom, d, '2026-03-05');
+  ok(s0.stage === 'sown' && s0.germFrom === '2026-03-07' && s0.germTo === '2026-03-13' && !s0.noGerm, `semé : levée attendue du ${s0.germFrom} au ${s0.germTo}`);
+  ok(nurseryStatus(tom, d, '2026-03-25').noGerm && generateTasks(d, '2026-03-25').some((t) => t.kind === 'nursery' && t.vars.what === 'noGerm'), 'pas de levée : signalé');
+  const up = { ...tom, germDate: '2026-03-09' };
+  const d1 = { ...d, plants: [up] };
+  const s1 = nurseryStatus(up, d1, '2026-03-15');
+  ok(s1.stage === 'seedling' && s1.potUpDue === '2026-03-23', `levée : godets vers le ${s1.potUpDue}`);
+  ok(generateTasks(d1, '2026-03-22').some((t) => t.kind === 'nursery' && t.vars.what === 'potUp'), 'tâche de repiquage en godets');
+  const potted = { ...up, potUpDate: '2026-03-24' };
+  const s2 = nurseryStatus(potted, { ...d, plants: [potted] }, '2026-04-01');
+  ok(s2.stage === 'potted' && s2.frostDelay && s2.outDate >= '2026-04-01', `en godets ; dehors après les gelées (${s2.outDate})`);
+  ok(nurseryStatus(potted, { ...d, plants: [potted] }, addDays(s2.outDate, -3)).stage === 'hardening' && nurseryStatus(potted, { ...d, plants: [potted] }, s2.outDate).stage === 'ready', 'endurcissement puis prêt');
+  // Nuit fraîche annoncée pendant l'endurcissement.
+  const day = addDays(s2.outDate, -3);
+  const cold = { ...d, plants: [potted], weather: { lat: 48.8, lon: 2.3, fetchedAt: `${day}T06:00:00Z`, days: [{ date: addDays(day, 1), tmax: 15, tmin: 4, rain: 0, et0: 2, wind: 10, gust: 20 }] } };
+  ok(nurseryStatus(potted, cold, day).coldNight?.tmin === 4 && generateTasks(cold, day).some((t) => t.vars.what === 'hardenCold'), 'nuit à 4 °C : rentrer les plants');
+  // Une ancienne culture à l'abri sans levée notée n'est pas signalée comme ratée.
+  ok(!nurseryStatus(tom, d, '2026-04-20').noGerm, 'levée supposée après un mois');
+  // À semer en ce moment.
+  const { now } = sowIndoorNow(d, '2026-03-10', SPECIES);
+  ok(now.some((s) => s.id === 'tomato') && !now.some((s) => s.id === 'carrot'), 'tomate à semer à l’abri en mars, pas la carotte');
 });
 
 if (failed) {

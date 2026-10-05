@@ -7,7 +7,7 @@ export type SheetRequest =
   | { type: 'plant'; id: string }
   | { type: 'bed'; id: string }
   | { type: 'species'; id: string }
-  | { type: 'addPlant'; bedId?: string; speciesId?: string; typeId?: string; editId?: string }
+  | { type: 'addPlant'; bedId?: string; speciesId?: string; typeId?: string; editId?: string; indoor?: boolean }
   | { type: 'observe'; plantId?: string; bedId?: string }
   | { type: 'water'; bedId?: string; kind?: 'rain' | 'irrigation'; liters?: number }
   | { type: 'task' }

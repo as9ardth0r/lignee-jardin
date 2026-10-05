@@ -1,3 +1,4 @@
+import { NurseryView } from './Nursery';
 import { useEffect, useMemo, useState } from 'react';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
 import { speciesWithType, typeOf, typesOf } from './data/speciesTypes';
@@ -27,12 +28,15 @@ const STATUS_FILTERS: PlantStatus[] = ['growing', 'planned', 'ended'];
 
 export function PlantsView() {
   const { tt } = useJT();
-  const [mode, setMode] = useState<'crops' | 'harvests' | 'plan'>('crops');
+  const [mode, setMode] = useState<'crops' | 'nursery' | 'harvests' | 'plan'>('crops');
   return (
     <>
       <div className="mb-3 flex flex-wrap gap-1.5">
         <Chip active={mode === 'crops'} onClick={() => setMode('crops')}>
           🌱 {tt('plants.modeCrops')}
+        </Chip>
+        <Chip active={mode === 'nursery'} onClick={() => setMode('nursery')}>
+          🪴 {tt('nursery.tab')}
         </Chip>
         <Chip active={mode === 'harvests'} onClick={() => setMode('harvests')}>
           🧺 {tt('plants.modeHarvests')}
@@ -42,6 +46,7 @@ export function PlantsView() {
         </Chip>
       </div>
       {mode === 'crops' && <CropList />}
+      {mode === 'nursery' && <NurseryView />}
       {mode === 'harvests' && (
         <Card title={tt('season.title')}>
           <SeasonView />
@@ -356,7 +361,7 @@ function windowsText(ranges: Array<[number, number]>, lang: 'fr' | 'en'): string
   return ranges.map(([a, b]) => (a === b ? monthName(a, lang) : `${monthName(a, lang)} – ${monthName(b, lang)}`)).join(', ');
 }
 
-export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, onClose }: { bedId?: string; speciesId?: string; typeId?: string; editId?: string; onClose: () => void }) {
+export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, indoor: indoorInit, onClose }: { bedId?: string; speciesId?: string; typeId?: string; editId?: string; indoor?: boolean; onClose: () => void }) {
   const store = useGarden();
   const { data, today } = store;
   const { tt, lang } = useJT();
@@ -375,7 +380,7 @@ export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, o
   const [varietyName, setVarietyName] = useState(editing?.varietyName ?? '');
   const [count, setCount] = useState(String(editing?.count ?? ''));
   const [area, setArea] = useState(editing?.area ? String(editing.area) : '');
-  const [indoor, setIndoor] = useState(editing?.indoor ?? Boolean(sp.sowIndoor && !sp.sowOutdoor));
+  const [indoor, setIndoor] = useState(editing?.indoor ?? (indoorInit && Boolean(sp.sowIndoor) ? true : Boolean(sp.sowIndoor && !sp.sowOutdoor)));
   const [date, setDate] = useState(editing?.sowDate ?? today);
   const [transplant, setTransplant] = useState(editing?.transplantDate ?? '');
   const [yieldT, setYieldT] = useState(editing?.yieldTarget ? String(editing.yieldTarget) : '');
@@ -407,13 +412,13 @@ export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, o
     const t = editing ? '' : seasonalType(id, today, data.settings.climate);
     setTypeId(t);
     const next = SPECIES_BY_ID[id] ? speciesWithType(SPECIES_BY_ID[id], t || undefined) : undefined;
-    if (next && !editing) setIndoor(Boolean(next.sowIndoor && !next.sowOutdoor && !isPlanted(next)));
+    if (next && !editing) setIndoor(Boolean(next.sowIndoor && (indoorInit || !next.sowOutdoor) && !isPlanted(next)));
   };
 
   const pickType = (t: string) => {
     setTypeId(t);
     const next = speciesWithType(SPECIES_BY_ID[spId], t || undefined);
-    if (!editing) setIndoor(Boolean(next.sowIndoor && !next.sowOutdoor && !isPlanted(next)));
+    if (!editing) setIndoor(Boolean(next.sowIndoor && (indoorInit || !next.sowOutdoor) && !isPlanted(next)));
   };
 
   // Lot de graines : le meilleur par défaut pour une nouvelle culture, « aucun » possible.

@@ -449,6 +449,10 @@ export interface Plant extends Meta {
   status: PlantStatus;
   /** Date de semis (prévue si status = planned). */
   sowDate: ISODate;
+  /** Coin semis : levée, repiquage en godets, début d'endurcissement. */
+  germDate?: ISODate;
+  potUpDate?: ISODate;
+  hardenDate?: ISODate;
   transplantDate?: ISODate;
   endDate?: ISODate;
   /** Rendement visé (kg/m²) — sinon le milieu de la fourchette du catalogue. */

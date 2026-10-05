@@ -315,6 +315,21 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Coin semis
+
+Le « coin semis » (Cultures → Semis) suit chaque semis fait à l'abri, de la graine à la mise en place : semé, levée, repiquage en godets (pour les espèces qui en ont besoin), endurcissement, puis mise en place.
+
+Pour chaque étape, l'app donne la date attendue et les gestes du moment :
+- **avant la levée** : température, profondeur de semis, humidité ;
+- **après la levée** : lumière (14 à 16 h, lampe à minuterie), fraîcheur, arrosage par le dessous le matin ;
+- **pendant l'endurcissement** : sortir les plants vers 10 h et les rentrer vers 18 h.
+
+Dehors, la mise en place attend les dernières gelées du climat : une semaine de plus pour les plantes frileuses. Une nuit fraîche annoncée par la météo déclenche un rappel pour rentrer les plants. Si rien ne lève, c'est signalé. Les tâches correspondantes apparaissent aussi dans Aujourd'hui et dans le résumé du matin.
+
+L'écran liste aussi les semis prévus et les espèces à semer à l'abri ce mois-ci et le mois suivant, selon votre climat. Les espèces que vous cultivez déjà passent en premier.
+
+Les températures et délais de levée sont des ordres de grandeur, tirés des fiches de semis usuelles.
+
 ## Toits à deux pans
 
 Un bâtiment peut avoir un toit plat (bloc plein, comme avant) ou un toit à deux pans. On renseigne alors la hauteur sous gouttière, la hauteur au faîtage et le sens du faîtage (parallèle au grand côté ou au petit côté). Les heures de soleil des planches et l'ombre dessinée suivent la vraie forme du toit : l'ombre est plus courte côté gouttières et plus longue côté pignons. Le faîtage est tracé sur le plan.

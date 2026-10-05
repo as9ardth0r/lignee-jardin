@@ -6,6 +6,7 @@
  * reproposera pas. Le nombre de tâches affichées est plafonné par l'écran
  * (pas de pluie de notifications).
  */
+import { nurseryStatus } from './nursery';
 import { lowTanks } from './rainTank';
 import { compostTasks } from './compost';
 import { CLIMATES } from '../data/climate';
@@ -21,7 +22,7 @@ import { limeAdvice, limeSeason, soilFor } from './soil';
 import { pestTasks } from './pests';
 import { FLOWER_INFO } from '../data/flowers';
 
-export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual' | 'cover' | 'compost' | 'raintank';
+export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual' | 'cover' | 'compost' | 'raintank' | 'nursery';
 
 export interface Task {
   key: string;
@@ -73,10 +74,15 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
 
     const info = timeline(p, data, today);
 
-    // Repiquage des semis faits à l'abri.
-    if (p.indoor && !p.transplantDate && sp.transplantAfter) {
-      const due = addDays(p.sowDate, Math.round(sp.transplantAfter * info.scale));
-      if (due <= horizon) tasks.push({ ...base, key: `transplant:${p.id}`, kind: 'transplant', due, priority: due <= today ? 1 : 2 });
+    // Semis à l'abri (coin semis) : levée, godets, endurcissement, puis mise en place
+    // une fois les plants assez grands et, dehors, les gelées passées.
+    if (p.indoor && !p.transplantDate) {
+      const ns = nurseryStatus(p, data, today);
+      if (ns.stage === 'sown' && ns.noGerm) tasks.push({ ...base, key: `nursery:nogerm:${p.id}`, kind: 'nursery', due: today, priority: 2, vars: { ...base.vars, what: 'noGerm', days: ns.age } });
+      if (ns.stage === 'seedling' && ns.potUpDue && !p.potUpDate && ns.potUpDue <= horizon && ns.potUpDue < ns.hardenFrom) tasks.push({ ...base, key: `nursery:potup:${p.id}`, kind: 'nursery', due: ns.potUpDue, priority: ns.potUpDue <= today ? 1 : 2, vars: { ...base.vars, what: 'potUp' } });
+      if (ns.stage === 'hardening') tasks.push({ ...base, key: `nursery:harden:${p.id}:${today}`, kind: 'nursery', due: today, priority: ns.coldNight ? 1 : 2, vars: { ...base.vars, what: ns.coldNight ? 'hardenCold' : 'harden', tmin: ns.coldNight ? Math.round(ns.coldNight.tmin) : 0 } });
+      if (ns.stage !== 'sown' && sp.transplantAfter !== undefined && ns.outDate <= horizon) tasks.push({ ...base, key: `transplant:${p.id}`, kind: 'transplant', due: ns.outDate, priority: ns.outDate <= today ? 1 : 2 });
+      else if (ns.stage === 'sown' && sp.transplantAfter && ns.outDate <= today) tasks.push({ ...base, key: `transplant:${p.id}`, kind: 'transplant', due: ns.outDate, priority: 1 });
     }
 
     const fl = sp.type === 'flower' ? FLOWER_INFO[sp.id] : undefined;
