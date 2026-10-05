@@ -315,6 +315,26 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Atelier général de sélection : toutes les espèces
+
+L'onglet **Sélection** propose, en plus des 16 ateliers détaillés, un atelier pour **chacune des 318 espèces du catalogue** (fleurs, légumes, fruits, aromatiques). Une espèce qui a un atelier détaillé l'ouvre directement (★).
+
+**Réglage par espèce.** L'atelier général est le même moteur génétique pour toutes, réglé à partir des données du catalogue :
+- caractères chiffrés : précocité (ou premières fleurs, ou maturité des fruits) ; rendement (ou abondance de fleurs) ; hauteur ou vigueur. Chacun dépend de 6 gènes additifs et du milieu ;
+- couleur des fleurs : gène pigment, avec le blanc récessif, et une série de teintes ;
+- résistance à une maladie courante de la famille : un gène dominant ;
+- mode de fécondation : les autogames se fixent vite ; les allogames perdent en vigueur à l'autofécondation ;
+- temps de génération : annuelle 1 saison, bisannuelle ou vivace 2, arbre fruitier 4 ;
+- multiplication végétative possible, et sélection clonale seule pour les espèces sans graines (ail, échalote, safran…).
+
+**Déroulé.**
+1. On choisit deux variétés de départ (fictives et contrastées), puis on croise.
+2. On fixe un objectif et on trie les plantes qui y répondent.
+3. On autoféconde, on croise les plantes choisies entre elles, on recroise avec un parent ou on clone.
+4. On garde une lignée dont on voit le degré de fixation. Les lignées gardées s'importent dans les variétés du jardin comme celles des ateliers détaillés.
+
+**Tutoriel.** Les ateliers détaillés ne l'ouvrent plus au premier lancement ; il reste accessible par leur bouton « Guide ».
+
 ## Variétés potagères du Catalogue officiel (GNIS / SEMAE)
 
 L'appli contient les 3 367 variétés potagères inscrites au Catalogue officiel français, extraites de la base GNIS / SEMAE de 2025. On y trouve :

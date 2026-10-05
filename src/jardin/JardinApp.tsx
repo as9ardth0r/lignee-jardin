@@ -20,7 +20,7 @@ import { PestCountSheet } from './Pests';
 import { StockSheet } from './Stocks';
 import { rescheduleNotifications } from './notifications';
 import { AtelierHost, AteliersView } from './Ateliers';
-import type { AtelierId } from '../ateliers/registry';
+import type { OpenAtelierId as AtelierId } from '../ateliers/registry';
 
 const TAB_ICON: Record<Tab, string> = { today: '☀', garden: '▦', plants: '🌱', catalog: '📖', breeding: '🧬', settings: '⚙' };
 

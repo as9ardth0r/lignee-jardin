@@ -121,7 +121,8 @@ export function parseLigneeVarieties(raw: string): Variety[] {
   const d = JSON.parse(raw);
   if (!obj(d) || d.app !== 'lignee' || !Array.isArray(d.varieties)) throw new Error('format');
   const crop = String(d.crop ?? d.species ?? '');
-  const speciesId = LIGNEE_CROPS[crop];
+  // Ateliers détaillés (nom de culture), ou atelier général (identifiant d'espèce du catalogue).
+  const speciesId = LIGNEE_CROPS[crop] ?? (SPECIES_BY_ID[crop] ? crop : undefined);
   if (!speciesId) throw new Error('crop');
   return (d.varieties as unknown[])
     .filter((v): v is Record<string, unknown> => obj(v) && typeof v.name === 'string')

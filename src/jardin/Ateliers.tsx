@@ -1,11 +1,13 @@
-import { Component, Suspense, lazy, useEffect, useState, type CSSProperties, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react';
-import { ATELIERS, ATELIER_BY_ID, readAtelierVarieties, type Atelier, type AtelierId } from '../ateliers/registry';
+import { Component, Suspense, lazy, useEffect, useMemo, useState, type CSSProperties, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react';
+import { ATELIERS, ATELIER_BY_ID, BESPOKE_BY_SPECIES, generalAtelier, readAtelierVarieties, skipTutorials, type Atelier, type AtelierId, type OpenAtelierId } from '../ateliers/registry';
+import { SPECIES, SPECIES_BY_ID } from './data/species';
+import type { Species } from './model';
 import { pendingVarieties } from '../ateliers/pending';
-import { useJT } from './i18n';
+import { useJT, type JKey } from './i18n';
 import type { Variety } from './model';
 import { useNav } from './nav';
 import { useGarden } from './store';
-import { Button, Card, INK500, INK700, Notice } from './ui';
+import { Button, Card, Chip, INK500, INK700, Notice } from './ui';
 
 // --- Import des « Mes lignées » d'un atelier vers le catalogue du jardin -------
 
@@ -43,15 +45,87 @@ function useTick(ms: number) {
   }, [ms]);
 }
 
+// --- Atelier général -------------------------------------------------------------
+
+/** Espèces proposées dans l'atelier général : tout le catalogue sauf les engrais verts. */
+const GENERAL_SPECIES = SPECIES.filter((sp) => sp.type !== 'cover');
+const genAtelier = (sp: Species) => generalAtelier(sp.id, sp.name, sp.latin, sp.emoji);
+/** Ateliers généraux où des lignées ont été gardées. */
+function generalWithLines(): Atelier[] {
+  return GENERAL_SPECIES.filter((sp) => !BESPOKE_BY_SPECIES[sp.id]).map(genAtelier).filter((a) => readAtelierVarieties(a).length > 0);
+}
+
+type GFilter = 'all' | 'veg' | 'fruit' | 'flower' | 'herb' | 'mine';
+const groupOf = (sp: Species): Exclude<GFilter, 'all' | 'mine'> => (sp.type === 'flower' ? 'flower' : sp.type === 'orchard' ? 'fruit' : sp.type === 'herb' ? 'herb' : 'veg');
+
+function GeneralList({ onOpen }: { onOpen: (id: OpenAtelierId) => void }) {
+  const { tt, lang } = useJT();
+  const [q, setQ] = useState('');
+  const [f, setF] = useState<GFilter>('all');
+  const [all, setAll] = useState(false);
+  const withLines = new Set(generalWithLines().map((a) => a.id));
+  const list = useMemo(() => {
+    const ql = q.trim().toLowerCase();
+    return GENERAL_SPECIES.filter((sp) => (f === 'all' ? true : f === 'mine' ? withLines.has(`gen:${sp.id}` as AtelierId) : groupOf(sp) === f))
+      .filter((sp) => !ql || sp.name[lang].toLowerCase().includes(ql) || sp.latin.toLowerCase().includes(ql))
+      .sort((a, b) => a.name[lang].localeCompare(b.name[lang]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, f, lang, withLines.size]);
+  const shown = all || q ? list : list.slice(0, 60);
+  return (
+    <Card title={`🌍 ${tt('ateliers.general')} (${GENERAL_SPECIES.length})`}>
+      <p className="mb-2 text-sm leading-relaxed" style={{ color: INK700 }}>
+        {tt('ateliers.generalLead')}
+      </p>
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt('ateliers.search')} aria-label={tt('ateliers.search')} className="field w-full rounded px-2.5 py-2 text-sm outline-none" style={{ background: 'var(--color-paper-200)', boxShadow: 'inset 0 0 0 1px var(--color-paper-300)' }} />
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {(['all', 'veg', 'fruit', 'flower', 'herb', 'mine'] as GFilter[]).map((x) => (
+          <Chip key={x} active={f === x} onClick={() => setF(x)}>
+            {tt(`ateliers.f.${x}` as JKey)}
+          </Chip>
+        ))}
+      </div>
+      <ul className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        {shown.map((sp) => {
+          const bespoke = BESPOKE_BY_SPECIES[sp.id];
+          const lines = withLines.has(`gen:${sp.id}` as AtelierId);
+          return (
+            <li key={sp.id}>
+              <button type="button" onClick={() => onOpen(bespoke ?? (`gen:${sp.id}` as OpenAtelierId))} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left" style={{ background: 'var(--color-paper-200)' }}>
+                <span className="text-xl" aria-hidden="true">
+                  {sp.emoji}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {sp.name[lang]}
+                  {bespoke ? ' ★' : ''}
+                </span>
+                {lines && <span title={tt('ateliers.f.mine')}>☆</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {!all && !q && list.length > shown.length && (
+        <div className="mt-2">
+          <Button small kind="ghost" onClick={() => setAll(true)}>
+            {tt('ateliers.more', { n: list.length - shown.length })}
+          </Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // --- Liste des ateliers ----------------------------------------------------------
 
-export function AteliersView({ onOpen }: { onOpen: (id: AtelierId) => void }) {
+export function AteliersView({ onOpen }: { onOpen: (id: OpenAtelierId) => void }) {
   const { tt, lang } = useJT();
   const store = useGarden();
   const importFrom = useImport();
   useTick(4000);
   const varieties = store.data.varieties;
-  const totalPending = ATELIERS.reduce((n, a) => n + pendingVarieties(a, varieties).length, 0);
+  const generalLines = generalWithLines();
+  const totalPending = [...ATELIERS, ...generalLines].reduce((n, a) => n + pendingVarieties(a, varieties).length, 0);
   return (
     <div className="space-y-3">
       <Card title={`🧬 ${tt('ateliers.title')}`}>
@@ -60,12 +134,15 @@ export function AteliersView({ onOpen }: { onOpen: (id: AtelierId) => void }) {
         </p>
         {totalPending > 0 && (
           <div className="mt-3">
-            <Button kind="primary" small onClick={() => importFrom(ATELIERS)}>
+            <Button kind="primary" small onClick={() => importFrom([...ATELIERS, ...generalLines])}>
               🌱 {tt('ateliers.importAll')} ({totalPending})
             </Button>
           </div>
         )}
       </Card>
+      <h2 className="px-1 font-display text-lg" style={{ color: 'var(--color-paper-100)' }}>
+        {tt('ateliers.detailed')} ({ATELIERS.length})
+      </h2>
       <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {ATELIERS.map((a) => {
           const mine = readAtelierVarieties(a).length;
@@ -105,6 +182,7 @@ export function AteliersView({ onOpen }: { onOpen: (id: AtelierId) => void }) {
           );
         })}
       </ul>
+      <GeneralList onOpen={onOpen} />
       <Notice>{tt('ateliers.note')}</Notice>
     </div>
   );
@@ -132,14 +210,20 @@ class Boundary extends Component<{ fallback: (retry: () => void) => ReactNode; c
   }
 }
 
-export function AtelierHost({ id, onExit }: { id: AtelierId; onExit: () => void }) {
+const GeneralAtelier = lazy(() => import('../ateliers/general/GeneralAtelier'));
+
+export function AtelierHost({ id, onExit }: { id: OpenAtelierId; onExit: () => void }) {
   const { tt, lang } = useJT();
   const store = useGarden();
   const importFrom = useImport();
   const [attempt, setAttempt] = useState(0);
   useTick(2500);
-  const a = ATELIER_BY_ID[id];
-  const Comp = lazyAtelier(a);
+  // Plus de tutoriel au premier lancement d'un atelier (il reste derrière le bouton d'aide).
+  skipTutorials();
+  const genId = id.startsWith('gen:') ? id.slice(4) : null;
+  const genSp = genId ? SPECIES_BY_ID[genId] : undefined;
+  const a = genSp ? genAtelier(genSp) : ATELIER_BY_ID[id as AtelierId];
+  const Comp = genSp ? null : lazyAtelier(a);
   const pending = pendingVarieties(a, store.data.varieties).length;
 
   useEffect(() => {
@@ -207,7 +291,7 @@ export function AtelierHost({ id, onExit }: { id: AtelierId; onExit: () => void 
             </div>
           }
         >
-          <Comp />
+          {genSp ? <GeneralAtelier key={genSp.id} speciesId={genSp.id} /> : Comp && <Comp />}
         </Suspense>
       </Boundary>
     </div>

@@ -32,6 +32,7 @@ import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
 import { addCatalogNames, buildFlore, catalogLinks, searchFlore, type FloreData } from '../src/jardin/engine/flore';
+import { archetypes, clone as gClone, cross as gCross, homozygosity as gHomo, isFixed as gFixed, mulberry32 as gMulberry, plantFrom, profileOf } from '../src/ateliers/general/engine';
 import { buildGnis, findVariety, prettyName, suggestVarieties, type GnisData } from '../src/jardin/engine/gnis';
 import { FLORE_ALIASES } from '../src/jardin/data/floreAlias';
 import { readFileSync } from 'node:fs';
@@ -1335,6 +1336,47 @@ test('variétés du catalogue officiel (GNIS) : hybrides F1, variétés ancienne
   ok(findVariety(g, 'tomato', `${f1.name} F1`)?.hybrid === true, 'hybride retrouvé même avec « F1 » dans le nom');
   ok(suggestVarieties(g, 'tomato', 'afr').some((v) => v.raw === 'AFRICAN BEEF') && suggestVarieties(g, 'tomato', 'a').length === 0, 'suggestions dès 2 lettres');
   ok(!findVariety(g, 'tomato', 'Variété inventée'), 'nom inconnu : rien');
+});
+
+test('atelier général : toutes les espèces, fixation, consanguinité, clones', () => {
+  const rng = gMulberry(11);
+  let bad = 0;
+  for (const sp of SPECIES.filter((x) => x.type !== 'cover')) {
+    const p = profileOf(sp);
+    const ar = archetypes(p);
+    const pl = plantFrom(p, ar[0], rng);
+    const vals = Object.values(pl.pheno.quant);
+    if (ar.length < 3 || vals.some((v) => !Number.isFinite(v as number)) || p.traits.some((t) => t.kind === 'quant' && !(t.max > t.min))) bad++;
+  }
+  ok(bad === 0, `318 espèces : profils et variétés de départ valides (${bad} en défaut)`);
+  // Autogame (laitue) : 6 autofécondations fixent la lignée, sans perte de vigueur notable.
+  const lp = profileOf(SPECIES_BY_ID.lettuce);
+  const la = archetypes(lp);
+  let pop = gCross(lp, plantFrom(lp, la[0], rng), plantFrom(lp, la[2], rng), 16, rng, 'F1');
+  ok(pop.every((x) => gHomo(x.genotype) < 0.8), 'F1 hétérozygote');
+  for (let g = 0; g < 6; g++) pop = gCross(lp, pop[0], pop[0], 16, rng, 'self');
+  ok(gFixed(pop[0]) && pop.every((x) => gHomo(x.genotype) >= 0.95), 'autogame : fixée en 6 autofécondations');
+  // Allogame (zinnia) : la même chose fait chuter la floraison (dépression de consanguinité).
+  const zp = profileOf(SPECIES_BY_ID.zinnia);
+  const za = archetypes(zp);
+  const f1 = gCross(zp, plantFrom(zp, za[1], rng), plantFrom(zp, za[1], rng), 64, rng, 'F1');
+  let zpop = f1;
+  for (let g = 0; g < 6; g++) zpop = gCross(zp, zpop[0], zpop[0], 64, rng, 'self');
+  const mean = (l: typeof f1) => l.reduce((s2, x) => s2 + (x.pheno.quant.abundance ?? 0), 0) / l.length;
+  ok(mean(zpop) < mean(f1) * 0.9, `allogame : floraison ${mean(f1).toFixed(1)} → ${mean(zpop).toFixed(1)} après autofécondations`);
+  // Couleur : blanc récessif.
+  const white = za.find((x) => x.id === 'hue-white')!;
+  const red = za.find((x) => x.id === 'hue-red')!;
+  const wr = gCross(zp, plantFrom(zp, white, rng), plantFrom(zp, red, rng), 20, rng, 'F1');
+  ok(wr.every((x) => x.pheno.color === 'red'), 'blanc × rouge : F1 toute rouge (blanc récessif)');
+  const f2 = gCross(zp, wr[0], wr[0], 400, rng, 'F2');
+  const wf = f2.filter((x) => x.pheno.color === 'white').length / 400;
+  ok(wf > 0.17 && wf < 0.33, `F2 : ~1/4 de blanches (${(wf * 100).toFixed(0)} %)`);
+  // Ail : pas de graines, clones identiques ; pommier : 4 saisons par génération.
+  const gp = profileOf(SPECIES_BY_ID.garlic);
+  const g0 = plantFrom(gp, archetypes(gp)[0], rng);
+  ok(!gp.sexual && gClone(gp, g0, 5, rng).every((x) => JSON.stringify(x.genotype) === JSON.stringify(g0.genotype)), 'ail : sélection clonale, clones identiques');
+  ok(profileOf(SPECIES_BY_ID.apple).seasonsPerGen === 4 && profileOf(SPECIES_BY_ID.apple).sexual, 'pommier : croisements possibles, 4 saisons par génération');
 });
 
 if (failed) {

@@ -56,3 +56,58 @@ export function readAtelierVarieties(a: Atelier): unknown[] {
     return [];
   }
 }
+
+// --- Atelier général (toutes les espèces du catalogue) -------------------------------
+
+/** Identifiant d'atelier ouvert : un atelier détaillé, ou l'atelier général d'une espèce (« gen:<espèce> »). */
+export type OpenAtelierId = AtelierId | `gen:${string}`;
+
+/** Espèces du jardin qui ont un atelier détaillé (ouvert à la place de l'atelier général). */
+export const BESPOKE_BY_SPECIES: Record<string, AtelierId> = {
+  tomato: 'tomate',
+  pepper: 'piment',
+  squash: 'courge',
+  zucchini: 'courge',
+  melon: 'melon',
+  watermelon: 'pasteque',
+  bean: 'haricot',
+  pea: 'pois',
+  sweetcorn: 'mais',
+  cabbage: 'chou',
+  cauliflower: 'chou',
+  broccoli: 'chou',
+  brussels: 'chou',
+  kale: 'chou',
+  kohlrabi: 'chou',
+  carrot: 'carotte',
+  potato: 'patate',
+  strawberry: 'fraise',
+  snapdragon: 'muflier',
+  sweetpea: 'pdsenteur',
+  sunflower: 'tournesol',
+};
+
+/** Pseudo-atelier d'une espèce de l'atelier général, pour l'import des lignées au jardin. */
+export function generalAtelier(speciesId: string, name: { fr: string; en: string }, latin: string, emoji: string): Atelier {
+  return {
+    id: `gen:${speciesId}` as AtelierId,
+    name,
+    latin,
+    emoji,
+    accent: ['#7fae5a', '#4f8a3a', '#356a26'],
+    myVarieties: { key: `lignee.gen.${speciesId}.myvarieties.v1`, crop: speciesId },
+    load: () => import('./general/GeneralAtelier') as unknown as Promise<{ default: ComponentType }>,
+  };
+}
+
+/** Clés du tutoriel de premier lancement de chaque atelier détaillé. */
+export const TUTORIAL_KEYS = ['lignee.tutorial.v1', ...ATELIERS.filter((a) => a.id !== 'tomate' && a.id !== 'cannabis').map((a) => `lignee.${a.id}.tutorial.v1`)];
+
+/** Le tutoriel ne s'ouvre plus tout seul (il reste accessible par le bouton d'aide de l'atelier). */
+export function skipTutorials() {
+  try {
+    for (const k of TUTORIAL_KEYS) if (window.localStorage.getItem(k) !== 'done') window.localStorage.setItem(k, 'done');
+  } catch {
+    /* stockage indisponible */
+  }
+}
