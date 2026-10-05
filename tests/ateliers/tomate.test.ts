@@ -8,6 +8,8 @@ import { kosambi } from '../../src/ateliers/tomate/engine/tomato/engine.ts';
 
 let fail = 0;
 const check = (name: string, ok: boolean, info = '') => { console.log(`${ok ? 'OK  ' : 'FAIL'} ${name} ${info}`); if (!ok) fail++; };
+// Le moteur mêle l'horloge à sa graine (chaque partie diffère dans l'app) : horloge figée ici pour des tests reproductibles.
+Date.now = () => 1_700_000_000_000;
 const e = new TomatoEngine(42);
 const V = (id: string) => TOMATO_VARIETIES.find((v) => v.id === id)!;
 
@@ -98,9 +100,15 @@ for (let k = 0; k < 30; k++) {
 }
 console.log('   programme : objectif fixé', reached, '/30 — générations finales', gens.join(','));
 check('programme atteint et fixe l\'objectif (≥ 23/30, ~85–90 % attendu)', reached >= 23);
-const res = runProgram(e, e.createFromVariety(V('cherokee-purple')), e.createFromVariety(V('stupice')), { color: 'purple', leaf: 'potato', resistances: [] });
-const selfKids = e.cross(res.final, res.final, 60);
-check('la variété obtenue se ressème à l\'identique', selfKids.every((x) => conforms(e, x, { color: 'purple', leaf: 'potato', resistances: [] })));
+// Le programme réussit ~9 fois sur 10 (hasard des croisements) : on prend le premier tirage réussi, déterministe.
+let ef = new TomatoEngine(4242);
+let res = runProgram(ef, ef.createFromVariety(V('cherokee-purple')), ef.createFromVariety(V('stupice')), { color: 'purple', leaf: 'potato', resistances: [] });
+for (let k = 1; k < 10 && !(res.goalReached && res.fixed); k++) {
+  ef = new TomatoEngine(4242 + k * 104729);
+  res = runProgram(ef, ef.createFromVariety(V('cherokee-purple')), ef.createFromVariety(V('stupice')), { color: 'purple', leaf: 'potato', resistances: [] });
+}
+const selfKids = ef.cross(res.final, res.final, 60);
+check('la variété obtenue se ressème à l\'identique', res.goalReached && res.fixed && selfKids.every((x) => conforms(ef, x, { color: 'purple', leaf: 'potato', resistances: [] })));
 
 // 11. Variété perso : rejoue les haplotypes exacts
 const vf = e.fixedVariants(res.final)!;
