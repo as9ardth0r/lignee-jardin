@@ -1,3 +1,5 @@
+import { FLOWER_VARIETIES } from './data/flowerVarieties';
+import { COLOR_HEX } from './data/flowers';
 import { NurseryView } from './Nursery';
 import { useEffect, useMemo, useState } from 'react';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
@@ -361,7 +363,7 @@ function windowsText(ranges: Array<[number, number]>, lang: 'fr' | 'en'): string
   return ranges.map(([a, b]) => (a === b ? monthName(a, lang) : `${monthName(a, lang)} – ${monthName(b, lang)}`)).join(', ');
 }
 
-export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, indoor: indoorInit, onClose }: { bedId?: string; speciesId?: string; typeId?: string; editId?: string; indoor?: boolean; onClose: () => void }) {
+export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, indoor: indoorInit, varietyName: varietyInit, onClose }: { bedId?: string; speciesId?: string; typeId?: string; editId?: string; indoor?: boolean; varietyName?: string; onClose: () => void }) {
   const store = useGarden();
   const { data, today } = store;
   const { tt, lang } = useJT();
@@ -377,7 +379,7 @@ export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, i
   const varietyHint = typeInfo?.examples ?? (types[0]?.examples ? types.map((t) => t.examples?.split(',')[0]).join(', ') : spId === 'tomato' ? tt('add.varietyPlaceholder') : '');
   const [bed, setBed] = useState(editing?.bedId ?? bedId ?? data.beds[0]?.id ?? '');
   const [varietyId, setVarietyId] = useState(editing?.varietyId ?? '');
-  const [varietyName, setVarietyName] = useState(editing?.varietyName ?? '');
+  const [varietyName, setVarietyName] = useState(editing?.varietyName ?? varietyInit ?? '');
   const [count, setCount] = useState(String(editing?.count ?? ''));
   const [area, setArea] = useState(editing?.area ? String(editing.area) : '');
   const [indoor, setIndoor] = useState(editing?.indoor ?? (indoorInit && Boolean(sp.sowIndoor) ? true : Boolean(sp.sowIndoor && !sp.sowOutdoor)));
@@ -534,6 +536,21 @@ export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, i
           </Field>
           {varieties.length > 0 && !varietyId && (
             <Field label={tt('add.varietyName')}>{(fid) => <TextInput id={fid} value={varietyName} onChange={setVarietyName} placeholder={varietyHint} />}</Field>
+          )}
+          {!varietyId && (FLOWER_VARIETIES[spId]?.length ?? 0) > 0 && (
+            <div className="col-span-2 flex flex-wrap items-center gap-1.5 text-xs">
+              <span style={{ color: INK500 }}>{tt('fvar.suggest')}</span>
+              {FLOWER_VARIETIES[spId].map((v) => (
+                <Chip key={v.name} active={varietyName === v.name} onClick={() => setVarietyName(v.name)}>
+                  <span className="mr-1 inline-flex gap-0.5 align-middle">
+                    {v.colors.slice(0, 2).map((c) => (
+                      <span key={c} className="inline-block h-2 w-2 rounded-full" style={{ background: COLOR_HEX[c] }} />
+                    ))}
+                  </span>
+                  {v.name}
+                </Chip>
+              ))}
+            </div>
           )}
           <Field label={tt('add.count')} hint={tt('add.countHint', { n: defaultCount })}>
             {(fid) => <TextInput id={fid} type="number" min={1} value={count} onChange={setCount} placeholder={String(defaultCount)} />}

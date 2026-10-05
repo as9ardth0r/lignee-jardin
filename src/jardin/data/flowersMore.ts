@@ -714,6 +714,37 @@ export const MORE_FLOWER_DEFS: FlowerDef[] = [
       toxic: T('TRÈS TOXIQUE (cardiotoxique), y compris l’eau du vase et les baies rouges.', 'HIGHLY TOXIC (affects the heart), including vase water and the red berries.'),
     },
   }),
+  // --- Bulbes d'automne et d'hiver ------------------------------------------------
+  m({
+    id: 'nerine', name: T('Nérine', 'Nerine'), latin: 'Nerine bowdenii', emoji: '🌸', family: 'amaryllidaceae', life: 'perennial', sun: 'full', frost: 'half',
+    spacing: [20, 15], plantOut: [[4, 5]], bloomDays: [140, 180], season: 240, returnYears: 3, feeding: 'light', root: 0.2,
+    note: T('Bulbe planté le col au ras du sol, au pied d’un mur au sud. Fleurs roses en septembre–octobre, excellentes en bouquet ; pailler en hiver.', 'Bulb planted with its neck at soil level, at the foot of a south-facing wall. Pink flowers in September–October, excellent for cutting; mulch in winter.'),
+    info: { bloom: [[9, 10]], height: [40, 60], colors: ['pink', 'white'], uses: ['cut'], bulb: true, toxic: T('Bulbe toxique.', 'Toxic bulb.') },
+  }),
+  m({
+    id: 'winteraconite', name: T('Aconit d’hiver', 'Winter aconite'), latin: 'Eranthis hyemalis', emoji: '🌼', family: 'ranunculaceae', life: 'perennial', sun: 'partial', frost: 'hardy',
+    spacing: [10, 8], plantOut: [[9, 10]], bloomDays: [120, 160], season: 200, returnYears: 3, feeding: 'light', root: 0.15,
+    note: T('Petits tubercules à faire tremper une nuit puis planter à 5 cm, sous des arbres caducs. Boutons d’or en collerette dès janvier-février, souvent dans la neige ; se ressème en tapis.', 'Small tubers to soak overnight then plant 5 cm deep, under deciduous trees. Buttercup-yellow ruffs from January–February, often in the snow; self-seeds into carpets.'),
+    info: { bloom: [[1, 3]], height: [5, 10], colors: ['yellow'], uses: ['pollinators', 'selfSeeds'], bulb: true, toxic: T('Toute la plante est toxique.', 'The whole plant is toxic.') },
+  }),
+  m({
+    id: 'cyclamencoum', name: T('Cyclamen de Cos', 'Eastern cyclamen'), latin: 'Cyclamen coum', emoji: '🌸', family: 'primulaceae', life: 'perennial', sun: 'shade', frost: 'hardy',
+    spacing: [15, 10], plantOut: [[9, 10]], bloomDays: [110, 160], season: 200, feeding: 'light', root: 0.15,
+    note: T('Tubercule à peine enterré, à mi-ombre sous les arbres. Petites fleurs roses ou blanches de janvier à mars, feuilles rondes souvent argentées ; se ressème.', 'Tuber barely covered, in part shade under trees. Small pink or white flowers from January to March, round leaves often silvered; self-seeds.'),
+    info: { bloom: [[1, 3]], height: [5, 10], colors: ['pink', 'white', 'purple'], uses: ['pollinators', 'selfSeeds'], bulb: true, toxic: T('Tubercule toxique.', 'Toxic tuber.') },
+  }),
+  m({
+    id: 'irisreticulata', name: T('Iris réticulé', 'Dwarf iris'), latin: 'Iris reticulata', emoji: '🪻', family: 'iridaceae', life: 'perennial', sun: 'full', frost: 'hardy',
+    spacing: [10, 8], ...SPRING_BULB, feeding: 'light', root: 0.15,
+    note: T('Planter à 8 cm en automne, en sol bien drainé, en rocaille ou en pot. Petits iris parfumés dès février.', 'Plant 8 cm deep in autumn, in well-drained soil, a rockery or a pot. Small scented irises from February.'),
+    info: { bloom: [[2, 3]], height: [10, 15], colors: ['blue', 'purple', 'white', 'yellow'], uses: ['pots', 'fragrant', 'pollinators'], bulb: true },
+  }),
+  m({
+    id: 'anemoneblanda', name: T('Anémone de Grèce', 'Grecian windflower'), latin: 'Anemone blanda', emoji: '💙', family: 'ranunculaceae', life: 'perennial', sun: 'partial', frost: 'hardy',
+    spacing: [10, 8], ...SPRING_BULB, feeding: 'light', root: 0.15,
+    note: T('Petits tubercules à faire tremper une nuit puis planter à 5 cm. Marguerites bleues, blanches ou roses en mars-avril, en tapis sous les arbres.', 'Small tubers to soak overnight then plant 5 cm deep. Blue, white or pink daisies in March–April, carpeting under trees.'),
+    info: { bloom: [[3, 4]], height: [10, 15], colors: ['blue', 'white', 'pink'], uses: ['pollinators'], bulb: true, toxic: T('Plante toxique, comme toutes les anémones.', 'Toxic, like all anemones.') },
+  }),
 ];
 
 const x = (seedLife: number, pollination: SpeciesExtra['pollination'], isolation: number, trueToSeed: SpeciesExtra['trueToSeed'], fr: string, en: string, f1Common = false): SpeciesExtra => ({
@@ -832,4 +863,9 @@ export const MORE_FLOWER_EXTRA: Record<string, SpeciesExtra> = {
   colchicum: veg('Diviser en été pendant le repos, avec des gants.', 'Divide in summer while dormant, wearing gloves.'),
   hardycyclamen: x(2, 'insect', 0, 'mostly', 'Les fourmis dispersent les graines ; semis spontanés autour.', 'Ants spread the seeds; seedlings appear around.'),
   lilyofthevalley: veg('Diviser les griffes à l’automne.', 'Divide the pips in autumn.'),
+  nerine: veg('Diviser les touffes trop serrées au printemps.', 'Divide crowded clumps in spring.'),
+  winteraconite: x(1, 'insect', 0, 'yes', 'Se ressème seul ; graines à semer fraîches dès juin.', 'Self-seeds; sow seed fresh in June.'),
+  cyclamencoum: x(2, 'insect', 0, 'mostly', 'Les fourmis dispersent les graines ; semis spontanés autour.', 'Ants spread the seeds; seedlings appear around.'),
+  irisreticulata: veg('Petits bulbilles autour du bulbe ; replanter profond pour qu’ils refleurissent.', 'Small bulblets around the bulb; replant deep so they flower again.'),
+  anemoneblanda: veg('Diviser les tubercules en été pendant le repos.', 'Divide the tubers in summer while dormant.'),
 };

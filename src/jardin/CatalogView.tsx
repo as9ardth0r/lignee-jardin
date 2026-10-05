@@ -12,6 +12,8 @@ import { speciesWithType, typesOf } from './data/speciesTypes';
 import { COLOR_HEX, FLOWER_COLORS, FLOWER_INFO, isFlower, type FlowerColor } from './data/flowers';
 import { ORCHARD_MONTHS } from './data/orchard';
 import { COVER_INFO } from './data/covers';
+import { FLOWER_VARIETIES } from './data/flowerVarieties';
+import { uid } from './model';
 import { seedState } from './engine/season';
 import { SeedsPanel } from './Seeds';
 import { StocksView } from './Stocks';
@@ -49,6 +51,84 @@ function flowerGroup(life: 'annual' | 'biennial' | 'perennial', bulb?: boolean):
   return bulb ? 'bulb' : life;
 }
 
+/** Variétés courantes du commerce d'une fleur : couleur, groupe, floraison ; à garder dans « mes variétés » ou à planter. */
+function VarietyList({ speciesId }: { speciesId: string }) {
+  const store = useGarden();
+  const { tt, lang } = useJT();
+  const nav = useNav();
+  const [color, setColor] = useState<FlowerColor | 'all'>('all');
+  const all = FLOWER_VARIETIES[speciesId] ?? [];
+  const colors = FLOWER_COLORS.filter((c) => all.some((v) => v.colors.includes(c)));
+  const list = all.filter((v) => color === 'all' || v.colors.includes(color));
+  const mine = new Set(store.data.varieties.filter((v) => v.speciesId === speciesId).map((v) => v.name.toLowerCase()));
+  return (
+    <section>
+      <h3 className="mb-1 font-display text-base">{tt('fvar.title', { n: all.length })}</h3>
+      {colors.length > 1 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          <Chip active={color === 'all'} onClick={() => setColor('all')}>
+            {tt('flowerGroup.anyColor')}
+          </Chip>
+          {colors.map((c) => (
+            <Chip key={c} active={color === c} onClick={() => setColor(c)}>
+              <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: COLOR_HEX[c], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.2)' }} />
+              {tt(`color.${c}` as JKey)}
+            </Chip>
+          ))}
+        </div>
+      )}
+      <ul className="space-y-1.5">
+        {list.map((v) => {
+          const kept = mine.has(v.name.toLowerCase());
+          return (
+            <li key={v.name} className="rounded px-2.5 py-2" style={{ background: 'var(--color-paper-200)' }}>
+              <div className="flex items-center gap-2">
+                <span className="flex shrink-0 gap-0.5">
+                  {v.colors.map((c) => (
+                    <span key={c} className="inline-block h-3 w-3 rounded-full" style={{ background: COLOR_HEX[c], boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.2)' }} />
+                  ))}
+                </span>
+                <p className="min-w-0 flex-1 text-sm font-medium">{v.name}</p>
+              </div>
+              <p className="mt-0.5 text-xs leading-snug" style={{ color: INK700 }}>
+                {v.note[lang]}
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <Button small kind="ghost" onClick={() => nav.open({ type: 'addPlant', speciesId, varietyName: v.name })}>
+                  + {tt('fvar.plant')}
+                </Button>
+                <Button
+                  small
+                  kind="ghost"
+                  disabled={kept}
+                  onClick={() => {
+                    store.saveVarieties([...store.data.varieties, { id: uid('var'), speciesId, name: v.name, origin: 'catalogue', note: v.note[lang] }]);
+                    nav.toast(tt('fvar.kept', { name: v.name }));
+                  }}
+                >
+                  {kept ? `✓ ${tt('fvar.inMine')}` : `☆ ${tt('fvar.keep')}`}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-1.5 text-[11px] leading-snug" style={{ color: INK500 }}>
+        {tt('fvar.note')}
+      </p>
+    </section>
+  );
+}
+
+type BloomSeason = 'spring' | 'summer' | 'autumn' | 'winter';
+const BLOOM_SEASONS: Array<{ id: BloomSeason; icon: string; months: number[] }> = [
+  { id: 'spring', icon: '🌷', months: [3, 4, 5] },
+  { id: 'summer', icon: '☀', months: [6, 7, 8] },
+  { id: 'autumn', icon: '🍂', months: [9, 10, 11] },
+  { id: 'winter', icon: '❄', months: [12, 1, 2] },
+];
+const bloomsIn = (bloom: MonthRange[], season: BloomSeason) => BLOOM_SEASONS.find((x) => x.id === season)!.months.some((m) => inWindow(m, bloom));
+
 function SpeciesList() {
   const { tt, lang } = useJT();
   const nav = useNav();
@@ -57,6 +137,7 @@ function SpeciesList() {
   const [group, setGroup] = useState<FlowerGroup | 'all'>('all');
   const [color, setColor] = useState<FlowerColor | 'all'>('all');
   const [inBloom, setInBloom] = useState(false);
+  const [season, setSeason] = useState<BloomSeason | 'all'>('all');
   const month = new Date().getMonth() + 1;
   const flowers = type === 'flower';
   const list = useMemo(() => {
@@ -69,10 +150,11 @@ function SpeciesList() {
       if (!fl) return false;
       if (group !== 'all' && flowerGroup(s.life, fl.bulb) !== group) return false;
       if (color !== 'all' && !fl.colors.includes(color)) return false;
+      if (season !== 'all' && !bloomsIn(fl.bloom, season)) return false;
       if (inBloom && !fl.bloom.some(([a, b]) => (a <= b ? month >= a && month <= b : month >= a || month <= b))) return false;
       return true;
     }).sort((a, b) => a.name[lang].localeCompare(b.name[lang]));
-  }, [q, type, lang, flowers, group, color, inBloom, month]);
+  }, [q, type, lang, flowers, group, color, inBloom, month, season]);
   return (
     <Card title={tt('catalog.title', { n: SPECIES.length })}>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt('catalog.search')} aria-label={tt('catalog.search')} className="field w-full rounded px-2.5 py-2 text-sm outline-none" style={{ background: 'var(--color-paper-200)', boxShadow: 'inset 0 0 0 1px var(--color-paper-300)' }} />
@@ -98,6 +180,21 @@ function SpeciesList() {
               🌸 {tt('flowerGroup.inBloom')}
             </Chip>
           </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Chip active={season === 'all'} onClick={() => setSeason('all')}>
+              {tt('flowerGroup.anySeason')}
+            </Chip>
+            {BLOOM_SEASONS.map((x) => (
+              <Chip key={x.id} active={season === x.id} onClick={() => setSeason(x.id)}>
+                {x.icon} {tt(`bloomSeason.${x.id}` as JKey)}
+              </Chip>
+            ))}
+          </div>
+          {group === 'bulb' && (
+            <p className="text-[11px] leading-snug" style={{ color: INK700 }}>
+              {tt('flowerGroup.bulbHint')}
+            </p>
+          )}
           <div className="flex flex-wrap gap-1.5">
             <Chip active={color === 'all'} onClick={() => setColor('all')}>
               {tt('flowerGroup.anyColor')}
@@ -287,6 +384,7 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
             )}
           </section>
         )}
+        {FLOWER_VARIETIES[s.id] && <VarietyList speciesId={s.id} />}
         {typesOf(s.id).length > 0 && (
           <section>
             <h3 className="mb-1 font-display text-base">{tt('types.title')}</h3>

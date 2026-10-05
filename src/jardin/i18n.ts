@@ -1499,6 +1499,19 @@ const fr = {
   'task.nursery.potUp': 'Repiquer en godets les semis de {{name}} (2 vraies feuilles)',
   'task.nursery.harden': 'Endurcir {{name}} : sortir les plants vers 10 h, les rentrer vers 18 h',
   'task.nursery.hardenCold': 'Endurcir {{name}} : nuit à {{tmin}} °C annoncée, rentrez les plants le soir',
+  'fvar.title': 'Variétés et couleurs ({{n}})',
+  'fvar.plant': 'Planter',
+  'fvar.keep': 'Garder dans mes variétés',
+  'fvar.inMine': 'Dans mes variétés',
+  'fvar.kept': '« {{name}} » ajoutée à vos variétés',
+  'fvar.note': 'Quelques classiques largement vendus ; les dates de floraison se décalent avec votre climat. « Planter » ouvre l’ajout d’une culture avec cette variété.',
+  'fvar.suggest': 'Variétés courantes :',
+  'flowerGroup.anySeason': 'Toute saison',
+  'bloomSeason.spring': 'Printemps',
+  'bloomSeason.summer': 'Été',
+  'bloomSeason.autumn': 'Automne',
+  'bloomSeason.winter': 'Hiver',
+  'flowerGroup.bulbHint': 'Bulbes de printemps et d’hiver (tulipe, jacinthe, narcisse, crocus…) : à planter en septembre-novembre. Bulbes d’été (dahlia, glaïeul, lys…) : en mars-mai, les gélifs se rentrent à l’automne. Bulbes d’automne (colchique, nérine, cyclamen) : en été. Le safran est rangé avec les aromatiques.',
 };
 
 const en: Record<keyof typeof fr, string> = {
@@ -2995,6 +3008,19 @@ const en: Record<keyof typeof fr, string> = {
   'task.nursery.potUp': 'Pot on the {{name}} seedlings (2 true leaves)',
   'task.nursery.harden': 'Harden off {{name}}: put the plants out around 10 am, bring them in around 6 pm',
   'task.nursery.hardenCold': 'Harden off {{name}}: night of {{tmin}} °C forecast, bring the plants in for the evening',
+  'fvar.title': 'Varieties and colours ({{n}})',
+  'fvar.plant': 'Plant',
+  'fvar.keep': 'Keep in my varieties',
+  'fvar.inMine': 'In my varieties',
+  'fvar.kept': '“{{name}}” added to your varieties',
+  'fvar.note': 'A few widely sold classics; flowering dates shift with your climate. “Plant” opens a new crop with this variety.',
+  'fvar.suggest': 'Common varieties:',
+  'flowerGroup.anySeason': 'Any season',
+  'bloomSeason.spring': 'Spring',
+  'bloomSeason.summer': 'Summer',
+  'bloomSeason.autumn': 'Autumn',
+  'bloomSeason.winter': 'Winter',
+  'flowerGroup.bulbHint': 'Spring and winter bulbs (tulip, hyacinth, daffodil, crocus…): plant September–November. Summer bulbs (dahlia, gladiolus, lily…): March–May, lift the tender ones in autumn. Autumn bulbs (colchicum, nerine, cyclamen): plant in summer. Saffron is listed with the herbs.',
 };
 
 export type JKey = keyof typeof fr;

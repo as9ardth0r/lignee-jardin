@@ -315,6 +315,19 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Bulbes de chaque saison, variétés et couleurs
+
+Dans le catalogue, les fleurs se filtrent par saison de floraison (printemps, été, automne, hiver), en plus du type et de la couleur. Avec le filtre « Bulbes et tubercules », un rappel indique quand planter chaque groupe :
+- **bulbes de printemps et d'hiver** : à planter à l'automne ;
+- **bulbes d'été** : au printemps, en rentrant les gélifs à l'automne ;
+- **bulbes d'automne** : en été.
+
+Bulbes ajoutés : nérine, aconit d'hiver, cyclamen de Cos, iris réticulé et anémone de Grèce. Le safran était déjà au catalogue, parmi les aromatiques.
+
+Les principaux bulbes ont leurs variétés classiques du commerce, avec couleur, groupe, floraison et hauteur : tulipe, jacinthe, narcisse, crocus, muscari, ail d'ornement, dahlia, glaïeul, lys, perce-neige, anémone, renoncule, fritillaire, couronne impériale, montbrétia, colchique, iris réticulé et anémone de Grèce.
+- On peut filtrer ces variétés par couleur, les garder dans « mes variétés » ou les planter directement.
+- À l'ajout d'une culture, elles sont proposées en un geste.
+
 ## Coin semis
 
 Le « coin semis » (Cultures → Semis) suit chaque semis fait à l'abri, de la graine à la mise en place : semé, levée, repiquage en godets (pour les espèces qui en ont besoin), endurcissement, puis mise en place.

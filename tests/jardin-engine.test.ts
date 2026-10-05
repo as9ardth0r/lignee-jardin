@@ -31,6 +31,7 @@ import { PROBLEMS, REMEDY_BY_ID } from '../src/jardin/data/problems';
 import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
+import { FLOWER_VARIETIES } from '../src/jardin/data/flowerVarieties';
 import { nurseryStatus, sowIndoorNow } from '../src/jardin/engine/nursery';
 import { mergeGardens, mergeSynced, photoIdsOf, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
 import { addReadings, moistureToFraction, parseDateTime, parseReadingsCSV, tankStatus, tankTarget, toMinutes } from '../src/jardin/engine/sensors';
@@ -80,8 +81,8 @@ const data = (over: Partial<GardenData>): GardenData => ({ ...EMPTY_DATA, settin
 
 // --- Catalogue ------------------------------------------------------------
 
-test('catalogue : 85 légumes, 32 aromatiques, 40 fruitiers, 156 fleurs et 12 engrais verts, identifiants uniques', () => {
-  ok(VEGETABLES.length + MORE_VEGETABLES.length === 85 && HERBS.length === 32 && ORCHARD.length === 40 && FLOWERS.length === 156 && SPECIES.filter((x) => x.type === 'cover').length === 12 && SPECIES.length === 325, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
+test('catalogue : 85 légumes, 32 aromatiques, 40 fruitiers, 161 fleurs et 12 engrais verts, identifiants uniques', () => {
+  ok(VEGETABLES.length + MORE_VEGETABLES.length === 85 && HERBS.length === 32 && ORCHARD.length === 40 && FLOWERS.length === 161 && SPECIES.filter((x) => x.type === 'cover').length === 12 && SPECIES.length === 330, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
   ok(MORE_VEGETABLES.every((v) => SPECIES_EXTRA[v.id]?.seedTip && MATURE_HEIGHT[v.id] > 0), 'nouveaux légumes : fiches complètes');
   ok(ORCHARD.every((f) => f.type === 'orchard' && f.life === 'perennial' && SPECIES_EXTRA[f.id]?.seedTip && MATURE_HEIGHT[f.id] > 0), 'fruitiers : fiches complètes');
   ok(HERBS.every((h) => h.type === 'herb' && SPECIES_EXTRA[h.id]?.seedTip && MATURE_HEIGHT[h.id] > 0), 'aromatiques : fiches complètes');
@@ -1289,6 +1290,16 @@ test('coin semis : levée, godets, endurcissement, mise en place', () => {
   // À semer en ce moment.
   const { now } = sowIndoorNow(d, '2026-03-10', SPECIES);
   ok(now.some((s) => s.id === 'tomato') && !now.some((s) => s.id === 'carrot'), 'tomate à semer à l’abri en mars, pas la carotte');
+});
+
+test('fleurs : variétés du commerce et bulbes de chaque saison', () => {
+  for (const [id, list] of Object.entries(FLOWER_VARIETIES)) {
+    ok(Boolean(SPECIES_BY_ID[id]) && FLOWER_INFO[id]?.bulb === true, `variétés rattachées à un bulbe connu : ${id}`);
+    ok(list.every((v) => v.colors.length > 0 && v.note.fr && v.note.en) && new Set(list.map((v) => v.name)).size === list.length, `${id} : couleurs, notes, noms uniques`);
+  }
+  const bulbs = SPECIES.filter((s) => FLOWER_INFO[s.id]?.bulb);
+  const season = (months: number[]) => bulbs.filter((s) => FLOWER_INFO[s.id].bloom.some(([a, b]) => months.some((m) => (a <= b ? m >= a && m <= b : m >= a || m <= b))));
+  ok(season([12, 1, 2]).length >= 4 && season([9, 10, 11]).length >= 4 && season([3, 4, 5]).length >= 10 && season([6, 7, 8]).length >= 6, 'des bulbes pour chaque saison');
 });
 
 if (failed) {
