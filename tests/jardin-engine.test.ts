@@ -32,6 +32,7 @@ import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
 import { addCatalogNames, buildFlore, catalogLinks, searchFlore, type FloreData } from '../src/jardin/engine/flore';
+import { buildGnis, findVariety, prettyName, suggestVarieties, type GnisData } from '../src/jardin/engine/gnis';
 import { FLORE_ALIASES } from '../src/jardin/data/floreAlias';
 import { readFileSync } from 'node:fs';
 import { FLOWER_VARIETIES } from '../src/jardin/data/flowerVarieties';
@@ -1320,6 +1321,20 @@ test('flore de France (BDTFX) : recherche, synonymes, lien avec le catalogue', (
   const links = catalogLinks(flore, SPECIES);
   ok(links.get(old!.taxon.nn)?.id === 'tomato' && links.size > 100, `${links.size} espèces du catalogue reliées à la flore`);
   ok(searchFlore(flore, 'x').length === 0, 'au moins 2 lettres');
+});
+
+test('variétés du catalogue officiel (GNIS) : hybrides F1, variétés anciennes, recherche', () => {
+  const g = buildGnis(JSON.parse(readFileSync(new URL('../src/jardin/data/gnis.json', import.meta.url), 'utf8')) as GnisData);
+  ok([...g.bySpecies.keys()].every((id) => SPECIES_BY_ID[id]), 'toutes rattachées à une espèce de l’app');
+  const tomatoes = g.bySpecies.get('tomato') ?? [];
+  ok(tomatoes.length > 400 && tomatoes.some((v) => v.amateur) && tomatoes.some((v) => v.hybrid) && tomatoes.some((v) => !v.hybrid), `${tomatoes.length} tomates, hybrides et reproductibles`);
+  ok(prettyName("COEUR DE BOEUF DES VERTUS") === 'Coeur de Boeuf des Vertus' && prettyName("D'ETE A COEUR JAUNE") === "D'Ete a Coeur Jaune" && prettyName('AL 877') === 'AL 877', 'noms lisibles');
+  const ab = findVariety(g, 'tomato', '« african beef »');
+  ok(ab?.amateur === true && ab.hybrid === false, 'African Beef : ancienne, reproductible (casse et guillemets ignorés)');
+  const f1 = tomatoes.find((v) => v.hybrid)!;
+  ok(findVariety(g, 'tomato', `${f1.name} F1`)?.hybrid === true, 'hybride retrouvé même avec « F1 » dans le nom');
+  ok(suggestVarieties(g, 'tomato', 'afr').some((v) => v.raw === 'AFRICAN BEEF') && suggestVarieties(g, 'tomato', 'a').length === 0, 'suggestions dès 2 lettres');
+  ok(!findVariety(g, 'tomato', 'Variété inventée'), 'nom inconnu : rien');
 });
 
 if (failed) {

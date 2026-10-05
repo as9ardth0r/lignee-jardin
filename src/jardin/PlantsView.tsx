@@ -1,4 +1,5 @@
 import { FLOWER_VARIETIES } from './data/flowerVarieties';
+import { GnisInfo, GnisSuggest } from './Gnis';
 import { COLOR_HEX } from './data/flowers';
 import { NurseryView } from './Nursery';
 import { useEffect, useMemo, useState } from 'react';
@@ -537,6 +538,8 @@ export function AddPlantSheet({ bedId, speciesId, typeId: initialType, editId, i
           {varieties.length > 0 && !varietyId && (
             <Field label={tt('add.varietyName')}>{(fid) => <TextInput id={fid} value={varietyName} onChange={setVarietyName} placeholder={varietyHint} />}</Field>
           )}
+          {!varietyId && <GnisSuggest speciesId={spId} value={varietyName} onPick={setVarietyName} />}
+          <GnisInfo speciesId={spId} name={varietyId ? varieties.find((v) => v.id === varietyId)?.name : varietyName} />
           {!varietyId && (FLOWER_VARIETIES[spId]?.length ?? 0) > 0 && (
             <div className="col-span-2 flex flex-wrap items-center gap-1.5 text-xs">
               <span style={{ color: INK500 }}>{tt('fvar.suggest')}</span>

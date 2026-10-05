@@ -315,6 +315,25 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Variétés potagères du Catalogue officiel (GNIS / SEMAE)
+
+L'appli contient les 3 367 variétés potagères inscrites au Catalogue officiel français, extraites de la base GNIS / SEMAE de 2025. On y trouve :
+- le catalogue FR des potagères ;
+- la liste des variétés anciennes pour jardiniers amateurs (« sans valeur intrinsèque ») ;
+- les variétés de conservation ;
+- les variétés radiées encore commercialisables.
+
+Chaque variété indique si elle est **reproductible** ou **hybride F1**, avec son obtenteur et son année d'inscription. Ces variétés apparaissent à trois endroits :
+- **fiche d'une espèce** : liste complète, avec recherche et filtres (anciennes, reproductibles, hybrides F1). On peut planter une variété ou la garder dans « mes variétés » ;
+- **ajout d'une culture et d'un lot de graines** : suggestions pendant la saisie du nom de variété ; une variété reconnue est décrite, avec un avertissement si c'est un hybride F1, dont les graines ne redonnent pas la variété ;
+- **« Mes graines »** : un badge F1 signale les lots d'hybrides.
+
+Le fichier ne contient pas de données de culture. La base est chargée à la demande (environ 170 Ko). Pour la mettre à jour :
+
+```bash
+python3 scripts/build-gnis.py chemin/vers/Gnis_base_varietes.csv AAAA
+```
+
 ## Flore de France (BDTFX) et flore du jardin
 
 Catalogue → **Flore** donne accès aux 23 322 espèces et sous-espèces de la flore de France. Les données viennent de la **BDTFX**, le référentiel de Tela Botanica (export du 23 janvier 2024), sous licence **CC BY-SA 4.0**.

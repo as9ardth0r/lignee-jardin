@@ -17,6 +17,7 @@ import { uid } from './model';
 import { seedState } from './engine/season';
 import { SeedsPanel } from './Seeds';
 import { FloreView } from './Flore';
+import { GnisSection } from './Gnis';
 import { StocksView } from './Stocks';
 
 export function CatalogView() {
@@ -390,6 +391,7 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
           </section>
         )}
         {FLOWER_VARIETIES[s.id] && <VarietyList speciesId={s.id} />}
+        <GnisSection speciesId={s.id} />
         {typesOf(s.id).length > 0 && (
           <section>
             <h3 className="mb-1 font-display text-base">{tt('types.title')}</h3>

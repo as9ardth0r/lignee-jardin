@@ -1,3 +1,5 @@
+import { GnisInfo, GnisSuggest, useGnis } from './Gnis';
+import { findVariety } from './engine/gnis';
 import { useMemo, useState } from 'react';
 import { forecast, forecastByMonth, multiYear } from './engine/report';
 import { bedResults, cutFlowers, plantResults, seasonReview, wishesFromReview, type PlantResult } from './engine/bilan';
@@ -20,6 +22,7 @@ const STATE_COLOR: Record<SeedState, string> = { ok: '#4a7f36', lastYear: '#b07a
 
 /** Stock de graines, classé par espèce. */
 export function SeedsPanel() {
+  const gnis = useGnis();
   const { data, today } = useGarden();
   const { tt, lang } = useJT();
   const nav = useNav();
@@ -72,6 +75,11 @@ export function SeedsPanel() {
                       <span className="block truncate font-medium">
                         {sp?.name[lang]}
                         {l.varietyName ? ` « ${l.varietyName} »` : ''}
+                        {gnis && findVariety(gnis, l.speciesId, l.varietyName)?.hybrid ? (
+                          <span className="ml-1.5 rounded-full px-1.5 py-0.5 align-middle text-[10px] font-normal" style={{ background: '#f6e3c8', color: '#7a4a10' }} title={tt('gnis.hybridSeeds')}>
+                            F1
+                          </span>
+                        ) : null}
                       </span>
                       <span className="block text-[11px]" style={{ color: INK500 }}>
                         {l.year}
@@ -148,6 +156,8 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
             )}
           </Field>
           <Field label={tt('add.variety')}>{(fid) => <TextInput id={fid} value={variety} onChange={setVariety} placeholder={tt('add.varietyPlaceholder')} />}</Field>
+          <GnisSuggest speciesId={sp} value={variety} onPick={setVariety} />
+          <GnisInfo speciesId={sp} name={variety} seeds />
           <Field label={tt('seeds.year')} hint={tt('seeds.yearHint')}>
             {(fid) => <TextInput id={fid} type="number" value={year} onChange={setYear} />}
           </Field>
