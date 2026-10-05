@@ -315,6 +315,28 @@ Cultures → « 🧺 Récoltes et bilan » :
   résultats par planche, ce qui a marché et ce qui est à revoir, récoltes
   encore attendues, apports et interventions sanitaires.
 
+## Flore de France (BDTFX) et flore du jardin
+
+Catalogue → **Flore** donne accès aux 23 322 espèces et sous-espèces de la flore de France. Les données viennent de la **BDTFX**, le référentiel de Tela Botanica (export du 23 janvier 2024), sous licence **CC BY-SA 4.0**.
+
+**Recherche.** On peut chercher une plante :
+- par son nom français ;
+- par son nom scientifique ;
+- par un ancien nom (54 719 synonymes, par exemple « Lycopersicon esculentum » → tomate) ;
+- par un nom courant de jardin, ajouté dans `src/jardin/data/floreAlias.ts` : « plantain lancéolé », « chêne pédonculé », « trèfle blanc »… Les noms français de la BDTFX sont parfois savants, d'où ces ajouts.
+
+**Fiche de résultat.** Chaque plante affiche sa famille et son statut en France (indigène, introduite, cultivée, absente). Elle renvoie vers la fiche de culture du catalogue quand il y en a une (256 espèces sont reliées) et vers sa fiche Tela Botanica.
+
+**Flore du jardin.** On y note les plantes de son terrain, spontanées ou installées, avec la date et l'endroit. Cette liste est synchronisée et sauvegardée comme le reste.
+
+**Chargement.** La base (environ 3 Mo, 0,8 Mo compressée) n'est chargée qu'à l'ouverture de l'onglet. Elle reste disponible hors ligne.
+
+**Mettre à jour la base** à partir d'un nouvel export CSV de la BDTFX :
+
+```bash
+python3 scripts/build-flore.py chemin/vers/export.csv AAAA-MM-JJ
+```
+
 ## Bulbes de chaque saison, variétés et couleurs
 
 Dans le catalogue, les fleurs se filtrent par saison de floraison (printemps, été, automne, hiver), en plus du type et de la couleur. Avec le filtre « Bulbes et tubercules », un rappel indique quand planter chaque groupe :

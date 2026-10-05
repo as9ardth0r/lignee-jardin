@@ -31,6 +31,9 @@ import { PROBLEMS, REMEDY_BY_ID } from '../src/jardin/data/problems';
 import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
+import { addCatalogNames, buildFlore, catalogLinks, searchFlore, type FloreData } from '../src/jardin/engine/flore';
+import { FLORE_ALIASES } from '../src/jardin/data/floreAlias';
+import { readFileSync } from 'node:fs';
 import { FLOWER_VARIETIES } from '../src/jardin/data/flowerVarieties';
 import { nurseryStatus, sowIndoorNow } from '../src/jardin/engine/nursery';
 import { mergeGardens, mergeSynced, photoIdsOf, pruneDeleted, stampChanges } from '../src/jardin/engine/sync';
@@ -1300,6 +1303,23 @@ test('fleurs : variétés du commerce et bulbes de chaque saison', () => {
   const bulbs = SPECIES.filter((s) => FLOWER_INFO[s.id]?.bulb);
   const season = (months: number[]) => bulbs.filter((s) => FLOWER_INFO[s.id].bloom.some(([a, b]) => months.some((m) => (a <= b ? m >= a && m <= b : m >= a || m <= b))));
   ok(season([12, 1, 2]).length >= 4 && season([9, 10, 11]).length >= 4 && season([3, 4, 5]).length >= 10 && season([6, 7, 8]).length >= 6, 'des bulbes pour chaque saison');
+});
+
+test('flore de France (BDTFX) : recherche, synonymes, lien avec le catalogue', () => {
+  const flore = addCatalogNames(buildFlore(JSON.parse(readFileSync(new URL('../src/jardin/data/flore.json', import.meta.url), 'utf8')) as FloreData, FLORE_ALIASES), SPECIES);
+  ok(flore.unresolved.length === 0, `noms courants tous rattachés ${flore.unresolved.join(', ')}`);
+  ok(searchFlore(flore, 'trefle')[0]?.taxon.sci === 'Trifolium repens' && searchFlore(flore, 'plantain lanc')[0]?.taxon.sci === 'Plantago lanceolata', 'noms courants en tête');
+  ok(searchFlore(flore, 'tomate')[0]?.taxon.sci === 'Solanum lycopersicum', 'noms du catalogue');
+  ok(flore.taxa.length > 20000 && flore.taxa.every((t) => t.family && t.family !== '?'), `${flore.taxa.length} plantes, toutes avec une famille`);
+  const rep = searchFlore(flore, 'trifolium repens')[0];
+  ok(rep?.taxon.sci === 'Trifolium repens' && rep.taxon.family === 'Fabaceae' && rep.taxon.native && rep.taxon.present, 'trèfle blanc : Fabaceae, indigène');
+  ok(searchFlore(flore, 'pissenlit').some((h) => h.taxon.sci.startsWith('Taraxacum')), 'pissenlit par son nom français');
+  ok(searchFlore(flore, 'ortie dioique')[0]?.taxon.sci === 'Urtica dioica', 'sans accents');
+  const old = searchFlore(flore, 'Lycopersicon esculentum')[0];
+  ok(old?.taxon.sci === 'Solanum lycopersicum' && Boolean(old.via), 'tomate trouvée par son ancien nom');
+  const links = catalogLinks(flore, SPECIES);
+  ok(links.get(old!.taxon.nn)?.id === 'tomato' && links.size > 100, `${links.size} espèces du catalogue reliées à la flore`);
+  ok(searchFlore(flore, 'x').length === 0, 'au moins 2 lettres');
 });
 
 if (failed) {

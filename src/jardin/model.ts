@@ -509,6 +509,21 @@ export interface WaterEvent extends Meta {
   tankId?: string;
 }
 
+/** Plante spontanée ou installée relevée au jardin (inventaire, flore BDTFX). */
+export interface WildPlant extends Meta {
+  id: string;
+  /** Numéro du nom retenu dans la BDTFX (Tela Botanica). */
+  nn: number;
+  /** Nom scientifique et nom français, gardés pour l'affichage hors ligne. */
+  sci: string;
+  fr?: string;
+  family?: string;
+  /** Première observation. */
+  since: ISODate;
+  /** Où (planche, pelouse, haie…) et remarques. */
+  note?: string;
+}
+
 /** Récupérateur d'eau de pluie (cuve branchée sur une gouttière). */
 export interface RainTank extends Meta {
   id: string;
@@ -783,6 +798,8 @@ export interface GardenData {
   mulches: MulchEntry[];
   compost: CompostHeap[];
   rainTanks: RainTank[];
+  /** Inventaire de la flore du jardin. */
+  wildPlants: WildPlant[];
   water: WaterEvent[];
   tasks: ManualTask[];
   taskStates: TaskState[];
@@ -819,6 +836,7 @@ export const EMPTY_DATA: GardenData = {
   mulches: [],
   compost: [],
   rainTanks: [],
+  wildPlants: [],
   water: [],
   tasks: [],
   taskStates: [],

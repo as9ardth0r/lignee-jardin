@@ -16,16 +16,20 @@ import { FLOWER_VARIETIES } from './data/flowerVarieties';
 import { uid } from './model';
 import { seedState } from './engine/season';
 import { SeedsPanel } from './Seeds';
+import { FloreView } from './Flore';
 import { StocksView } from './Stocks';
 
 export function CatalogView() {
   const { tt } = useJT();
-  const [mode, setMode] = useState<'species' | 'seeds' | 'stocks'>('species');
+  const [mode, setMode] = useState<'species' | 'flore' | 'seeds' | 'stocks'>('species');
   return (
     <>
       <div className="mb-3 flex flex-wrap gap-1.5">
         <Chip active={mode === 'species'} onClick={() => setMode('species')}>
           📖 {tt('catalog.modeSpecies')}
+        </Chip>
+        <Chip active={mode === 'flore'} onClick={() => setMode('flore')}>
+          🌿 {tt('catalog.modeFlore')}
         </Chip>
         <Chip active={mode === 'seeds'} onClick={() => setMode('seeds')}>
           🌰 {tt('catalog.modeSeeds')}
@@ -35,6 +39,7 @@ export function CatalogView() {
         </Chip>
       </div>
       {mode === 'species' && <SpeciesList />}
+      {mode === 'flore' && <FloreView />}
       {mode === 'seeds' && (
         <Card title={tt('seeds.title')}>
           <SeedsPanel />
