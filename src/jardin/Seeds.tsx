@@ -1,6 +1,7 @@
 import { GnisInfo, GnisSuggest, useGnis } from './Gnis';
 import { findVariety } from './engine/gnis';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { PhotoStrip } from './Photos';
 import { forecast, forecastByMonth, multiYear } from './engine/report';
 import { bedResults, cutFlowers, plantResults, seasonReview, wishesFromReview, type PlantResult } from './engine/bilan';
 import { toCSV } from './engine/backup';
@@ -120,6 +121,9 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
   const [source, setSource] = useState(editing?.source ?? '');
   const [sown, setSown] = useState('');
   const [up, setUp] = useState('');
+  const [photos, setPhotos] = useState<string[]>(editing?.photoIds ?? []);
+  const added = useRef<string[]>([]);
+  const removed = useRef<string[]>([]);
   const extra = SPECIES_EXTRA[sp];
   const draft: SeedLot = {
     id: editing?.id ?? uid('sd'),
@@ -131,6 +135,7 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
     source: source.trim() || undefined,
     germRate: editing?.germRate,
     germTested: editing?.germTested,
+    photoIds: photos.length ? photos : undefined,
   };
   const st = seedState(draft, today);
   const testRate = Number(sown) > 0 && up !== '' ? germRate(Number(sown), Number(up)) : null;
@@ -138,12 +143,20 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
   const save = () => {
     const lot = testRate !== null ? { ...draft, germRate: testRate, germTested: today } : draft;
     store.saveSeed(lot);
+    if (removed.current.length) store.removePhotos(removed.current);
+    added.current = [];
     nav.toast(tt('seeds.saved'));
+    onClose();
+  };
+  /** Fermer sans enregistrer : les photos ajoutées entre-temps sont jetées. */
+  const cancel = () => {
+    if (added.current.length) store.removePhotos(added.current);
+    added.current = [];
     onClose();
   };
 
   return (
-    <Sheet title={editing ? tt('seeds.editTitle') : tt('seeds.addTitle')} onClose={onClose} closeLabel={tt('common.close')}>
+    <Sheet title={editing ? tt('seeds.editTitle') : tt('seeds.addTitle')} onClose={cancel} closeLabel={tt('common.close')}>
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label={tt('add.species')}>
@@ -179,6 +192,21 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
           <Field label={tt('seeds.quantity')}>{(fid) => <TextInput id={fid} value={quantity} onChange={setQuantity} placeholder={tt('seeds.quantityPlaceholder')} />}</Field>
           <Field label={tt('seeds.source')}>{(fid) => <TextInput id={fid} value={source} onChange={setSource} placeholder={tt('seeds.sourcePlaceholder')} />}</Field>
         </div>
+
+        <PhotoStrip
+          label={tt('photo.seedLot')}
+          ids={photos}
+          onChange={(ids, a, r) => {
+            setPhotos(ids);
+            added.current.push(...a);
+            for (const id of r) {
+              if (added.current.includes(id)) {
+                added.current = added.current.filter((x) => x !== id);
+                store.removePhotos([id]);
+              } else removed.current.push(id);
+            }
+          }}
+        />
 
         <Notice tone={st.state === 'ok' ? 'good' : 'warn'}>
           <b>{tt(`seeds.state.${st.state}` as JKey)}</b> — {tt('seeds.lifeV', { life: st.life, age: Math.max(0, st.ageYears) })}
@@ -226,7 +254,7 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
             <span />
           )}
           <div className="flex gap-2">
-            <Button kind="ghost" onClick={onClose}>
+            <Button kind="ghost" onClick={cancel}>
               {tt('common.cancel')}
             </Button>
             <Button kind="primary" onClick={save}>

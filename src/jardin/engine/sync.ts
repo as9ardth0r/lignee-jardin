@@ -173,5 +173,5 @@ export function mergeGardens(local: GardenData, remote: GardenData): { data: Gar
 
 /** Photos référencées par un jardin (pour n'exporter que les siennes). */
 export function photoIdsOf(data: GardenData): Set<string> {
-  return new Set(data.observations.flatMap((o) => [...o.photoIds, ...(o.audioIds ?? [])]));
+  return new Set([...data.observations.flatMap((o) => [...o.photoIds, ...(o.audioIds ?? [])]), ...data.varieties.flatMap((v) => v.photoIds ?? []), ...data.seeds.flatMap((l) => l.photoIds ?? [])]);
 }

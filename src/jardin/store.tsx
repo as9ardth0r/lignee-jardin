@@ -154,6 +154,9 @@ export interface GardenStore {
   deleteTask: (id: string) => void;
   setTaskState: (s: TaskState) => void;
   photoURL: (id: string, size: 'thumb' | 'full') => Promise<string | null>;
+  /** Enregistre des photos (compressées) et renvoie leurs identifiants ; et les supprime. */
+  addPhotos: (files: Blob[]) => Promise<string[]>;
+  removePhotos: (ids: string[]) => void;
   exportBackup: () => Promise<string>;
   importBackup: (raw: string) => Promise<void>;
   loadDemo: () => void;
@@ -410,7 +413,27 @@ export function GardenProvider({ children }: { children: ReactNode }) {
         }));
       },
       saveVarieties: (list) => mutate((d) => ({ ...d, varieties: list.reduce((acc, v) => upsert(acc, v), d.varieties) })),
-      deleteVariety: (id) => mutate((d) => ({ ...d, varieties: d.varieties.filter((v) => v.id !== id), plants: d.plants.map((p) => (p.varietyId === id ? { ...p, varietyId: undefined } : p)) })),
+      deleteVariety: (id) => {
+        void deletePhotos(data.varieties.find((v) => v.id === id)?.photoIds ?? []);
+        mutate((d) => ({ ...d, varieties: d.varieties.filter((v) => v.id !== id), plants: d.plants.map((p) => (p.varietyId === id ? { ...p, varietyId: undefined } : p)) }));
+      },
+      addPhotos: async (files) => {
+        const ids: string[] = [];
+        const db = dbRef.current;
+        for (const file of files) {
+          const c = await compressPhoto(file);
+          const id = uid('ph');
+          const rec: PhotoRecord = { id, meta: { id, date: todayISO(), width: c.width, height: c.height }, full: c.full, thumb: c.thumb };
+          if (db) await tx(db, PHOTOS, 'readwrite', (s) => s.put(rec));
+          else {
+            urlCache.current.set(`${id}:thumb`, URL.createObjectURL(c.thumb));
+            urlCache.current.set(`${id}:full`, URL.createObjectURL(c.full));
+          }
+          ids.push(id);
+        }
+        return ids;
+      },
+      removePhotos: (ids) => void deletePhotos(ids),
       addObservation: async (obs, photos, audio = []) => {
         const photoIds: string[] = [];
         const db = dbRef.current;
@@ -529,7 +552,10 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       addTreatment: (t) => mutate((d) => ({ ...d, treatments: [...d.treatments, { ...t, id: uid('tr') }] })),
       deleteTreatment: (id) => mutate((d) => ({ ...d, treatments: d.treatments.filter((x) => x.id !== id) })),
       saveSeed: (lot) => mutate((d) => ({ ...d, seeds: upsert(d.seeds, lot) })),
-      deleteSeed: (id) => mutate((d) => ({ ...d, seeds: d.seeds.filter((x) => x.id !== id) })),
+      deleteSeed: (id) => {
+        void deletePhotos(data.seeds.find((x) => x.id === id)?.photoIds ?? []);
+        mutate((d) => ({ ...d, seeds: d.seeds.filter((x) => x.id !== id) }));
+      },
       setPrice: (speciesId, priceKg) =>
         mutate((d) => {
           const prices = { ...d.prices };

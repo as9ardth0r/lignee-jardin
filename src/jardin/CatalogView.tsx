@@ -19,6 +19,7 @@ import { SeedsPanel } from './Seeds';
 import { FloreView } from './Flore';
 import { GnisSection } from './Gnis';
 import { StocksView } from './Stocks';
+import { PhotoStrip, SpeciesHero, SpeciesIcon, useCachedSpecies } from './Photos';
 
 export function CatalogView() {
   const { tt } = useJT();
@@ -146,6 +147,7 @@ function SpeciesList() {
   const [season, setSeason] = useState<BloomSeason | 'all'>('all');
   const month = new Date().getMonth() + 1;
   const flowers = type === 'flower';
+  const pics = useCachedSpecies();
   const list = useMemo(() => {
     const ql = q.trim().toLowerCase();
     return SPECIES.filter((s) => {
@@ -225,9 +227,7 @@ function SpeciesList() {
             {list.map((s) => (
               <li key={s.id}>
                 <button type="button" onClick={() => nav.open({ type: 'species', id: s.id })} className="flex h-full w-full items-center gap-2 rounded px-2.5 py-2 text-left" style={{ background: 'var(--color-paper-200)' }}>
-                  <span className="text-2xl" aria-hidden="true">
-                    {s.emoji}
-                  </span>
+                  <SpeciesIcon species={s} have={pics.has(s.id)} />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{s.name[lang]}</span>
                     <span className="flex items-center gap-1 truncate text-[11px]" style={{ color: INK500 }}>
@@ -288,7 +288,8 @@ function YearCalendar({ rows }: { rows: Array<{ label: string; ranges: MonthRang
 }
 
 export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void }) {
-  const { data, today } = useGarden();
+  const store = useGarden();
+  const { data, today } = store;
   const { tt, lang } = useJT();
   const nav = useNav();
   const s = SPECIES_BY_ID[id];
@@ -339,6 +340,7 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
       closeLabel={tt('common.close')}
     >
       <div className="space-y-4">
+        <SpeciesHero species={s} />
         <p className="text-sm italic" style={{ color: INK700 }}>
           {s.latin}
         </p>
@@ -453,10 +455,22 @@ export function SpeciesSheet({ id, onClose }: { id: string; onClose: () => void 
         {varieties.length > 0 && (
           <section>
             <h3 className="mb-1 font-display text-base">{tt('sp.varieties')}</h3>
-            <ul className="space-y-0.5 text-sm">
+            <p className="mb-2 text-xs" style={{ color: INK700 }}>
+              {tt('photo.varietyHint')}
+            </p>
+            <ul className="space-y-3 text-sm">
               {varieties.map((v) => (
-                <li key={v.id}>
-                  {v.name} <span className="text-xs" style={{ color: INK500 }}>({v.origin.startsWith('lignee:') ? tt('sp.fromLignee') : tt('sp.mine')})</span>
+                <li key={v.id} className="space-y-1.5">
+                  <p>
+                    {v.name} <span className="text-xs" style={{ color: INK500 }}>({v.origin.startsWith('lignee:') ? tt('sp.fromLignee') : tt('sp.mine')})</span>
+                  </p>
+                  <PhotoStrip
+                    ids={v.photoIds ?? []}
+                    onChange={(ids, _added, removed) => {
+                      store.saveVarieties([{ ...v, photoIds: ids.length ? ids : undefined }]);
+                      if (removed.length) store.removePhotos(removed);
+                    }}
+                  />
                 </li>
               ))}
             </ul>

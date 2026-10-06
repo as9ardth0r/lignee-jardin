@@ -16,6 +16,7 @@ import { LocationPicker } from './Weather';
 import { CompassButton } from './Locate';
 import { GardensCard, NotificationsCard } from './ProSettings';
 import { SyncCard } from './SyncCard';
+import { SpeciesPhotosCard } from './Photos';
 
 export const KINDS: GardenKind[] = ['vegetable', 'orchard', 'ornamental', 'balcony', 'greenhouse'];
 export const PRACTICES: Practice[] = ['conventional', 'livingSoil', 'permaculture', 'organic', 'soilless'];
@@ -293,6 +294,8 @@ export function SettingsView() {
           </Button>
         </div>
       </Card>
+
+      <SpeciesPhotosCard />
 
       <Card title={tt('settings.lignee')}>
         <p className="text-sm leading-relaxed" style={{ color: INK700 }}>

@@ -420,6 +420,8 @@ export interface Variety extends Meta {
   origin: string;
   daysToHarvest?: number;
   note?: string;
+  /** Mes photos de la variété (fleurs, fruits, plante). */
+  photoIds?: string[];
 }
 
 export type PlantStatus = 'planned' | 'growing' | 'ended';
@@ -590,6 +592,8 @@ export interface SeedLot extends Meta {
   /** Taux de germination mesuré (0–1) et date du test. */
   germRate?: number;
   germTested?: ISODate;
+  /** Photos des graines ou du sachet. */
+  photoIds?: string[];
 }
 
 /** Une journée de météo (mesurée ou prévue), telle que mise en cache. */

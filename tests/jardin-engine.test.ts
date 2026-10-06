@@ -61,6 +61,7 @@ import { plantTitle } from '../src/jardin/format';
 import { moonDay, moonPosition } from '../src/jardin/engine/moon';
 import { pendingVarieties } from '../src/ateliers/pending';
 import { LIGNEE_CROPS } from '../src/jardin/engine/backup';
+import { commonsFile, downloadPhoto, stripHtml, titleCandidates } from '../src/jardin/engine/speciesPhoto';
 import { caoApplied, estimateCEC, interpret, limeAdvice, nCredit, phMismatches, soilFor } from '../src/jardin/engine/soil';
 
 let failed = 0;
@@ -1394,6 +1395,58 @@ test('atelier général : toutes les espèces, fixation, consanguinité, clones'
   ok(profileOf(SPECIES_BY_ID.apple).seasonsPerGen === 4 && profileOf(SPECIES_BY_ID.apple).sexual, 'pommier : croisements possibles, 4 saisons par génération');
 });
 
+test('photos : variétés et lots de graines dans la sauvegarde', () => {
+  const d = data({ varieties: [{ id: 'v', speciesId: 'tomato', name: 'Cœur de bœuf', origin: 'mine', photoIds: ['pv'] }], seeds: [{ id: 's', speciesId: 'tomato', year: 2025, photoIds: ['ps'] }] });
+  const ids = photoIdsOf(d);
+  ok(ids.has('pv') && ids.has('ps'), 'photos des variétés et des graines');
+  ok(parseBackup(serializeBackup(d, [])).data.seeds[0].photoIds?.[0] === 'ps', 'gardées dans la sauvegarde');
+});
+
+test('photos des espèces : titres à chercher et fichiers Commons', () => {
+  const t = titleCandidates({ latin: 'Solanum lycopersicum', name: { fr: 'Tomate', en: 'Tomato' } });
+  ok(t[0].wiki === 'fr' && t[0].title === 'Solanum lycopersicum', 'nom latin d’abord');
+  ok(t.some((c) => c.wiki === 'fr' && c.title === 'Tomate') && t.some((c) => c.wiki === 'en' && c.title === 'Tomato'), 'noms communs ensuite');
+  const g = titleCandidates({ latin: 'Tulipa', name: { fr: 'Tulipe (botanique)', en: 'Tulip' } });
+  ok(g[0].title === 'Tulipe' && g.some((c) => c.title === 'Tulipa'), 'genre seul : nom français d’abord');
+  ok(titleCandidates({ latin: 'Allium giganteum, A. hollandicum', name: { fr: 'Ail géant', en: 'Giant onion' } })[0].title === 'Allium giganteum', 'premier nom latin');
+  ok(titleCandidates({ latin: 'Mentha × piperita', name: { fr: 'Menthe poivrée', en: 'Peppermint' } })[0].title === 'Mentha piperita', 'hybride');
+  ok(commonsFile('https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tomato_je.jpg/330px-Tomato_je.jpg') === 'Tomato_je.jpg', 'vignette');
+  ok(commonsFile('https://upload.wikimedia.org/wikipedia/commons/a/ab/Rosa%C3%A9.jpg') === 'Rosaé.jpg', 'originale, accents');
+  ok(commonsFile('https://upload.wikimedia.org/wikipedia/fr/1/12/Logo.png') === null, 'image non libre (wiki local) écartée');
+  ok(stripHtml('<a href="//commons.wikimedia.org/wiki/User:X">Jean&nbsp;Dupont</a> &amp; co') === 'Jean Dupont & co', 'auteur sans HTML');
+});
+
+const photoJobs: Array<Promise<void>> = [];
+function testAsync(name: string, fn: () => Promise<void>) {
+  photoJobs.push(fn().then(() => console.log(`OK   ${name}`), (e) => {
+    failed++;
+    console.log(`FAIL ${name}\n     ${(e as Error).message}`);
+  }));
+}
+testAsync('photos des espèces : téléchargement avec auteur et licence', async () => {
+  const asked: string[] = [];
+  const json = (o: unknown) => new Response(JSON.stringify(o), { status: 200 });
+  const f = async (u: string) => {
+    asked.push(u);
+    if (u.includes('fr.wikipedia.org') && u.includes('Solanum_lycopersicum')) return json({ type: 'standard', originalimage: { source: 'https://upload.wikimedia.org/wikipedia/commons/8/89/Tomato_je.jpg' } });
+    if (u.includes('commons.wikimedia.org/w/api.php')) return json({ query: { pages: { '1': { imageinfo: [{ thumburl: 'https://upload.wikimedia.org/x/640px-Tomato_je.jpg', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Tomato_je.jpg', extmetadata: { Artist: { value: '<a href="x">Jengod</a>' }, LicenseShortName: { value: 'CC BY-SA 3.0' } } }] } } } });
+    if (u.endsWith('640px-Tomato_je.jpg')) return new Response(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }), { status: 200 });
+    return new Response('', { status: 404 });
+  };
+  const p = await downloadPhoto({ id: 'tomato', latin: 'Solanum lycopersicum', name: { fr: 'Tomate', en: 'Tomato' } }, f);
+  ok(p.blob && p.blob.size === 3, 'image gardée');
+  ok(p.credit?.author === 'Jengod' && p.credit.license === 'CC BY-SA 3.0' && p.credit.file === 'Tomato_je.jpg', 'crédit');
+  ok(asked[1].includes('File%3ATomato_je.jpg') && asked[1].includes('origin=*'), 'requête Commons');
+  // Aucune page : on retient « pas de photo » sans erreur.
+  const none = await downloadPhoto({ id: 'zz', latin: 'Zzz zzz', name: { fr: 'Zzz', en: 'Zzz' } }, f);
+  ok(none.none && !none.blob, 'pas de photo');
+  // Page d'homonymie puis repli sur le nom français.
+  const g = async (u: string) => (u.includes('Tulipe') ? json({ type: 'standard', thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Tulip.jpg/320px-Tulip.jpg' } }) : u.includes('wikipedia.org') ? json({ type: 'disambiguation' }) : f(u.replace('Tulip.jpg', 'Tomato_je.jpg')));
+  const t = await downloadPhoto({ id: 'tulip', latin: 'Tulipa', name: { fr: 'Tulipe', en: 'Tulip' } }, g);
+  ok(t.credit?.file === 'Tulip.jpg', 'repli sur le nom français');
+});
+
+await Promise.all(photoJobs);
 if (failed) {
   console.log(`\n${failed} test(s) en échec`);
   process.exit(1);
