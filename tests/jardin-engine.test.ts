@@ -32,7 +32,7 @@ import { SPECIES_EXTRA, COMPANIONS } from '../src/jardin/data/speciesExtra';
 import type { WeatherCache, WeatherDay } from '../src/jardin/model';
 import { demoGarden, parseBackup, parseLigneeVarieties, serializeBackup, toCSV } from '../src/jardin/engine/backup';
 import { addCatalogNames, buildFlore, catalogLinks, searchFlore, type FloreData } from '../src/jardin/engine/flore';
-import { archetypes, clone as gClone, cross as gCross, homozygosity as gHomo, isFixed as gFixed, mulberry32 as gMulberry, plantFrom, profileOf } from '../src/ateliers/general/engine';
+import { archetypes, phenotype as gPheno, clone as gClone, cross as gCross, homozygosity as gHomo, isFixed as gFixed, mulberry32 as gMulberry, plantFrom, profileOf } from '../src/ateliers/general/engine';
 import { buildGnis, findVariety, prettyName, suggestVarieties, type GnisData } from '../src/jardin/engine/gnis';
 import { FLORE_ALIASES } from '../src/jardin/data/floreAlias';
 import { readFileSync } from 'node:fs';
@@ -86,8 +86,8 @@ const data = (over: Partial<GardenData>): GardenData => ({ ...EMPTY_DATA, settin
 
 // --- Catalogue ------------------------------------------------------------
 
-test('catalogue : 85 légumes, 32 aromatiques, 40 fruitiers, 161 fleurs et 12 engrais verts, identifiants uniques', () => {
-  ok(VEGETABLES.length + MORE_VEGETABLES.length === 85 && HERBS.length === 32 && ORCHARD.length === 40 && FLOWERS.length === 161 && SPECIES.filter((x) => x.type === 'cover').length === 12 && SPECIES.length === 330, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
+test('catalogue : 85 légumes, 32 aromatiques, 40 fruitiers, 169 fleurs et 12 engrais verts, identifiants uniques', () => {
+  ok(VEGETABLES.length + MORE_VEGETABLES.length === 85 && HERBS.length === 32 && ORCHARD.length === 40 && FLOWERS.length === 169 && SPECIES.filter((x) => x.type === 'cover').length === 12 && SPECIES.length === 338, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
   ok(MORE_VEGETABLES.every((v) => SPECIES_EXTRA[v.id]?.seedTip && MATURE_HEIGHT[v.id] > 0), 'nouveaux légumes : fiches complètes');
   ok(ORCHARD.every((f) => f.type === 'orchard' && f.life === 'perennial' && SPECIES_EXTRA[f.id]?.seedTip && MATURE_HEIGHT[f.id] > 0), 'fruitiers : fiches complètes');
   ok(HERBS.every((h) => h.type === 'herb' && SPECIES_EXTRA[h.id]?.seedTip && MATURE_HEIGHT[h.id] > 0), 'aromatiques : fiches complètes');
@@ -1356,14 +1356,29 @@ test('atelier général : toutes les espèces, fixation, consanguinité, clones'
   ok(pop.every((x) => gHomo(x.genotype) < 0.8), 'F1 hétérozygote');
   for (let g = 0; g < 6; g++) pop = gCross(lp, pop[0], pop[0], 16, rng, 'self');
   ok(gFixed(pop[0]) && pop.every((x) => gHomo(x.genotype) >= 0.95), 'autogame : fixée en 6 autofécondations');
-  // Allogame (zinnia) : la même chose fait chuter la floraison (dépression de consanguinité).
+  // Allogame (zinnia) : à gènes « favorables » égaux, une plante fixée fleurit nettement moins qu'une hétérozygote.
   const zp = profileOf(SPECIES_BY_ID.zinnia);
   const za = archetypes(zp);
-  const f1 = gCross(zp, plantFrom(zp, za[1], rng), plantFrom(zp, za[1], rng), 64, rng, 'F1');
-  let zpop = f1;
-  for (let g = 0; g < 6; g++) zpop = gCross(zp, zpop[0], zpop[0], 64, rng, 'self');
-  const mean = (l: typeof f1) => l.reduce((s2, x) => s2 + (x.pheno.quant.abundance ?? 0), 0) / l.length;
-  ok(mean(zpop) < mean(f1) * 0.9, `allogame : floraison ${mean(f1).toFixed(1)} → ${mean(zpop).toFixed(1)} après autofécondations`);
+  const het: Record<string, [number, number]> = {};
+  const hom: Record<string, [number, number]> = {};
+  for (const k of Object.keys(plantFrom(zp, za[0], rng).genotype)) {
+    const i = Number(k.replace(/\D/g, '')) || 0;
+    het[k] = [1, 0];
+    hom[k] = i % 2 ? [1, 1] : [0, 0];
+  }
+  const avg = (g: Record<string, [number, number]>) => Array.from({ length: 400 }, () => gPheno(zp, g, rng).quant.abundance ?? 0).reduce((a, b) => a + b, 0) / 400;
+  ok(avg(hom) < avg(het) * 0.85, `allogame : floraison ${avg(het).toFixed(1)} (hétérozygote) → ${avg(hom).toFixed(1)} (fixée)`);
+  const lhet = Object.fromEntries(Object.keys(het).map((k) => [k, het[k]]));
+  const lavg = (g: Record<string, [number, number]>) => Array.from({ length: 400 }, () => gPheno(lp, g, rng).quant.yield ?? 0).reduce((a, b) => a + b, 0) / 400;
+  const lg = plantFrom(lp, la[0], rng).genotype;
+  const lh: Record<string, [number, number]> = {};
+  const lo: Record<string, [number, number]> = {};
+  for (const k of Object.keys(lg)) {
+    const i = Number(k.replace(/\D/g, '')) || 0;
+    lh[k] = [1, 0];
+    lo[k] = i % 2 ? [1, 1] : [0, 0];
+  }
+  ok(lavg(lo) > lavg(lh) * 0.95 && Object.keys(lhet).length > 0, 'autogame : presque pas de perte en se fixant');
   // Couleur : blanc récessif.
   const white = za.find((x) => x.id === 'hue-white')!;
   const red = za.find((x) => x.id === 'hue-red')!;

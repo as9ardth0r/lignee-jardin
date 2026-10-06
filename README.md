@@ -317,7 +317,7 @@ Cultures → « 🧺 Récoltes et bilan » :
 
 ## Atelier général de sélection : toutes les espèces
 
-L'onglet **Sélection** propose, en plus des 16 ateliers détaillés, un atelier pour **chacune des 318 espèces du catalogue** (fleurs, légumes, fruits, aromatiques). Une espèce qui a un atelier détaillé l'ouvre directement (★).
+L'onglet **Sélection** propose, en plus des 16 ateliers détaillés, un atelier pour **chacune des 326 espèces du catalogue** (fleurs, légumes, fruits, aromatiques). Une espèce qui a un atelier détaillé l'ouvre directement (★).
 
 **Réglage par espèce.** L'atelier général est le même moteur génétique pour toutes, réglé à partir des données du catalogue :
 - caractères chiffrés : précocité (ou premières fleurs, ou maturité des fruits) ; rendement (ou abondance de fleurs) ; hauteur ou vigueur. Chacun dépend de 6 gènes additifs et du milieu ;

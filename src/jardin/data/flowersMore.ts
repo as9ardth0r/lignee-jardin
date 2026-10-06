@@ -20,6 +20,8 @@ const m = (d: In): FlowerDef => ({ tBase: d.frost === 'tender' ? 9 : d.frost ===
 const ANNUAL_INDOOR = { sowIndoor: [[3, 4]] as FlowerDef['sowIndoor'], plantOut: [[5, 6]] as FlowerDef['plantOut'], transplantAfter: 45 };
 const BIENNIAL = { sowOutdoor: [[5, 7]] as FlowerDef['sowOutdoor'], plantOut: [[9, 10]] as FlowerDef['plantOut'], bloomDays: [320, 400] as [number, number], season: 420 };
 const PERENNIAL = { plantOut: [[3, 4], [9, 10]] as FlowerDef['plantOut'], season: 200 };
+/** Arbustes et haies : plantation d'automne ou de fin d'hiver. */
+const SHRUB = { plantOut: [[10, 12], [2, 3]] as FlowerDef['plantOut'], season: 360 };
 const SPRING_BULB = { plantOut: [[9, 11]] as FlowerDef['plantOut'], bloomDays: [150, 200] as [number, number], season: 240, returnYears: 3 };
 
 export const MORE_FLOWER_DEFS: FlowerDef[] = [
@@ -602,6 +604,55 @@ export const MORE_FLOWER_DEFS: FlowerDef[] = [
     info: { bloom: [[7, 9]], height: [150, 300], colors: ['purple', 'white', 'pink'], uses: ['pollinators', 'fragrant'], deadhead: true },
   }),
 
+  m({
+    id: 'hibiscus', name: T('Hibiscus (mauve en arbre)', 'Rose of Sharon'), latin: 'Hibiscus syriacus', emoji: '🌺', family: 'malvaceae', life: 'perennial', sun: 'full', frost: 'hardy',
+    spacing: [150, 100], ...SHRUB, bloomDays: [240, 330], feeding: 'light', root: 0.5,
+    note: T('Arbuste à grandes fleurs de juillet à septembre ; ses feuilles sortent tard au printemps, pas d’inquiétude. Tailler en fin d’hiver. Se ressème volontiers.', 'Shrub with large flowers from July to September; its leaves come out late in spring, no need to worry. Prune in late winter. Self-seeds readily.'),
+    info: { bloom: [[7, 9]], height: [150, 300], colors: ['purple', 'pink', 'white', 'blue', 'red'], uses: ['pollinators'] },
+  }),
+  m({
+    id: 'privet', name: T('Troène', 'Wild privet'), latin: 'Ligustrum vulgare', emoji: '🌳', family: 'oleaceae', life: 'perennial', sun: 'full', frost: 'hardy',
+    spacing: [60, 40], ...SHRUB, bloomDays: [210, 270], feeding: 'light', root: 0.6,
+    note: T('Haie champêtre semi-persistante. Petites fleurs blanches parfumées en juin, très visitées par les insectes ; baies noires mangées par les oiseaux. Tailler une à deux fois par an.', 'Semi-evergreen country hedge. Small fragrant white flowers in June, much visited by insects; black berries eaten by birds. Trim once or twice a year.'),
+    info: { bloom: [[6, 7]], height: [150, 300], colors: ['white'], uses: ['pollinators', 'fragrant'], toxic: T('Baies toxiques : ne pas en manger (attention aux enfants).', 'Toxic berries: do not eat (mind children).') },
+  }),
+  m({
+    id: 'lilac', name: T('Lilas', 'Lilac'), latin: 'Syringa vulgaris', emoji: '💜', family: 'oleaceae', life: 'perennial', sun: 'full', frost: 'hardy',
+    spacing: [250, 200], ...SHRUB, bloomDays: [180, 230], feeding: 'light', root: 0.6,
+    note: T('Grappes très parfumées en avril-mai. Couper les fleurs fanées ; il drageonne au pied.', 'Very fragrant clusters in April–May. Deadhead; it suckers at the base.'),
+    info: { bloom: [[4, 5]], height: [200, 500], colors: ['purple', 'white', 'pink'], uses: ['fragrant', 'cut', 'pollinators'], deadhead: true },
+  }),
+  m({
+    id: 'forsythia', name: T('Forsythia', 'Forsythia'), latin: 'Forsythia × intermedia', emoji: '💛', family: 'oleaceae', life: 'perennial', sun: 'full', frost: 'hardy',
+    spacing: [200, 150], ...SHRUB, bloomDays: [140, 180], feeding: 'light', root: 0.5,
+    note: T('Fleurs jaunes avant les feuilles, en mars. Tailler juste après la floraison (il fleurit sur le bois de l’année d’avant).', 'Yellow flowers before the leaves, in March. Prune just after flowering (it flowers on last year’s wood).'),
+    info: { bloom: [[3, 4]], height: [150, 250], colors: ['yellow'], uses: ['cut'] },
+  }),
+  m({
+    id: 'mockorange', name: T('Seringat', 'Mock orange'), latin: 'Philadelphus coronarius', emoji: '🤍', family: 'hydrangeaceae', life: 'perennial', sun: 'full', frost: 'hardy',
+    spacing: [200, 150], ...SHRUB, bloomDays: [210, 250], feeding: 'light', root: 0.5,
+    note: T('Fleurs blanches au parfum de fleur d’oranger en mai-juin. Tailler après la floraison.', 'White flowers scented like orange blossom in May–June. Prune after flowering.'),
+    info: { bloom: [[5, 6]], height: [150, 300], colors: ['white'], uses: ['fragrant', 'pollinators'] },
+  }),
+  m({
+    id: 'weigela', name: T('Weigélia', 'Weigela'), latin: 'Weigela florida', emoji: '🌸', family: 'caprifoliaceae', life: 'perennial', sun: 'full', frost: 'hardy',
+    spacing: [150, 120], ...SHRUB, bloomDays: [200, 250], feeding: 'light', root: 0.5,
+    note: T('Clochettes en mai-juin, parfois une petite remontée en été. Tailler après la floraison.', 'Bell flowers in May–June, sometimes a small repeat in summer. Prune after flowering.'),
+    info: { bloom: [[5, 6]], height: [100, 250], colors: ['pink', 'red', 'white'], uses: ['pollinators'] },
+  }),
+  m({
+    id: 'cherrylaurel', name: T('Laurier-cerise', 'Cherry laurel'), latin: 'Prunus laurocerasus', emoji: '🌿', family: 'rosaceae', life: 'perennial', sun: 'partial', frost: 'hardy',
+    spacing: [100, 80], ...SHRUB, bloomDays: [180, 230], feeding: 'light', root: 0.6,
+    note: T('Haie persistante à croissance rapide ; épis blancs en avril-mai. Se ressème et devient envahissant en sous-bois. Tailler en fin d’été.', 'Fast-growing evergreen hedge; white spikes in April–May. Self-seeds and becomes invasive in woodland. Trim in late summer.'),
+    info: { bloom: [[4, 5]], height: [200, 500], colors: ['white'], uses: ['pollinators'], toxic: T('Feuilles et noyaux très toxiques.', 'Leaves and stones are very toxic.') },
+  }),
+  m({
+    id: 'photinia', name: T('Photinia', 'Photinia'), latin: 'Photinia × fraseri', emoji: '🍁', family: 'rosaceae', life: 'perennial', sun: 'full', frost: 'hardy',
+    spacing: [100, 80], ...SHRUB, bloomDays: [180, 230], feeding: 'light', root: 0.5,
+    note: T('Haie persistante aux jeunes pousses rouge vif (« Red Robin »). Tailler deux fois par an pour relancer les pousses rouges.', 'Evergreen hedge with bright red young shoots (“Red Robin”). Trim twice a year to bring on new red growth.'),
+    info: { bloom: [[4, 5]], height: [200, 400], colors: ['white'], uses: ['pollinators'] },
+  }),
+
   // --- Bulbes, cormes, tubercules -----------------------------------------------------
   m({
     id: 'hyacinth', name: T('Jacinthe', 'Hyacinth'), latin: 'Hyacinthus orientalis', emoji: '🪻', family: 'asparagaceae', life: 'perennial', sun: 'full', frost: 'hardy',
@@ -848,6 +899,14 @@ export const MORE_FLOWER_EXTRA: Record<string, SpeciesExtra> = {
   pelargonium: veg('Boutures de tête en août, à hiverner hors gel.', 'Tip cuttings in August, overwintered frost-free.'),
   fuchsia: veg('Boutures très faciles au printemps ou en été.', 'Very easy cuttings in spring or summer.'),
   hydrangea: veg('Boutures de tiges non fleuries en été.', 'Cuttings of non-flowering shoots in summer.'),
+  hibiscus: x(3, 'insect', 100, 'no', 'Capsules à récolter brunes en automne ; les semis donnent des plantes variées (souvent mauves) : multiplier une variété par boutures.', 'Collect brown capsules in autumn; seedlings vary (often mauve): propagate a variety from cuttings.'),
+  privet: x(2, 'insect', 0, 'yes', 'Baies noires en hiver : extraire les graines, les laisser un hiver au froid (stratification), semer au printemps. Boutures très faciles.', 'Black berries in winter: extract the seeds, give them a winter in the cold (stratification), sow in spring. Cuttings root very easily.'),
+  lilac: veg('Drageons à prélever au pied ; les semis donnent des lilas différents de la plante mère.', 'Take suckers from the base; seedlings differ from the parent.'),
+  forsythia: veg('Boutures ou marcottes, très faciles : les rameaux s’enracinent seuls au contact du sol.', 'Cuttings or layers, very easy: branches root by themselves where they touch the soil.'),
+  mockorange: veg('Boutures en été.', 'Summer cuttings.'),
+  weigela: veg('Boutures en été.', 'Summer cuttings.'),
+  cherrylaurel: x(1, 'insect', 0, 'mostly', 'Les oiseaux en sèment partout ; noyaux toxiques. Boutures faciles.', 'Birds sow it everywhere; toxic stones. Easy cuttings.'),
+  photinia: veg('Boutures semi-aoûtées en été ; hybride, pas de semis.', 'Semi-ripe cuttings in summer; a hybrid, so no seed.'),
   buddleja: veg('Boutures ; couper les fleurs fanées pour éviter les semis sauvages.', 'Cuttings; deadhead to avoid wild seedlings.'),
   hyacinth: veg('Bulbilles autour du bulbe, lentes à fleurir.', 'Offsets around the bulb, slow to flower.'),
   muscari: x(3, 'insect', 0, 'mostly', 'Se multiplie seul par bulbilles et graines.', 'Spreads on its own by offsets and seed.'),

@@ -113,6 +113,7 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
   const editing = id ? data.seeds.find((s) => s.id === id) : undefined;
   const [sp, setSp] = useState(editing?.speciesId ?? speciesId ?? 'tomato');
   const [variety, setVariety] = useState(editing?.varietyName ?? '');
+  const [spQuery, setSpQuery] = useState('');
   const [year, setYear] = useState(String(editing?.year ?? yearOf(today)));
   const [quantity, setQuantity] = useState(editing?.quantity ?? '');
   const [count, setCount] = useState(editing?.seeds !== undefined ? String(editing.seeds) : '');
@@ -147,12 +148,23 @@ export function SeedSheet({ id, speciesId, onClose }: { id?: string; speciesId?:
         <div className="grid grid-cols-2 gap-3">
           <Field label={tt('add.species')}>
             {(fid) => (
-              <Select
-                id={fid}
-                value={sp}
-                onChange={setSp}
-                options={[...SPECIES].sort((a, b) => a.name[lang].localeCompare(b.name[lang])).map((s) => ({ v: s.id, l: `${s.emoji} ${s.name[lang]}` }))}
-              />
+              <div className="space-y-1.5">
+                <TextInput value={spQuery} onChange={(v) => {
+                  setSpQuery(v);
+                  const ql = v.trim().toLowerCase();
+                  const first = ql && SPECIES.filter((x) => x.name[lang].toLowerCase().includes(ql) || x.latin.toLowerCase().includes(ql)).sort((a, b) => a.name[lang].localeCompare(b.name[lang]))[0];
+                  if (first) setSp(first.id);
+                }} placeholder={tt('catalog.search')} />
+                <Select
+                  id={fid}
+                  value={sp}
+                  onChange={setSp}
+                  options={[...SPECIES]
+                    .filter((x) => x.id === sp || !spQuery.trim() || x.name[lang].toLowerCase().includes(spQuery.trim().toLowerCase()) || x.latin.toLowerCase().includes(spQuery.trim().toLowerCase()))
+                    .sort((a, b) => a.name[lang].localeCompare(b.name[lang]))
+                    .map((x) => ({ v: x.id, l: `${x.emoji} ${x.name[lang]}` }))}
+                />
+              </div>
             )}
           </Field>
           <Field label={tt('add.variety')}>{(fid) => <TextInput id={fid} value={variety} onChange={setVariety} placeholder={tt('add.varietyPlaceholder')} />}</Field>
