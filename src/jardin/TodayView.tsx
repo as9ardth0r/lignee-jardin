@@ -1,3 +1,5 @@
+import { BackupBanner } from './BackupReminder';
+import { WeekCard } from './Week';
 import { useMemo, useState } from 'react';
 import { CLIMATES } from './data/climate';
 import { SPECIES_BY_ID } from './data/species';
@@ -83,7 +85,7 @@ export function TodayView() {
       } else if (b && (what === 'initiate' || what === 'coldShock' || what === 'nextFlush' || what === 'fruitSeason')) {
         store.saveMushroom({ ...b, status: 'fruiting', fruiting: today });
         nav.toast(tt('mush.toastFruiting'));
-      } else if (b && what !== 'shake') {
+      } else if (b && what !== 'shake' && what !== 'water') {
         nav.open({ type: 'mushroom', id: b.id });
         return;
       }
@@ -143,6 +145,10 @@ export function TodayView() {
           </Button>
         </div>
       </Card>
+
+      <BackupBanner />
+
+      <WeekCard />
 
       <WeatherCard />
 

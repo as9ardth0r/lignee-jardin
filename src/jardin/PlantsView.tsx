@@ -174,7 +174,7 @@ function StageTimeline({ plant }: { plant: Plant }) {
 // --- Fiche d'une culture --------------------------------------------------------
 
 function Thumb({ id, onOpen }: { id: string; onOpen: (url: string) => void }) {
-  const { photoURL } = useGarden();
+  const { photoURL, photoRev } = useGarden();
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -182,7 +182,7 @@ function Thumb({ id, onOpen }: { id: string; onOpen: (url: string) => void }) {
     return () => {
       alive = false;
     };
-  }, [id, photoURL]);
+  }, [id, photoURL, photoRev]);
   if (!url) return <span className="inline-block h-16 w-16 rounded" style={{ background: 'var(--color-paper-300)' }} />;
   return (
     <button type="button" onClick={() => photoURL(id, 'full').then((u) => u && onOpen(u))} className="h-16 w-16 overflow-hidden rounded">

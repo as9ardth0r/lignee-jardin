@@ -10,11 +10,14 @@
  * chose ici, on envoie le jardin, le PC fusionne et renvoie sa copie qu'on
  * fusionne à son tour ; sinon on demande seulement au PC s'il a du nouveau.
  * Hors du Wi-Fi de la maison, l'app continue de fonctionner normalement et
- * rattrape au retour. Les photos et notes vocales restent sur l'appareil.
+ * rattrape au retour. Les photos et notes vocales suivent ensuite, quelques-unes
+ * à la fois (toutes les 15 s), dans les deux sens.
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import type { GardenData } from './model';
+import type { PhotoExport } from './engine/backup';
+import { photoIdsOf } from './engine/sync';
 import { useGarden } from './store';
 
 export type SyncState = 'off' | 'connecting' | 'ok' | 'offline' | 'auth' | 'error' | 'otherGarden';
@@ -24,11 +27,16 @@ export interface SyncStatus {
   state: SyncState;
   /** Dernier échange réussi (ms). */
   lastAt?: number;
+  /** Photos encore à échanger avec le PC. */
+  photosPending?: number;
   /** Sur le PC : adresses et code à saisir sur le téléphone. */
   info?: { code: string; urls: string[] };
 }
 
 const INTERVAL = 3000;
+/** Échange des photos : au plus toutes les 15 s, 6 photos par passage. */
+const PHOTO_INTERVAL = 15000;
+const PHOTO_BATCH = 6;
 const PC_GARDEN_KEY = 'lignee.jardin.pcSyncGarden';
 
 let status: SyncStatus = { mode: 'off', state: 'off' };
@@ -186,10 +194,48 @@ export function useRemoteSync() {
           }
         }
         setStatus({ state: 'ok', lastAt: Date.now() });
+        void photoTick();
       } catch (e) {
         setStatus({ state: e instanceof Offline ? 'offline' : 'error' });
       } finally {
         busy = false;
+      }
+    };
+    let photoAt = 0;
+    let photoBusy = false;
+    /** Envoie au PC les photos qu'il n'a pas, et récupère celles qui manquent ici. */
+    const photoTick = async () => {
+      if (stopped || photoBusy || base === null || Date.now() - photoAt < PHOTO_INTERVAL) return;
+      photoBusy = true;
+      photoAt = Date.now();
+      try {
+        const s = storeRef.current;
+        const wanted = photoIdsOf(s.data);
+        if (wanted.size === 0) return setStatus({ photosPending: 0 });
+        const r = await call(base, code, 'GET', '/api/sync/photos');
+        if (r.status !== 200) return;
+        const remote = new Set(((r.json as { ids?: string[] } | null)?.ids ?? []).map(String));
+        const local = await s.localPhotoIds();
+        const up = [...wanted].filter((id) => local.has(id) && !remote.has(id));
+        const down = [...wanted].filter((id) => !local.has(id) && remote.has(id));
+        setStatus({ photosPending: up.length + down.length });
+        for (const id of up.slice(0, PHOTO_BATCH)) {
+          const p = await s.readPhoto(id);
+          if (p) await call(base, code, 'POST', '/api/sync/photo', p);
+        }
+        for (const id of down.slice(0, PHOTO_BATCH)) {
+          const g = await call(base, code, 'GET', `/api/sync/photo?id=${encodeURIComponent(id)}`);
+          const p = g.json as PhotoExport | null;
+          if (g.status === 200 && p?.meta?.id === id && typeof p.full === 'string') await storeRef.current.writePhoto(p);
+        }
+        const left = Math.max(0, up.length - PHOTO_BATCH) + Math.max(0, down.length - PHOTO_BATCH);
+        setStatus({ photosPending: left });
+        // Il en reste : on enchaîne sans attendre 15 s.
+        if (left > 0) photoAt = 0;
+      } catch {
+        /* réessai au prochain passage */
+      } finally {
+        photoBusy = false;
       }
     };
     const loop = () => {
@@ -200,6 +246,7 @@ export function useRemoteSync() {
     const onVisible = () => document.visibilityState === 'visible' && void tick();
     kick = () => {
       pushed = -1;
+      photoAt = 0;
       void tick();
     };
 

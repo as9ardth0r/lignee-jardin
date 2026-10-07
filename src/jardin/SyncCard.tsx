@@ -34,6 +34,7 @@ export function SyncCard() {
   const stateLine = (
     <p className="mt-2 text-sm font-medium" style={{ color: tone }} role="status">
       {st.state === 'ok' ? '●' : '○'} {tt(STATE_KEY[st.state], { time })}
+      {st.state === 'ok' && (st.photosPending ?? 0) > 0 ? ` · ${tt('sync.photosPending', { n: st.photosPending ?? 0 })}` : ''}
     </p>
   );
 

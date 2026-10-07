@@ -20,6 +20,7 @@ import { PestCountSheet } from './Pests';
 import { StockSheet } from './Stocks';
 import { rescheduleNotifications } from './notifications';
 import { MushroomSheet, MushSpeciesSheet } from './Mushrooms';
+import { WeekSheet } from './Week';
 import { AtelierHost, AteliersView } from './Ateliers';
 import type { OpenAtelierId as AtelierId } from '../ateliers/registry';
 
@@ -208,6 +209,7 @@ function Shell() {
         {top?.type === 'soil' && <SoilTestSheet key={`${top.id}-${top.bedId}`} id={top.id} bedId={top.bedId} onClose={close} />}
         {top?.type === 'sensor' && <SensorSheet key={`${top.id}-${top.bedId}-${top.kind}`} id={top.id} bedId={top.bedId} kind={top.kind} onClose={close} />}
         {top?.type === 'mushroom' && <MushroomSheet key={`${top.id}-${top.speciesId}-${top.parentId}-${top.clone}-${top.stage}-${top.edit}`} id={top.id} speciesId={top.speciesId} parentId={top.parentId} clone={top.clone} stage={top.stage} edit={top.edit} onClose={close} />}
+        {top?.type === 'week' && <WeekSheet onClose={close} />}
         {top?.type === 'mushSpecies' && <MushSpeciesSheet key={top.id} id={top.id} onClose={close} />}
         {top?.type === 'seed' && <SeedSheet key={`${top.id}-${top.speciesId}`} id={top.id} speciesId={top.speciesId} onClose={close} />}
 

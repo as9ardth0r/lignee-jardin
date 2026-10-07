@@ -17,6 +17,7 @@ import { CompassButton } from './Locate';
 import { GardensCard, NotificationsCard } from './ProSettings';
 import { SyncCard } from './SyncCard';
 import { SpeciesPhotosCard } from './Photos';
+import { BackupStatus } from './BackupReminder';
 
 export const KINDS: GardenKind[] = ['vegetable', 'orchard', 'ornamental', 'balcony', 'greenhouse'];
 export const PRACTICES: Practice[] = ['conventional', 'livingSoil', 'permaculture', 'organic', 'soilless'];
@@ -276,6 +277,7 @@ export function SettingsView() {
           </Button>
           <input ref={backupRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => e.target.files?.[0] && importJSON(e.target.files[0]).finally(() => (e.target.value = ''))} />
         </div>
+        <BackupStatus />
         <p className="mt-3 text-xs font-semibold" style={{ color: INK500 }}>
           {tt('settings.csv')}
         </p>

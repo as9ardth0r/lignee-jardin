@@ -3,7 +3,7 @@
  * volées), prochaine action, efficacité biologique, lignée des souches et
  * calculateurs du labo (hydratation, ensemencement, grain, chevilles…).
  */
-import { MUSHROOM_BY_ID, SUBSTRATE_BY_ID, type MushroomSpecies, type SubstrateId } from '../data/mushrooms';
+import { MUSHROOM_BY_ID, MUSHROOM_PRICE, SUBSTRATE_BY_ID, type MushroomSpecies, type SubstrateId } from '../data/mushrooms';
 import type { GardenData, ISODate, MushBatch, MushStage } from '../model';
 import { addDays, diffDays, monthOf } from './dates';
 import { inWindow } from './crop';
@@ -56,6 +56,7 @@ export type MushNext =
   | 'spent'
   | 'waitSeason'
   | 'fruitSeason'
+  | 'water'
   | 'none';
 
 export interface MushInfo {
@@ -233,10 +234,35 @@ export interface MushTask {
   bedId?: string;
 }
 
+/** Semaine (lundi) d'une date, pour ne rappeler l'arrosage qu'une fois par semaine. */
+function weekStamp(d: ISODate): string {
+  const dow = (new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7;
+  return addDays(d, -dow);
+}
+
 const TASK_NEXT: MushNext[] = ['shake', 'checkColon', 'overdue', 'transfer', 'useLC', 'spawn', 'initiate', 'coldShock', 'harvest', 'nextFlush', 'spent', 'fruitSeason'];
 
-export function mushroomTasks(data: Pick<GardenData, 'mushrooms'>, today: ISODate, horizon: ISODate): MushTask[] {
+/** Sécheresse récente : moins de 5 mm de pluie en 7 jours par temps doux, sans pluie annoncée sous 2 jours. */
+export function dryWeek(weather: GardenData['weather'], today: ISODate): { rain: number } | null {
+  if (!weather) return null;
+  const past = weather.days.filter((d) => d.date < today && d.date >= addDays(today, -7));
+  const next = weather.days.filter((d) => d.date >= today && d.date <= addDays(today, 1));
+  if (past.length < 5) return null;
+  const rain = past.reduce((s, d) => s + d.rain, 0);
+  if (rain >= 5 || next.reduce((s, d) => s + d.rain, 0) >= 3) return null;
+  if (Math.max(...past.map((d) => d.tmax)) < 12) return null;
+  return { rain };
+}
+
+export function mushroomTasks(data: Pick<GardenData, 'mushrooms'> & Partial<Pick<GardenData, 'weather'>>, today: ISODate, horizon: ISODate): MushTask[] {
   const out: MushTask[] = [];
+  const dry = dryWeek(data.weather, today);
+  if (dry) {
+    for (const b of data.mushrooms ?? []) {
+      if ((b.stage !== 'log' && b.stage !== 'bed') || b.status === 'done' || b.status === 'contam' || !MUSHROOM_BY_ID[b.speciesId] || MUSHROOM_BY_ID[b.speciesId].methods.includes('tree')) continue;
+      out.push({ key: `mush:water:${b.id}:${weekStamp(today)}`, batchId: b.id, what: 'water', due: today, priority: 2, bedId: b.bedId });
+    }
+  }
   for (const b of data.mushrooms ?? []) {
     if (!MUSHROOM_BY_ID[b.speciesId] || b.status === 'done' || b.status === 'contam') continue;
     const i = mushInfo(b, today);
@@ -311,4 +337,53 @@ export function labRecipe(kind: 'agar' | 'lc', volumeL: number): Array<{ what: '
 export function substrateTarget(id: SubstrateId): { moisture: number; dryMoisture: number; spawnRate: [number, number] } {
   const s = SUBSTRATE_BY_ID[id];
   return { moisture: s.moisture, dryMoisture: s.dryMoisture, spawnRate: s.spawnRate };
+}
+
+// --- Bilan de la saison -------------------------------------------------------------------------------
+
+export interface MushSeasonRow {
+  speciesId: string;
+  grams: number;
+  priceKg: number;
+  value: number;
+}
+
+/** Récoltes de champignons d'une année, par espèce, avec leur valeur (prix choisi ou de référence). */
+export function mushroomSeason(data: Pick<GardenData, 'mushrooms' | 'prices'>, year: number): { rows: MushSeasonRow[]; grams: number; value: number } {
+  const g = new Map<string, number>();
+  for (const b of data.mushrooms ?? []) for (const h of b.harvests) if (Number(h.date.slice(0, 4)) === year) g.set(b.speciesId, (g.get(b.speciesId) ?? 0) + h.g);
+  const rows = [...g.entries()]
+    .map(([speciesId, grams]) => {
+      const priceKg = data.prices?.[speciesId] ?? MUSHROOM_PRICE[speciesId] ?? 15;
+      return { speciesId, grams, priceKg, value: (grams / 1000) * priceKg };
+    })
+    .sort((a, b) => b.grams - a.grams);
+  return { rows, grams: rows.reduce((s, r) => s + r.grams, 0), value: rows.reduce((s, r) => s + r.value, 0) };
+}
+
+/** Années où des champignons ont été récoltés. */
+export function mushroomYears(data: Pick<GardenData, 'mushrooms'>): number[] {
+  return [...new Set((data.mushrooms ?? []).flatMap((b) => b.harvests.map((h) => Number(h.date.slice(0, 4)))))];
+}
+
+// --- Au jardin : exposition --------------------------------------------------------------------
+
+/** Exposition idéale d'une culture extérieure : la truffière veut le soleil, la strophaire et l'agaric la mi-ombre, le reste l'ombre. */
+export function outdoorSun(sp: MushroomSpecies): 'full' | 'partial' | 'shade' {
+  if (sp.methods.includes('tree')) return 'full';
+  if (sp.id === 'm-wine-cap' || sp.id === 'm-almond' || sp.id === 'm-shaggy') return 'partial';
+  return 'shade';
+}
+
+/** Écart entre l'exposition d'une planche et celle que veut le champignon. */
+export function sunAdvice(sp: MushroomSpecies, exposure: 'full' | 'partial' | 'shade'): 'ok' | 'tooSunny' | 'tooShady' {
+  const want = outdoorSun(sp);
+  const rank = { shade: 0, partial: 1, full: 2 };
+  const d = rank[exposure] - rank[want];
+  return d > 0 ? 'tooSunny' : d < -1 || (want === 'full' && d < 0) ? 'tooShady' : 'ok';
+}
+
+/** Cultures de champignons en cours sur une planche. */
+export function mushroomsOnBed(data: Pick<GardenData, 'mushrooms'>, bedId: string): MushBatch[] {
+  return (data.mushrooms ?? []).filter((b) => b.bedId === bedId && b.status !== 'done' && b.status !== 'contam');
 }

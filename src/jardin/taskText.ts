@@ -25,7 +25,7 @@ export function taskText(task: Task, tt: TT, lang: 'fr' | 'en'): string {
   if (task.kind === 'mushroom') {
     const m = MUSHROOM_BY_ID[String(task.vars.mush)];
     const mname = `${m?.name[lang] ?? ''}${task.vars.strain ? ` · ${task.vars.strain}` : ''}`;
-    return tt(`task.mush.${task.vars.what}` as JKey, { name: mname, stage: tt(`mush.stage.${task.vars.stage}` as JKey), qty: task.vars.qty, days: m?.restDays ?? 0 });
+    return tt((task.vars.what === 'water' && Number(task.vars.liters) > 0 ? 'task.mush.waterL' : `task.mush.${task.vars.what}`) as JKey, { name: mname, stage: tt(`mush.stage.${task.vars.stage}` as JKey), qty: task.vars.qty, days: m?.restDays ?? 0, liters: task.vars.liters });
   }
   if (task.kind === 'compost') return tt(`task.compost.${task.vars.what}` as JKey, { name: String(task.vars.name ?? '') });
   if (task.kind === 'lime') {

@@ -221,7 +221,7 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
 
   for (const m of mushroomTasks(data, today, horizon)) {
     const b = data.mushrooms.find((x) => x.id === m.batchId)!;
-    tasks.push({ key: m.key, kind: 'mushroom', due: m.due, priority: m.priority, bedId: m.bedId, mushId: m.batchId, vars: { what: m.what, mush: b.speciesId, stage: b.stage, strain: strainOf(b, data.mushrooms) ?? '', qty: b.qty } });
+    tasks.push({ key: m.key, kind: 'mushroom', due: m.due, priority: m.priority, bedId: m.bedId, mushId: m.batchId, vars: { what: m.what, mush: b.speciesId, stage: b.stage, strain: strainOf(b, data.mushrooms) ?? '', qty: b.qty, liters: b.areaM2 ? Math.round(b.areaM2 * 10) : 0 } });
   }
 
   for (const t of data.tasks) {

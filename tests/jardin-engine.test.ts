@@ -62,6 +62,10 @@ import { moonDay, moonPosition } from '../src/jardin/engine/moon';
 import { pendingVarieties } from '../src/ateliers/pending';
 import { LIGNEE_CROPS } from '../src/jardin/engine/backup';
 import { MUSHROOMS, MUSHROOM_BY_ID, MUSH_PROBLEMS, SUBSTRATES } from '../src/jardin/data/mushrooms';
+import { dryWeek, mushroomSeason, sunAdvice, outdoorSun } from '../src/jardin/engine/mushroom';
+import { weekPlan } from '../src/jardin/engine/week';
+import { MONTH_WORKS } from '../src/jardin/data/monthWorks';
+import { ORCHARD_MONTHS } from '../src/jardin/data/orchard';
 import { bedFor, bioEfficiency, colonRange, countFlushes, generation, jarsFor, labRecipe, lineage, mushInfo, mushroomTasks, plugsFor, spawnFor, strainOf, strainRanking, tempFactor, waterToAdd } from '../src/jardin/engine/mushroom';
 import type { MushBatch } from '../src/jardin/model';
 import { commonsFile, downloadPhoto, stripHtml, titleCandidates } from '../src/jardin/engine/speciesPhoto';
@@ -90,8 +94,8 @@ const data = (over: Partial<GardenData>): GardenData => ({ ...EMPTY_DATA, settin
 
 // --- Catalogue ------------------------------------------------------------
 
-test('catalogue : 85 légumes, 32 aromatiques, 40 fruitiers, 169 fleurs et 12 engrais verts, identifiants uniques', () => {
-  ok(VEGETABLES.length + MORE_VEGETABLES.length === 85 && HERBS.length === 32 && ORCHARD.length === 40 && FLOWERS.length === 169 && SPECIES.filter((x) => x.type === 'cover').length === 12 && SPECIES.length === 338, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
+test('catalogue : 85 légumes, 32 aromatiques, 62 fruitiers, 169 fleurs et 12 engrais verts, identifiants uniques', () => {
+  ok(VEGETABLES.length + MORE_VEGETABLES.length === 85 && HERBS.length === 32 && ORCHARD.length === 62 && FLOWERS.length === 169 && SPECIES.filter((x) => x.type === 'cover').length === 12 && SPECIES.length === 360, `${VEGETABLES.length} + ${MORE_VEGETABLES.length} + ${HERBS.length} + ${ORCHARD.length} + ${FLOWERS.length} espèces`);
   ok(MORE_VEGETABLES.every((v) => SPECIES_EXTRA[v.id]?.seedTip && MATURE_HEIGHT[v.id] > 0), 'nouveaux légumes : fiches complètes');
   ok(ORCHARD.every((f) => f.type === 'orchard' && f.life === 'perennial' && SPECIES_EXTRA[f.id]?.seedTip && MATURE_HEIGHT[f.id] > 0), 'fruitiers : fiches complètes');
   ok(HERBS.every((h) => h.type === 'herb' && SPECIES_EXTRA[h.id]?.seedTip && MATURE_HEIGHT[h.id] > 0), 'aromatiques : fiches complètes');
@@ -1491,6 +1495,38 @@ test('champignons : lignée, clones, souches et tâches', () => {
   ok(generateTasks(d, '2026-09-03').some((x) => x.kind === 'mushroom' && x.mushId === 'x'), 'dans Aujourd’hui');
   ok(parseBackup(serializeBackup(d, [])).data.mushrooms[0].stage === 'grain', 'sauvegarde');
   ok(photoIdsOf(data({ mushrooms: [mb({ photoIds: ['pm'] })] })).has('pm'), 'photos des cultures');
+});
+
+test('fruitiers : agrumes et nouveaux fruitiers', () => {
+  for (const id of ['orange', 'mandarin', 'clementine', 'kumquat', 'grapefruit', 'lime', 'yuzu', 'citron', 'bitterorange', 'poncirus', 'peach', 'sourcherry', 'nashi', 'kiwai', 'passionfruit', 'jujube', 'pawpaw', 'strawberrytree', 'cornelian', 'guava', 'serviceberry', 'pistachio', 'servicetree']) {
+    const sp = SPECIES_BY_ID[id];
+    ok(sp && sp.type === 'orchard' && ORCHARD_MONTHS[id] && sp.note.fr.length > 40 && sp.note.en.length > 40, id);
+  }
+  ok(SPECIES_BY_ID.poncirus.frost === 'hardy' && SPECIES_BY_ID.orange.frost === 'tender' && SPECIES_BY_ID.yuzu.frost === 'half', 'rusticité des agrumes');
+});
+
+test('champignons : bilan, arrosage par temps sec, exposition', () => {
+  const muBatches = [mb({ id: 'a', harvests: [{ date: '2026-09-27', g: 800 }, { date: '2025-10-01', g: 300 }] }), mb({ id: 'b', speciesId: 'm-shiitake', harvests: [{ date: '2026-10-02', g: 500 }] })];
+  const ms = mushroomSeason({ mushrooms: muBatches, prices: { 'm-shiitake': 30 } }, 2026);
+  ok(ms.grams === 1300 && near(ms.value, 0.8 * 12 + 0.5 * 30), `bilan ${JSON.stringify(ms)}`);
+  const days = (rain: number) => Array.from({ length: 10 }, (_, i) => ({ date: `2026-07-${String(i + 1).padStart(2, '0')}`, tmax: 25, tmin: 14, rain, et0: 4, wind: 10, gust: 20 }));
+  const w = (rain: number) => ({ lat: 48.8, lon: 2.3, fetchedAt: '2026-07-08T08:00:00Z', days: days(rain) });
+  ok(dryWeek(w(0), '2026-07-08') && !dryWeek(w(3), '2026-07-08'), 'semaine sèche');
+  const bed = mb({ id: 'w', speciesId: 'm-wine-cap', stage: 'bed', started: '2026-05-01', areaM2: 2 });
+  ok(mushroomTasks({ mushrooms: [bed], weather: w(0) }, '2026-07-08', '2026-07-11').some((t) => t.what === 'water'), 'arroser la planche');
+  ok(!mushroomTasks({ mushrooms: [mb({ id: 'i' })], weather: w(0) }, '2026-07-08', '2026-07-11').some((t) => t.what === 'water'), 'pas pour un sac en intérieur');
+  const wc = MUSHROOM_BY_ID['m-wine-cap'];
+  ok(outdoorSun(wc) === 'partial' && sunAdvice(wc, 'full') === 'tooSunny' && sunAdvice(wc, 'partial') === 'ok' && sunAdvice(MUSHROOM_BY_ID['m-shiitake'], 'shade') === 'ok' && sunAdvice(MUSHROOM_BY_ID['m-truffle'], 'partial') === 'tooShady', 'exposition');
+});
+
+test('cette semaine : semis avec les graines en stock, récoltes, travaux du mois', () => {
+  for (let m = 1; m <= 12; m++) ok(MONTH_WORKS[m]?.length >= 3, `travaux ${m}`);
+  const d = data({ seeds: [{ id: 's1', speciesId: 'radish', year: 2026 }, { id: 's2', speciesId: 'tomato', year: 2025 }] });
+  const w = weekPlan(d, '2026-04-06');
+  ok(w.sow.some((s) => s.speciesId === 'radish' && s.how === 'outdoor'), `radis ${JSON.stringify(w.sow)}`);
+  ok(w.month === 4 && w.to === '2026-04-12', 'semaine');
+  const w2 = weekPlan({ ...d, plants: [{ id: 'p', speciesId: 'radish', bedId: 'b', sowDate: '2026-04-01', status: 'growing' } as never] }, '2026-04-06');
+  ok(!w2.sow.some((s) => s.speciesId === 'radish'), 'déjà semé : pas reproposé');
 });
 
 const photoJobs: Array<Promise<void>> = [];

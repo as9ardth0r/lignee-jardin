@@ -157,6 +157,11 @@ export interface GardenStore {
   /** Enregistre des photos (compressées) et renvoie leurs identifiants ; et les supprime. */
   addPhotos: (files: Blob[]) => Promise<string[]>;
   removePhotos: (ids: string[]) => void;
+  /** Synchronisation des photos avec le PC : identifiants présents ici, lecture et écriture d'une photo, compteur de mises à jour. */
+  localPhotoIds: () => Promise<Set<string>>;
+  readPhoto: (id: string) => Promise<PhotoExport | null>;
+  writePhoto: (p: PhotoExport) => Promise<void>;
+  photoRev: number;
   exportBackup: () => Promise<string>;
   importBackup: (raw: string) => Promise<void>;
   loadDemo: () => void;
@@ -213,6 +218,7 @@ const Ctx = createContext<GardenStore | null>(null);
 export function GardenProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<GardenData>(EMPTY_DATA);
   const [ready, setReady] = useState(false);
+  const [photoRev, setPhotoRev] = useState(0);
   const [volatile, setVolatile] = useState(false);
   const dbRef = useRef<IDBDatabase | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
@@ -486,6 +492,27 @@ export function GardenProvider({ children }: { children: ReactNode }) {
         urlCache.current.set(key, url);
         return url;
       },
+      localPhotoIds: async () => {
+        const db = dbRef.current;
+        if (!db) return new Set<string>();
+        const keys = (await tx<IDBValidKey[]>(db, PHOTOS, 'readonly', (s) => s.getAllKeys() as IDBRequest<IDBValidKey[]>).catch(() => [])) ?? [];
+        return new Set(keys.map(String));
+      },
+      readPhoto: async (id) => {
+        const db = dbRef.current;
+        if (!db) return null;
+        const rec = await tx<PhotoRecord>(db, PHOTOS, 'readonly', (s) => s.get(id) as IDBRequest<PhotoRecord>).catch(() => undefined);
+        if (!rec) return null;
+        return { meta: rec.meta, full: await blobToDataURL(rec.full), thumb: await blobToDataURL(rec.thumb) };
+      },
+      writePhoto: async (p) => {
+        const db = dbRef.current;
+        if (!db) return;
+        const rec: PhotoRecord = { id: p.meta.id, meta: p.meta, full: await dataURLToBlob(p.full), thumb: await dataURLToBlob(p.thumb) };
+        await tx(db, PHOTOS, 'readwrite', (s) => s.put(rec));
+        setPhotoRev((n) => n + 1);
+      },
+      photoRev,
       exportBackup: async () => {
         const db = dbRef.current;
         const photos: PhotoExport[] = [];
@@ -635,7 +662,7 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       deleteSoilTest: (id) => mutate((d) => ({ ...d, soilTests: d.soilTests.filter((x) => x.id !== id) })),
       deleteTankChange: (id) => mutate((d) => ({ ...d, tankChanges: d.tankChanges.filter((x) => x.id !== id) })),
     }),
-    [ready, volatile, data, today, mutate, deletePhotos, refreshWeather, weatherBusy, index, writeNow, saveIndex, loadGarden],
+    [ready, volatile, data, today, mutate, deletePhotos, refreshWeather, weatherBusy, index, writeNow, saveIndex, loadGarden, photoRev],
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

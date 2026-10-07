@@ -1048,3 +1048,30 @@ export const LAB_GUIDES: LabGuide[] = [
     },
   },
 ];
+
+/** Prix de référence au détail en France, champignons frais (€/kg, ordre de grandeur) : sert au bilan de la saison. */
+export const MUSHROOM_PRICE: Record<string, number> = {
+  'm-oyster': 12,
+  'm-pulmonarius': 12,
+  'm-golden': 25,
+  'm-pink': 25,
+  'm-king': 15,
+  'm-shiitake': 20,
+  'm-lionsmane': 35,
+  'm-reishi': 40,
+  'm-maitake': 40,
+  'm-poplar': 30,
+  'm-nameko': 25,
+  'm-shimeji': 20,
+  'm-enoki': 10,
+  'm-woodear': 20,
+  'm-wine-cap': 20,
+  'm-button': 5,
+  'm-almond': 30,
+  'm-blewit': 30,
+  'm-shaggy': 20,
+  'm-paddy': 15,
+  'm-cordyceps': 80,
+  'm-morel': 80,
+  'm-truffle': 800,
+};

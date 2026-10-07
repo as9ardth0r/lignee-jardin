@@ -22,6 +22,8 @@ import { RainTankCard } from './RainTank';
 import { BedLayout } from './BedLayout';
 import { layoutBed, neighbours } from './engine/layout';
 import { BedSoil, SoilCard } from './Soil';
+import { BedMushrooms } from './Mushrooms';
+import { mushroomsOnBed } from './engine/mushroom';
 
 const BED_FILL: Record<BedKind, { fill: string; stroke: string }> = {
   bed: { fill: '#8a6a44', stroke: '#5a4329' },
@@ -390,7 +392,7 @@ function GardenPlan({ sun, rotationYear }: { sun: { doy: number; hour: number } 
             const group = rotationYear !== null ? bedGroupOfYear(b.id, data.plants, rotationYear) : null;
             const issue = rotationYear !== null && bedRotationIssues(b.id, data.plants, rotationYear).length > 0;
             const c = rotationYear === null ? (b.kind === 'bed' ? { fill: ppm >= 45 ? 'url(#plan-soil)' : '#7a5634', stroke: '#c49a62' } : base) : group ? { fill: ROTATION_COLOR[group], stroke: '#2a2a22' } : { fill: '#5a5448', stroke: '#3a362e' };
-            const emojis = [...new Set(data.plants.filter((p) => p.bedId === b.id && isActiveOn(p, today)).map((p) => SPECIES_BY_ID[p.speciesId]?.emoji))].slice(0, 4).join('');
+            const emojis = [...new Set([...data.plants.filter((p) => p.bedId === b.id && isActiveOn(p, today)).map((p) => SPECIES_BY_ID[p.speciesId]?.emoji), ...(mushroomsOnBed(data, b.id).length ? ['🍄'] : [])])].slice(0, 4).join('');
             const laid = layouts.get(b.id) ?? [];
             // De près (planche d'au moins 110 px), les cultures s'affichent dans la planche, avec leur nom.
             const close = rotationYear === null && b.kind !== 'hydro' && Math.min(b.w, b.h) * ppm >= 60 && b.w * ppm >= 110;
@@ -705,7 +707,7 @@ export function GardenView() {
                       </span>
                     </span>
                     <span className="mt-0.5 flex items-baseline justify-between gap-2 text-xs" style={{ color: INK700 }}>
-                      <span className="truncate">{active.length ? active.map((p) => SPECIES_BY_ID[p.speciesId]?.emoji).join(' ') : tt('garden.bedEmpty')}</span>
+                      <span className="truncate">{active.length || mushroomsOnBed(data, b.id).length ? [...active.map((p) => SPECIES_BY_ID[p.speciesId]?.emoji), ...(mushroomsOnBed(data, b.id).length ? ['🍄'] : [])].join(' ') : tt('garden.bedEmpty')}</span>
                       {sun && (
                         <span className="shrink-0" title={tt('sun.seasonHint')}>
                           ☀ {tt('sun.hours', { h: fmtNum(sun.season, lang, 1) })} · {tt(`sun.${sun.exposure}` as JKey)}
@@ -1143,6 +1145,8 @@ export function BedSheet({ id, onClose }: { id: string; onClose: () => void }) {
         {bed.kind !== 'hydro' && <BedLayout bed={bed} />}
         {bed.kind !== 'hydro' && <BedHistory bedId={bed.id} />}
         {bed.kind !== 'hydro' && bed.kind !== 'pot' && <BedMulch bed={bed} />}
+
+        <BedMushrooms bedId={bed.id} exposure={sun?.exposure} />
 
         {sun && (
           <section>

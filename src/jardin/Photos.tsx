@@ -189,7 +189,7 @@ export function SpeciesPhotosCard() {
 }
 
 function OwnThumb({ id, onOpen, onRemove }: { id: string; onOpen: (url: string) => void; onRemove?: () => void }) {
-  const { photoURL } = useGarden();
+  const { photoURL, photoRev } = useGarden();
   const { tt } = useJT();
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -198,7 +198,7 @@ function OwnThumb({ id, onOpen, onRemove }: { id: string; onOpen: (url: string) 
     return () => {
       alive = false;
     };
-  }, [id, photoURL]);
+  }, [id, photoURL, photoRev]);
   return (
     <span className="relative inline-block h-16 w-16">
       {url ? (

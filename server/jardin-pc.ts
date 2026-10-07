@@ -16,7 +16,7 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, networkInterfaces } from 'node:os';
 import { extname, join, normalize, resolve } from 'node:path';
 import { mergeSynced } from '../src/jardin/engine/sync';
@@ -27,10 +27,14 @@ const DIR = process.env.JARDIN_DIR || join(homedir(), '.lignee-jardin');
 const DIST = resolve(process.env.JARDIN_DIST || join(import.meta.dirname, '..', 'dist'));
 const DATA_FILE = join(DIR, 'jardin.json');
 const CONF_FILE = join(DIR, 'config.json');
+/** Photos et notes vocales, une par fichier : ~/.lignee-jardin/photos/<id>.json. */
+const PHOTO_DIR = join(DIR, 'photos');
+const PHOTO_ID = /^[a-z]{1,8}-[a-z0-9]{1,16}-[a-z0-9]{1,16}$/i;
 /** Taille maximale d'un envoi (jardin complet, sans les photos). */
 const MAX_BODY = 30 * 1024 * 1024;
 
 mkdirSync(DIR, { recursive: true });
+mkdirSync(PHOTO_DIR, { recursive: true });
 
 // Code d'appairage : créé au premier lancement, gardé ensuite.
 const conf: { code: string } = existsSync(CONF_FILE) ? JSON.parse(readFileSync(CONF_FILE, 'utf8')) : { code: '' };
@@ -128,6 +132,30 @@ const server = createServer(async (req, res) => {
     if (!authed) return send(res, 401, { error: 'code' });
     if (url.pathname === '/api/sync/rev' && req.method === 'GET') return send(res, 200, { rev: store.rev });
     if (url.pathname === '/api/sync' && req.method === 'GET') return send(res, 200, { rev: store.rev, data: store.data });
+    // Photos : liste, lecture, dépôt (le jardin ne contient que leurs identifiants).
+    if (url.pathname === '/api/sync/photos' && req.method === 'GET') {
+      return send(res, 200, { ids: readdirSync(PHOTO_DIR).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)) });
+    }
+    if (url.pathname === '/api/sync/photo' && req.method === 'GET') {
+      const id = url.searchParams.get('id') ?? '';
+      if (!PHOTO_ID.test(id)) return send(res, 400, { error: 'id' });
+      const f = join(PHOTO_DIR, `${id}.json`);
+      if (!existsSync(f)) return send(res, 404, { error: 'not found' });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+      return res.end(readFileSync(f));
+    }
+    if (url.pathname === '/api/sync/photo' && req.method === 'POST') {
+      const p = JSON.parse(await readBody(req)) as { meta?: { id?: string }; full?: string; thumb?: string };
+      const id = p.meta?.id ?? '';
+      if (!PHOTO_ID.test(id) || typeof p.full !== 'string' || typeof p.thumb !== 'string' || !p.full.startsWith('data:')) return send(res, 400, { error: 'photo' });
+      const f = join(PHOTO_DIR, `${id}.json`);
+      if (!existsSync(f)) {
+        writeFileSync(`${f}.tmp`, JSON.stringify(p));
+        renameSync(`${f}.tmp`, f);
+        console.log(`${new Date().toLocaleTimeString('fr-FR')}  photo reçue (${id})`);
+      }
+      return send(res, 200, { ok: true });
+    }
     if (url.pathname === '/api/sync' && req.method === 'POST') {
       const body = JSON.parse(await readBody(req)) as { data?: GardenData };
       const incoming = body.data;

@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from 'react';
 import { LAB_GUIDES, MUSH_PROBLEMS, MUSHROOM_BY_ID, MUSHROOMS, PROBLEM_COLORS, SUBSTRATE_BY_ID, SUBSTRATES, type MushMethod, type MushroomSpecies, type ProblemColor, type SubstrateId } from './data/mushrooms';
-import { bedFor, childStage, colonRange, generation, jarsFor, labRecipe, lineage, mushInfo, MUSH_STAGES, plugsFor, spawnFor, strainOf, strainRanking, waterToAdd, wetWeight, DRY_GRAIN_KG_PER_L, type MushNext } from './engine/mushroom';
+import { bedFor, mushroomsOnBed, outdoorSun, sunAdvice, childStage, colonRange, generation, jarsFor, labRecipe, lineage, mushInfo, MUSH_STAGES, plugsFor, spawnFor, strainOf, strainRanking, waterToAdd, wetWeight, DRY_GRAIN_KG_PER_L, type MushNext } from './engine/mushroom';
 import { addDays } from './engine/dates';
 import { shiftWindows } from './engine/crop';
 import { fmtDate, fmtNum } from './format';
@@ -419,7 +419,12 @@ function MushroomDetail({ b, onClose }: { b: MushBatch; onClose: () => void }) {
           {b.substrate ? ` · ${SUBSTRATE_BY_ID[b.substrate as SubstrateId]?.name[lang] ?? b.substrate}` : ''}
           {b.dryKg ? ` · ${tt('mush.dryShort', { kg: fmtNum(b.dryKg, lang, 1) })}` : ''}
           {b.areaM2 ? ` · ${fmtNum(b.areaM2, lang, 1)} m²` : ''}
-          {bedName ? ` · ${bedName}` : ''}
+          {bedName ? ' · ' : ''}
+          {bedName && (
+            <button type="button" className="underline" onClick={() => nav.open({ type: 'bed', id: b.bedId! })}>
+              🟫 {bedName}
+            </button>
+          )}
           {b.tempC !== undefined ? ` · ${b.tempC} °C` : ''}
           {b.source ? ` · ${b.source}` : ''}
         </p>
@@ -986,3 +991,44 @@ function ProblemsView() {
   );
 }
 
+
+/** Fiche d'une planche : champignons qui y poussent, et si l'exposition leur convient. */
+export function BedMushrooms({ bedId, exposure }: { bedId: string; exposure?: 'full' | 'partial' | 'shade' }) {
+  const { data, today } = useGarden();
+  const { tt, lang } = useJT();
+  const nav = useNav();
+  const list = mushroomsOnBed(data, bedId);
+  if (list.length === 0) return null;
+  return (
+    <section data-testid="bed-mushrooms">
+      <h3 className="mb-1 font-display text-lg">🍄 {tt('mush.onBed')}</h3>
+      <ul className="space-y-2">
+        {list.map((b) => {
+          const sp = MUSHROOM_BY_ID[b.speciesId];
+          if (!sp) return null;
+          const i = mushInfo(b, today);
+          const adv = exposure ? sunAdvice(sp, exposure) : 'ok';
+          return (
+            <li key={b.id} className="rounded px-3 py-2" style={{ background: 'var(--color-paper-200)' }}>
+              <button type="button" className="text-left text-sm font-medium underline" onClick={() => nav.open({ type: 'mushroom', id: b.id })}>
+                {STAGE_ICON[b.stage]} {sp.name[lang]} · {tt(`mush.stage.${b.stage}` as JKey)}
+                {b.qty > 1 ? ` ×${b.qty}` : ''}
+              </button>
+              {i.next !== 'none' && (
+                <p className="text-xs" style={{ color: INK700 }}>
+                  → {nextText(tt, i.next, sp, b)}
+                </p>
+              )}
+              {exposure && (
+                <p className="mt-0.5 text-xs" style={{ color: adv === 'ok' ? '#2f4a22' : '#7a4a0c' }}>
+                  {adv === 'ok' ? '✓ ' : '⚠ '}
+                  {tt(`mush.sun.${adv}` as JKey, { want: tt(`mush.want.${outdoorSun(sp)}` as JKey), is: tt(`sun.${exposure}` as JKey) })}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}

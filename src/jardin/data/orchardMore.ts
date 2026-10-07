@@ -223,6 +223,140 @@ const DEFS: Def[] = [
     note: T('Climat méditerranéen : fleurit en hiver, récolte en mai-juin. L’arbre tient −12 °C mais fleurs et jeunes fruits gèlent vers −3 °C : en région parisienne, beau feuillage persistant et récolte rare. Autofertile.', 'Mediterranean climate: flowers in winter, harvested in May–June. The tree takes −12 °C but flowers and young fruit freeze around −3 °C: around Paris, fine evergreen foliage and an occasional crop. Self-fertile.'),
     prop: [10, 'Les noyaux germent facilement mais fructifient après 6 à 8 ans : greffer les bonnes variétés.', 'Seeds sprout easily but fruit only after 6–8 years: graft good varieties.'],
   },
+  // --- Agrumes : en pot au nord de la Loire (rentrés hors gel d'octobre à mai), en pleine terre sur la côte méditerranéenne et en Corse.
+  {
+    id: 'orange', name: T('Oranger', 'Orange'), latin: 'Citrus × sinensis', emoji: '🍊', family: 'rutaceae', sun: 'full', frost: 'tender', pH: [6, 7], plantOut: [[5, 5]],
+    spacing: [400, 400], harvest: [760, 880], yieldM2: [1.5, 3], feeding: 'heavy', root: 0.6, height: 300, months: [12, 3],
+    note: T('Pleine terre seulement là où il gèle à peine (−3 °C au plus) ; ailleurs en grand pot, sorti au soleil de mai à octobre et hiverné lumineux à 5–12 °C. Les fruits mettent 10 à 12 mois à mûrir et ne sont sucrés qu’avec un été chaud. Navel (sans pépins, précoce), Valencia (tardive), Maltaise ou orange sanguine. Engrais agrumes d’avril à septembre, eau de pluie.', 'Outdoors only where frosts barely reach −3 °C; elsewhere in a large pot, out in the sun May–October and wintered bright at 5–12 °C. Fruit takes 10–12 months to ripen and is only sweet after a hot summer. Navel (seedless, early), Valencia (late), Maltaise or blood orange. Citrus feed April–September, rainwater.'),
+    prop: [3, 'Greffe sur Poncirus ou bigaradier pour la vigueur et la rusticité ; les pépins fructifient après 8 à 12 ans.', 'Graft onto Poncirus or sour orange for vigour and hardiness; pips fruit only after 8–12 years.'],
+  },
+  {
+    id: 'mandarin', name: T('Mandarinier (satsuma)', 'Mandarin (satsuma)'), latin: 'Citrus reticulata', emoji: '🍊', family: 'rutaceae', sun: 'full', frost: 'half', pH: [6, 7], plantOut: [[5, 5]],
+    spacing: [300, 300], harvest: [730, 820], yieldM2: [1.5, 3], feeding: 'heavy', root: 0.6, height: 250, months: [10, 12],
+    note: T('Le plus rustique des agrumes doux : les satsumas (Okitsu, Miyagawa) tiennent −7 °C à −8 °C un court moment et mûrissent dès octobre–novembre, avant les grands froids. En pleine terre sur la façade atlantique abritée et le Midi, en pot ailleurs. Fruits sans pépins, faciles à peler.', 'The hardiest sweet citrus: satsumas (Okitsu, Miyagawa) take −7 to −8 °C briefly and ripen as early as October–November, before hard frosts. In the ground on the sheltered Atlantic coast and in the south, in pots elsewhere. Seedless, easy-peel fruit.'),
+    prop: [3, 'Greffe sur Poncirus (rusticité) ; boutures semi-aoûtées possibles mais lentes.', 'Graft onto Poncirus (hardiness); semi-ripe cuttings possible but slow.'],
+  },
+  {
+    id: 'clementine', name: T('Clémentinier', 'Clementine'), latin: 'Citrus × clementina', emoji: '🍊', family: 'rutaceae', sun: 'full', frost: 'tender', pH: [6, 7], plantOut: [[5, 5]],
+    spacing: [300, 300], harvest: [740, 830], yieldM2: [1.5, 3], feeding: 'heavy', root: 0.6, height: 250, months: [11, 1],
+    note: T('La clémentine de Corse se récolte de novembre à janvier, avec ses feuilles. Tient −4 °C environ : pleine terre en Corse et sur la côte, pot ailleurs. Fructifie mieux avec un autre agrume à proximité (fruits sans pépins si elle est isolée).', 'Corsican clementines are picked November to January, with their leaves. Hardy to about −4 °C: in the ground in Corsica and on the coast, in pots elsewhere. Crops better with another citrus nearby (seedless fruit when grown alone).'),
+    prop: [3, 'Greffe sur bigaradier ou Poncirus.', 'Graft onto sour orange or Poncirus.'],
+  },
+  {
+    id: 'kumquat', name: T('Kumquat', 'Kumquat'), latin: 'Citrus japonica', emoji: '🟠', family: 'rutaceae', sun: 'full', frost: 'half', pH: [6, 7], plantOut: [[5, 5]],
+    spacing: [200, 200], harvest: [700, 820], yieldM2: [1, 2], feeding: 'medium', root: 0.5, height: 200, months: [12, 3],
+    note: T('Petit agrume qui se mange entier, peau sucrée et chair acidulée. L’un des plus rustiques (−8 à −10 °C bien aoûté) et des plus faciles en pot : il entre en repos l’hiver et fleurit en plein été. Confit, en marmelade ou cru.', 'Small citrus eaten whole: sweet peel, tart flesh. One of the hardiest (−8 to −10 °C when ripened wood) and easiest in pots: it rests in winter and flowers in midsummer. Candied, in marmalade or raw.'),
+    prop: [10, 'Greffe sur Poncirus ; marcottage aérien.', 'Graft onto Poncirus; air layering.'],
+  },
+  {
+    id: 'grapefruit', name: T('Pamplemoussier (pomelo)', 'Grapefruit'), latin: 'Citrus × paradisi', emoji: '🟡', family: 'rutaceae', sun: 'full', frost: 'tender', pH: [6, 7], plantOut: [[5, 5]],
+    spacing: [500, 500], harvest: [800, 900], yieldM2: [2, 4], feeding: 'heavy', root: 0.7, height: 400, months: [12, 4],
+    note: T('Le plus exigeant en chaleur : fruits juteux et peu amers seulement dans le Midi. Gèle vers −3 °C. En pot, prévoir un très grand bac et beaucoup de lumière l’hiver. Star Ruby (chair rouge), Marsh (blanc).', 'The most heat-hungry: juicy, mild fruit only in the south. Damaged around −3 °C. In pots, use a very large tub and plenty of winter light. Star Ruby (red flesh), Marsh (white).'),
+    prop: [3, 'Greffe sur bigaradier ou citrange.', 'Graft onto sour orange or citrange.'],
+  },
+  {
+    id: 'lime', name: T('Limettier (citron vert)', 'Lime'), latin: 'Citrus × latifolia', emoji: '🟢', family: 'rutaceae', sun: 'full', frost: 'tender', pH: [6, 7], plantOut: [[5, 5]],
+    spacing: [300, 300], harvest: [680, 790], yieldM2: [1.5, 3], feeding: 'heavy', root: 0.5, height: 250, months: [8, 12],
+    note: T('Le citron vert de Tahiti, sans pépins, fleurit plusieurs fois par an et se cueille encore vert. Très frileux (0 à −2 °C) : en pot partout sauf sur la Côte d’Azur. Le combava (Citrus hystrix) se cultive pareil, surtout pour ses feuilles.', 'Seedless Tahiti lime flowers several times a year and is picked while still green. Very frost-tender (0 to −2 °C): in a pot everywhere except the Riviera. Kaffir lime (Citrus hystrix) is grown the same way, mainly for its leaves.'),
+    prop: [10, 'Boutures semi-aoûtées à l’étouffée (reprend bien) ou greffe.', 'Semi-ripe cuttings under cover (root well) or grafting.'],
+  },
+  {
+    id: 'yuzu', name: T('Yuzu', 'Yuzu'), latin: 'Citrus junos', emoji: '🟡', family: 'rutaceae', sun: 'full', frost: 'half', pH: [6, 7], plantOut: [[4, 5]],
+    spacing: [300, 300], harvest: [1100, 1250], yieldM2: [0.5, 1.5], feeding: 'medium', root: 0.6, height: 300, months: [11, 12],
+    note: T('Agrume japonais très parfumé, cultivé pour son zeste et son jus. Rustique jusque vers −10 à −12 °C : il se tente en pleine terre contre un mur abrité dans l’ouest et le sud, même au nord de la Loire en situation chaude. Épineux, lent à se mettre à fruits.', 'Highly fragrant Japanese citrus grown for its zest and juice. Hardy to about −10 to −12 °C: worth trying in the ground against a sheltered wall in the west and south, even north of the Loire in a warm spot. Thorny, slow to start cropping.'),
+    prop: [15, 'Greffe sur Poncirus ; les semis (souvent fidèles) fructifient tard.', 'Graft onto Poncirus; seedlings (often true) fruit late.'],
+  },
+  {
+    id: 'citron', name: T('Cédratier (main de Bouddha)', 'Citron (Buddha’s hand)'), latin: 'Citrus medica', emoji: '🍋', family: 'rutaceae', sun: 'full', frost: 'tender', pH: [6, 7], plantOut: [[5, 5]],
+    spacing: [300, 300], harvest: [700, 820], yieldM2: [1, 2], feeding: 'heavy', root: 0.5, height: 250, months: [10, 2],
+    note: T('Gros fruit à peau très épaisse et parfumée, confite ou en liqueur (cédrat corse) ; la « main de Bouddha » est une forme digitée sans pulpe. Frileux (−3 °C) : en pot, rentré tôt.', 'Large, thick-skinned, fragrant fruit, candied or made into liqueur (Corsican citron); “Buddha’s hand” is a fingered form with no pulp. Frost-tender (−3 °C): in a pot, brought in early.'),
+    prop: [10, 'Boutures semi-aoûtées : reprennent facilement.', 'Semi-ripe cuttings root easily.'],
+  },
+  {
+    id: 'bitterorange', name: T('Bigaradier (orange amère)', 'Seville orange'), latin: 'Citrus × aurantium', emoji: '🍊', family: 'rutaceae', sun: 'full', frost: 'half', pH: [6, 7.5], plantOut: [[5, 5]],
+    spacing: [400, 400], harvest: [760, 880], yieldM2: [1.5, 3], feeding: 'medium', root: 0.6, height: 350, months: [1, 3],
+    note: T('L’orange de la marmelade, de l’eau de fleur d’oranger (fleurs) et du Cointreau (écorces). Plus rustique que l’oranger doux (−7 °C environ), arbre d’alignement sur la Côte d’Azur. En pot, il fleurit abondamment et sent merveilleusement.', 'The marmalade orange, source of orange-flower water (blossom) and orange liqueurs (peel). Hardier than sweet orange (about −7 °C), a street tree on the Riviera. In pots it flowers profusely and smells wonderful.'),
+    prop: [5, 'Les pépins donnent des plants fidèles, aussi utilisés comme porte-greffes.', 'Pips come true and are also used as rootstocks.'],
+  },
+  {
+    id: 'poncirus', name: T('Citronnier épineux (Poncirus)', 'Trifoliate orange'), latin: 'Citrus trifoliata', emoji: '🟡', family: 'rutaceae', sun: 'full', frost: 'hardy', pH: [5.5, 7], plantOut: [[11, 3]],
+    spacing: [200, 100], harvest: [1300, 1400], yieldM2: [0.5, 1], feeding: 'light', root: 0.6, height: 300, months: [10, 11],
+    note: T('Le seul agrume vraiment rustique (−20 °C), caduc, aux énormes épines : haie défensive, porte-greffe des agrumes. Petits fruits jaunes duveteux très acides et résineux, pour sirop, marmelade ou zestes, pas à croquer.', 'The only truly hardy citrus (−20 °C), deciduous with huge thorns: a defensive hedge and the citrus rootstock. Small fuzzy yellow fruit, very sour and resinous, for syrup, marmalade or zest, not for eating raw.'),
+    prop: [5, 'Semis des pépins à l’automne : plants fidèles.', 'Sow the pips in autumn: they come true.'],
+  },
+  // --- Autres fruitiers
+  {
+    id: 'sourcherry', name: T('Griottier (cerisier acide)', 'Sour cherry'), latin: 'Prunus cerasus', emoji: '🍒', family: 'rosaceae', sun: 'full', frost: 'hardy', pH: [6, 7.5],
+    spacing: [400, 400], harvest: [580, 620], yieldM2: [1, 2], feeding: 'medium', root: 0.8, height: 400, months: [7, 7],
+    note: T('Cerises acidulées pour clafoutis, confitures, cerises à l’eau-de-vie. Autofertile (Montmorency, Griotte du Nord), il supporte un mur au nord et fructifie jeune. Taille légère après récolte.', 'Tart cherries for pies, jam and brandied cherries. Self-fertile (Montmorency, Morello), it tolerates a north wall and crops young. Light pruning after harvest.'),
+    prop: [4, 'Drageons ou greffe ; les noyaux donnent des arbres variables.', 'Suckers or grafting; stones give variable trees.'],
+  },
+  {
+    id: 'nashi', name: T('Nashi (poirier asiatique)', 'Asian pear'), latin: 'Pyrus pyrifolia', emoji: '🍐', family: 'rosaceae', sun: 'full', frost: 'hardy', pH: [6, 7.5],
+    spacing: [400, 400], harvest: [600, 680], yieldM2: [1.5, 3], feeding: 'medium', root: 0.8, height: 400, months: [8, 9],
+    note: T('Fruit rond, croquant et très juteux comme une pomme, goût de poire. Fleurit tôt : planter deux variétés de nashi (Kosui, Hosui, Nijisseiki) ou un poirier européen précoce pour la pollinisation. Éclaircir à un fruit par bouquet.', 'Round fruit, crisp and very juicy like an apple, tasting of pear. Flowers early: plant two nashi varieties (Kosui, Hosui, Nijisseiki) or an early European pear for pollination. Thin to one fruit per cluster.'),
+    prop: [4, 'Greffe sur franc ou cognassier.', 'Graft onto seedling pear or quince.'],
+  },
+  {
+    id: 'kiwai', name: T('Kiwaï (kiwi de Sibérie)', 'Hardy kiwi (kiwiberry)'), latin: 'Actinidia arguta', emoji: '🥝', family: 'actinidiaceae', sun: 'partial', frost: 'hardy', pH: [5.5, 7],
+    spacing: [300, 300], harvest: [940, 1020], yieldM2: [1.5, 3], feeding: 'medium', root: 0.6, height: 500, months: [9, 10],
+    note: T('Petits kiwis à peau lisse qui se croquent entiers, très sucrés. Liane rustique à −25 °C, mais jeunes pousses sensibles aux gelées de printemps. Il faut un pied mâle pour 6 femelles (Issai est autofertile). Palisser sur pergola ou grillage solide.', 'Small smooth-skinned kiwis eaten whole, very sweet. Vine hardy to −25 °C, but young shoots are sensitive to spring frosts. One male per 6 females (Issai is self-fertile). Train on a pergola or sturdy wire.'),
+    prop: [10, 'Boutures semi-aoûtées en été ou marcottage.', 'Semi-ripe cuttings in summer or layering.'],
+  },
+  {
+    id: 'passionfruit', name: T('Fruit de la passion (passiflore)', 'Passion fruit'), latin: 'Passiflora edulis', emoji: '🟣', family: 'passifloraceae', sun: 'full', frost: 'tender', pH: [6, 7.5], plantOut: [[5, 5]],
+    spacing: [200, 200], harvest: [500, 600], yieldM2: [1, 3], feeding: 'medium', root: 0.5, height: 400, months: [9, 11],
+    note: T('Liane tropicale qui fructifie dès la deuxième année : en serre, en véranda ou en grand pot sorti l’été, rentrée hors gel (−2 °C au plus). Fruits mûrs quand ils tombent ou se rident. La passiflore bleue (P. caerulea), rustique, donne des fruits orange comestibles mais fades.', 'Tropical vine that fruits from the second year: in a greenhouse, conservatory or large pot outdoors in summer, brought in frost-free (−2 °C at most). Ripe when the fruit drops or wrinkles. Hardy blue passionflower (P. caerulea) gives edible but bland orange fruit.'),
+    prop: [10, 'Semis frais au chaud (25 °C) ou boutures de tiges en été.', 'Sow fresh seed warm (25 °C) or take stem cuttings in summer.'],
+  },
+  {
+    id: 'jujube', name: T('Jujubier', 'Jujube'), latin: 'Ziziphus jujuba', emoji: '🟤', family: 'rhamnaceae', sun: 'full', frost: 'hardy', pH: [6, 8.5],
+    spacing: [400, 400], harvest: [940, 1030], yieldM2: [1, 2], feeding: 'light', root: 1, height: 500, months: [9, 10],
+    note: T('Arbre de soleil, rustique à −20 °C et très résistant à la sécheresse, qui débourre tard (pas de gel des fleurs). Les jujubes se croquent comme une pomme quand elles brunissent, ou se sèchent comme des dattes. Li et Lang sont les variétés les plus productives ; fructifie bien seulement avec des étés chauds.', 'Sun-loving tree hardy to −20 °C and very drought-tolerant, leafing out late (no flower frost). Jujubes are eaten crisp like an apple as they turn brown, or dried like dates. Li and Lang crop best; fruits well only with hot summers.'),
+    prop: [10, 'Drageons ou greffe ; noyaux lents et variables.', 'Suckers or grafting; stones slow and variable.'],
+  },
+  {
+    id: 'pawpaw', name: T('Asiminier', 'Pawpaw'), latin: 'Asimina triloba', emoji: '🥭', family: 'annonaceae', sun: 'partial', frost: 'hardy', pH: [5.5, 7],
+    spacing: [400, 300], harvest: [1300, 1500], yieldM2: [1, 2], feeding: 'medium', root: 1, height: 500, months: [9, 10],
+    note: T('Fruit nord-américain à chair crémeuse au goût de banane-mangue. Rustique à −25 °C ; jeunes plants à mi-ombre. Planter deux variétés différentes (Sunflower, Prima 1216) pour la pollinisation, aidée au pinceau au besoin. Fruits très fragiles, à consommer vite.', 'North American fruit with creamy flesh tasting of banana and mango. Hardy to −25 °C; young plants in part shade. Plant two different varieties (Sunflower, Prima 1216) for pollination, helped with a brush if needed. Very perishable fruit, eat quickly.'),
+    prop: [10, 'Graines fraîches stratifiées 3 mois au froid ; greffe pour les variétés.', 'Fresh seed cold-stratified 3 months; graft for named varieties.'],
+  },
+  {
+    id: 'strawberrytree', name: T('Arbousier', 'Strawberry tree'), latin: 'Arbutus unedo', emoji: '🔴', family: 'ericaceae', sun: 'full', frost: 'hardy', pH: [5, 7.5],
+    spacing: [300, 300], harvest: [940, 1100], yieldM2: [0.5, 1.5], feeding: 'light', root: 0.8, height: 400, months: [10, 12],
+    note: T('Arbuste persistant méditerranéen, rustique vers −15 °C, qui porte en même temps fleurs et fruits rouges granuleux. Les arbouses mûres se mangent fraîches (fades) ou en confiture et liqueur. Supporte calcaire léger et sécheresse.', 'Mediterranean evergreen shrub hardy to about −15 °C, carrying flowers and red grainy fruit at the same time. Ripe fruit is eaten fresh (mild) or in jam and liqueur. Tolerates light lime and drought.'),
+    prop: [10, 'Semis après stratification ou boutures semi-aoûtées.', 'Sow after stratification or take semi-ripe cuttings.'],
+  },
+  {
+    id: 'cornelian', name: T('Cornouiller mâle', 'Cornelian cherry'), latin: 'Cornus mas', emoji: '🔴', family: 'cornaceae', sun: 'full', frost: 'hardy', pH: [6, 8],
+    spacing: [400, 300], harvest: [1300, 1500], yieldM2: [0.5, 1.5], feeding: 'light', root: 0.8, height: 400, months: [8, 9],
+    note: T('Fleurs jaunes en février, précieuses pour les abeilles, puis cornouilles rouges en forme d’olive, acides, à cueillir très mûres (molles, tombées) pour gelées, sirops ou à la manière des olives. Très rustique, sans maladie, supporte le calcaire. Lent à fructifier.', 'Yellow flowers in February, precious for bees, then red olive-shaped cornels, sour, picked very ripe (soft, fallen) for jelly, syrup or pickled like olives. Very hardy, disease-free, lime-tolerant. Slow to start fruiting.'),
+    prop: [8, 'Semis (2 hivers de stratification) ou marcottage ; greffe pour les variétés à gros fruits.', 'Seed (2 winters of stratification) or layering; graft large-fruited varieties.'],
+  },
+  {
+    id: 'guava', name: T('Goyavier-fraise', 'Strawberry guava'), latin: 'Psidium cattleianum', emoji: '🔴', family: 'myrtaceae', sun: 'full', frost: 'half', pH: [5, 7], plantOut: [[4, 5]],
+    spacing: [200, 200], harvest: [700, 800], yieldM2: [1, 2], feeding: 'medium', root: 0.5, height: 250, months: [9, 11],
+    note: T('Arbuste persistant à petites goyaves rouges au goût de fraise et de fruit de la passion. Tient −5 à −7 °C : pleine terre dans le Midi et sur la côte atlantique, sinon en pot. Autofertile, fructifie jeune.', 'Evergreen shrub with small red guavas tasting of strawberry and passion fruit. Takes −5 to −7 °C: in the ground in the south and on the Atlantic coast, otherwise in a pot. Self-fertile, crops young.'),
+    prop: [10, 'Semis frais (fidèle) ou boutures semi-aoûtées.', 'Fresh seed (comes true) or semi-ripe cuttings.'],
+  },
+  {
+    id: 'serviceberry', name: T('Amélanchier', 'Serviceberry (juneberry)'), latin: 'Amelanchier alnifolia', emoji: '🫐', family: 'rosaceae', sun: 'partial', frost: 'hardy', pH: [5.5, 7.5],
+    spacing: [250, 200], harvest: [560, 600], yieldM2: [0.5, 1.5], feeding: 'light', root: 0.6, height: 300, months: [6, 7],
+    note: T('Arbuste très rustique couvert de fleurs blanches en avril, puis de baies bleu-noir au goût d’amande et de myrtille, en juin. Les oiseaux en raffolent : filet utile. Variétés à fruits : Saskatoon, Smoky, Northline. Beau feuillage d’automne.', 'Very hardy shrub smothered in white flowers in April, then blue-black berries tasting of almond and blueberry in June. Birds love them: a net helps. Fruiting varieties: Saskatoon, Smoky, Northline. Fine autumn colour.'),
+    prop: [8, 'Drageons, marcottage ou semis stratifié.', 'Suckers, layering or stratified seed.'],
+  },
+  {
+    id: 'pistachio', name: T('Pistachier', 'Pistachio'), latin: 'Pistacia vera', emoji: '🟢', family: 'anacardiaceae', sun: 'full', frost: 'half', pH: [7, 8.5],
+    spacing: [600, 600], harvest: [2400, 2600], yieldM2: [0.05, 0.15], feeding: 'light', root: 1.5, height: 500, months: [9, 9],
+    note: T('Arbre des étés longs et secs : ne fructifie qu’en climat méditerranéen chaud (Provence, Languedoc). Rustique vers −12 à −15 °C. Espèce dioïque : un pied mâle (Peter) pour 8 à 10 femelles (Kerman). Premières récoltes après 6 à 7 ans.', 'A tree for long dry summers: only crops in a hot Mediterranean climate (Provence, Languedoc). Hardy to about −12 to −15 °C. Dioecious: one male (Peter) for 8–10 females (Kerman). First crops after 6–7 years.'),
+    prop: [20, 'Greffe sur Pistacia terebinthus ou atlantica.', 'Graft onto Pistacia terebinthus or atlantica.'],
+  },
+  {
+    id: 'servicetree', name: T('Cormier (sorbier domestique)', 'Service tree'), latin: 'Sorbus domestica', emoji: '🟤', family: 'rosaceae', sun: 'full', frost: 'hardy', pH: [6, 8],
+    spacing: [800, 800], harvest: [3500, 4000], yieldM2: [0.3, 0.8], feeding: 'light', root: 1.5, height: 1200, months: [10, 10],
+    note: T('Fruitier oublié, très longévif. Les cormes, petites poires ou pommes rousses, se mangent blettes comme les nèfles, ou en cidre (« cormé »). Très rustique, aime le calcaire. Patience : 10 ans et plus avant les fruits.', 'A forgotten, very long-lived fruit tree. Sorbs, small russet pears or apples, are eaten bletted like medlars or made into cider. Very hardy, likes lime. Patience: 10 years or more before fruit.'),
+    prop: [10, 'Semis stratifié ou greffe sur aubépine ou poirier.', 'Stratified seed or graft onto hawthorn or pear.'],
+  },
 ];
 
 const BUILT = DEFS.map(fruit);

@@ -2,6 +2,8 @@ import { GnisInfo, GnisSuggest, useGnis } from './Gnis';
 import { findVariety } from './engine/gnis';
 import { useMemo, useRef, useState } from 'react';
 import { PhotoStrip } from './Photos';
+import { MUSHROOM_BY_ID } from './data/mushrooms';
+import { mushroomSeason, mushroomYears } from './engine/mushroom';
 import { forecast, forecastByMonth, multiYear } from './engine/report';
 import { bedResults, cutFlowers, plantResults, seasonReview, wishesFromReview, type PlantResult } from './engine/bilan';
 import { toCSV } from './engine/backup';
@@ -272,9 +274,10 @@ export function SeasonView() {
   const store = useGarden();
   const { data, today } = store;
   const { tt, lang } = useJT();
-  const years = [...new Set([yearOf(today), ...data.observations.filter((o) => o.harvestG || o.stems).map((o) => yearOf(o.date))])].sort((a, b) => b - a);
+  const years = [...new Set([yearOf(today), ...data.observations.filter((o) => o.harvestG || o.stems).map((o) => yearOf(o.date)), ...mushroomYears(data)])].sort((a, b) => b - a);
   const [year, setYear] = useState(years[0]);
   const sum = seasonSummary(data, year);
+  const mush = mushroomSeason(data, year);
   const eur = (v: number) => `${fmtNum(v, lang, v < 100 ? 2 : 0)} €`;
   return (
     <div>
@@ -285,8 +288,8 @@ export function SeasonView() {
       )}
       <div className="grid grid-cols-3 gap-2 text-center">
         {[
-          [tt('season.harvested'), fmtG(sum.grams, lang)],
-          [tt('season.value'), eur(sum.value)],
+          [tt('season.harvested'), fmtG(sum.grams + mush.grams, lang)],
+          [tt('season.value'), eur(sum.value + mush.value)],
           [tt('season.inputs'), eur(sum.inputsCost)],
         ].map(([k, v]) => (
           <div key={k} className="rounded px-2 py-2" style={{ background: 'var(--color-paper-200)' }}>
@@ -297,7 +300,7 @@ export function SeasonView() {
           </div>
         ))}
       </div>
-      {sum.rows.length === 0 ? (
+      {sum.rows.length === 0 && mush.rows.length === 0 ? (
         <div className="mt-3">
           <Empty>{tt('season.none')}</Empty>
         </div>
@@ -328,6 +331,29 @@ export function SeasonView() {
                       min={0}
                       defaultValue={r.priceKg}
                       aria-label={tt('season.priceFor', { crop: speciesName(r.speciesId, lang) })}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value);
+                        store.setPrice(r.speciesId, v > 0 ? v : undefined);
+                      }}
+                      className="field w-16 rounded px-1 py-0.5 text-right font-data text-sm outline-none"
+                      style={{ background: 'var(--color-paper-200)', boxShadow: 'inset 0 0 0 1px var(--color-paper-300)' }}
+                    />
+                  </td>
+                  <td className="py-1 text-right font-data">{eur(r.value)}</td>
+                </tr>
+              ))}
+              {mush.rows.map((r) => (
+                <tr key={r.speciesId} className="border-t" style={{ borderColor: 'var(--color-paper-300)' }} data-testid="season-mush">
+                  <td className="py-1 pr-2">🍄 {MUSHROOM_BY_ID[r.speciesId]?.name[lang] ?? r.speciesId}</td>
+                  <td className="py-1 pr-2 text-right font-data">{fmtG(r.grams, lang)}</td>
+                  <td className="py-1 pr-2 text-right font-data">—</td>
+                  <td className="py-1 pr-2 text-right">
+                    <input
+                      type="number"
+                      step={0.5}
+                      min={0}
+                      defaultValue={r.priceKg}
+                      aria-label={tt('season.priceFor', { crop: MUSHROOM_BY_ID[r.speciesId]?.name[lang] ?? r.speciesId })}
                       onBlur={(e) => {
                         const v = Number(e.target.value);
                         store.setPrice(r.speciesId, v > 0 ? v : undefined);

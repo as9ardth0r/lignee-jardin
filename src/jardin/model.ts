@@ -85,7 +85,11 @@ export type Family =
   | 'cannabaceae'
   | 'rubiaceae'
   | 'zingiberaceae'
-  | 'anacardiaceae';
+  | 'anacardiaceae'
+  | 'passifloraceae'
+  | 'rhamnaceae'
+  | 'annonaceae'
+  | 'cornaceae';
 
 export const FAMILIES: Family[] = [
   'solanaceae',
@@ -160,6 +164,10 @@ export const FAMILIES: Family[] = [
   'rubiaceae',
   'zingiberaceae',
   'anacardiaceae',
+  'passifloraceae',
+  'rhamnaceae',
+  'annonaceae',
+  'cornaceae',
 ];
 
 /** Type de culture : décide la répartition des besoins par stade. */
