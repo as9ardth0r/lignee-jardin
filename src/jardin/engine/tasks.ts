@@ -7,6 +7,7 @@
  * (pas de pluie de notifications).
  */
 import { nurseryStatus } from './nursery';
+import { mushroomTasks, strainOf } from './mushroom';
 import { lowTanks } from './rainTank';
 import { compostTasks } from './compost';
 import { CLIMATES } from '../data/climate';
@@ -22,7 +23,7 @@ import { limeAdvice, limeSeason, soilFor } from './soil';
 import { pestTasks } from './pests';
 import { FLOWER_INFO } from '../data/flowers';
 
-export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual' | 'cover' | 'compost' | 'raintank' | 'nursery';
+export type TaskKind = 'sow' | 'plantOut' | 'transplant' | 'water' | 'feed' | 'harvest' | 'bloom' | 'lift' | 'observe' | 'frost' | 'alert' | 'tank' | 'lime' | 'pest' | 'manual' | 'cover' | 'compost' | 'raintank' | 'nursery' | 'mushroom';
 
 export interface Task {
   key: string;
@@ -34,6 +35,8 @@ export interface Task {
   plantId?: string;
   /** Valeurs à insérer dans le texte (litres, grammes, noms…). */
   vars: Record<string, string | number>;
+  /** Culture de champignons concernée. */
+  mushId?: string;
   /** Tâche saisie à la main (sa clé est son id). */
   manualId?: string;
 }
@@ -214,6 +217,11 @@ export function generateTasks(data: GardenData, today: ISODate): Task[] {
   // Compost : retourner, rééquilibrer, tamiser quand c'est mûr.
   for (const c of compostTasks(data, today)) {
     tasks.push({ key: `compost:${c.heapId}:${c.what}:${c.what === 'ready' ? 'once' : weekKey(today)}`, kind: 'compost', due: today, priority: c.what === 'ready' ? 2 : 3, vars: { name: c.name, what: c.what } });
+  }
+
+  for (const m of mushroomTasks(data, today, horizon)) {
+    const b = data.mushrooms.find((x) => x.id === m.batchId)!;
+    tasks.push({ key: m.key, kind: 'mushroom', due: m.due, priority: m.priority, bedId: m.bedId, mushId: m.batchId, vars: { what: m.what, mush: b.speciesId, stage: b.stage, strain: strainOf(b, data.mushrooms) ?? '', qty: b.qty } });
   }
 
   for (const t of data.tasks) {

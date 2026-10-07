@@ -2,6 +2,7 @@ import { FLOWER_VARIETIES } from './data/flowerVarieties';
 import { GnisInfo, GnisSuggest } from './Gnis';
 import { COLOR_HEX } from './data/flowers';
 import { NurseryView } from './Nursery';
+import { MushroomsView } from './Mushrooms';
 import { useEffect, useMemo, useState } from 'react';
 import { SPECIES, SPECIES_BY_ID } from './data/species';
 import { speciesWithType, typeOf, typesOf } from './data/speciesTypes';
@@ -31,7 +32,7 @@ const STATUS_FILTERS: PlantStatus[] = ['growing', 'planned', 'ended'];
 
 export function PlantsView() {
   const { tt } = useJT();
-  const [mode, setMode] = useState<'crops' | 'nursery' | 'harvests' | 'plan'>('crops');
+  const [mode, setMode] = useState<'crops' | 'nursery' | 'mushrooms' | 'harvests' | 'plan'>('crops');
   return (
     <>
       <div className="mb-3 flex flex-wrap gap-1.5">
@@ -40,6 +41,9 @@ export function PlantsView() {
         </Chip>
         <Chip active={mode === 'nursery'} onClick={() => setMode('nursery')}>
           🪴 {tt('nursery.tab')}
+        </Chip>
+        <Chip active={mode === 'mushrooms'} onClick={() => setMode('mushrooms')}>
+          🍄 {tt('mush.tab')}
         </Chip>
         <Chip active={mode === 'harvests'} onClick={() => setMode('harvests')}>
           🧺 {tt('plants.modeHarvests')}
@@ -50,6 +54,7 @@ export function PlantsView() {
       </div>
       {mode === 'crops' && <CropList />}
       {mode === 'nursery' && <NurseryView />}
+      {mode === 'mushrooms' && <MushroomsView />}
       {mode === 'harvests' && (
         <Card title={tt('season.title')}>
           <SeasonView />

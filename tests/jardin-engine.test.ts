@@ -61,6 +61,9 @@ import { plantTitle } from '../src/jardin/format';
 import { moonDay, moonPosition } from '../src/jardin/engine/moon';
 import { pendingVarieties } from '../src/ateliers/pending';
 import { LIGNEE_CROPS } from '../src/jardin/engine/backup';
+import { MUSHROOMS, MUSHROOM_BY_ID, MUSH_PROBLEMS, SUBSTRATES } from '../src/jardin/data/mushrooms';
+import { bedFor, bioEfficiency, colonRange, countFlushes, generation, jarsFor, labRecipe, lineage, mushInfo, mushroomTasks, plugsFor, spawnFor, strainOf, strainRanking, tempFactor, waterToAdd } from '../src/jardin/engine/mushroom';
+import type { MushBatch } from '../src/jardin/model';
 import { commonsFile, downloadPhoto, stripHtml, titleCandidates } from '../src/jardin/engine/speciesPhoto';
 import { caoApplied, estimateCEC, interpret, limeAdvice, nCredit, phMismatches, soilFor } from '../src/jardin/engine/soil';
 
@@ -1414,6 +1417,80 @@ test('photos des espèces : titres à chercher et fichiers Commons', () => {
   ok(commonsFile('https://upload.wikimedia.org/wikipedia/commons/a/ab/Rosa%C3%A9.jpg') === 'Rosaé.jpg', 'originale, accents');
   ok(commonsFile('https://upload.wikimedia.org/wikipedia/fr/1/12/Logo.png') === null, 'image non libre (wiki local) écartée');
   ok(stripHtml('<a href="//commons.wikimedia.org/wiki/User:X">Jean&nbsp;Dupont</a> &amp; co') === 'Jean Dupont & co', 'auteur sans HTML');
+});
+
+test('champignons : catalogue cohérent', () => {
+  ok(MUSHROOMS.length >= 20 && new Set(MUSHROOMS.map((m) => m.id)).size === MUSHROOMS.length, 'identifiants uniques');
+  const subs = new Set(SUBSTRATES.map((s) => s.id));
+  for (const m of MUSHROOMS) {
+    ok(m.name.fr && m.name.en && m.note.fr && m.note.en && m.harvest.fr, `${m.id} : textes`);
+    ok(m.substrates.every((s) => subs.has(s)), `${m.id} : substrats`);
+    if (m.methods.includes('tree')) continue;
+    ok(m.colonTemp[0] < m.colonTemp[1] && m.fruitTemp[0] < m.fruitTemp[1] && m.colonDays[0] <= m.colonDays[1] && m.be[0] < m.be[1], `${m.id} : plages`);
+    ok(m.humidity[0] >= 60 && m.humidity[1] <= 100, `${m.id} : humidité`);
+    if (m.methods.includes('log')) ok(Boolean(m.woods), `${m.id} : essences de bois`);
+    if (m.methods.includes('log') || m.methods.includes('bed')) ok(Boolean(m.outdoor), `${m.id} : calendrier extérieur`);
+  }
+  ok(MUSH_PROBLEMS.some((p) => p.kind === 'normal') && MUSH_PROBLEMS.filter((p) => p.kind === 'contam').length >= 5, 'problèmes');
+});
+
+const mb = (o: Partial<MushBatch>): MushBatch => ({ id: 'b', speciesId: 'm-oyster', stage: 'substrate', started: '2026-09-01', qty: 1, status: 'incubating', harvests: [], ...o });
+
+test('champignons : calculateurs du labo', () => {
+  // 2 kg de paille à 12 % d'eau amenée à 72 % : 1,76 kg de matière sèche → 6,29 kg humide → 4,29 L.
+  ok(near(waterToAdd(2, 12, 72), 4.2857, 1e-3), 'eau à ajouter');
+  ok(near(spawnFor(5, 10), 0.5) && jarsFor(0.5) === 1 && jarsFor(1.3) === 3, 'blanc et bocaux');
+  const p = plugsFor(15, 100);
+  ok(p.rows === 8 && p.perRow === 7 && p.total === 56, `chevilles ${JSON.stringify(p)}`);
+  const bd = bedFor(2, 20);
+  ok(near(bd.chipsM3, 0.4) && bd.spawnKg[0] === 2 && bd.spawnKg[1] === 4, 'planche');
+  const r = labRecipe('agar', 0.5);
+  ok(r.find((x) => x.what === 'agar')?.amount === 10 && r.find((x) => x.what === 'plates')?.amount === 22, 'gélose 0,5 L');
+});
+
+test('champignons : prévisions et prochaines actions', () => {
+  const oy = MUSHROOM_BY_ID['m-oyster'];
+  ok(tempFactor(oy, 22) === 1 && tempFactor(oy, 16) > 1.4 && tempFactor(oy, 28) > 1.5, 'température');
+  const [lo] = colonRange(oy, 'substrate', 16);
+  ok(lo > oy.colonDays[0], 'plus lent au froid');
+  ok(mushInfo(mb({}), '2026-09-05').next === 'checkColon' && mushInfo(mb({}), '2026-10-20').next === 'overdue', 'incubation');
+  ok(mushInfo(mb({ stage: 'grain' }), '2026-09-03').next === 'shake', 'secouer le grain');
+  ok(mushInfo(mb({ status: 'colonized', colonized: '2026-09-15' }), '2026-09-16').next === 'coldShock', 'pleurote : choc froid');
+  const sh = mb({ speciesId: 'm-shiitake', status: 'colonized', colonized: '2026-09-15' });
+  ok(mushInfo(sh, '2026-09-20').next === 'mature' && mushInfo(sh, '2026-10-20').next === 'coldShock', 'shiitake : maturation puis choc');
+  const fr = mb({ status: 'fruiting', fruiting: '2026-09-20' });
+  ok(mushInfo(fr, '2026-09-21').next === 'pins' && mushInfo(fr, '2026-09-26').next === 'harvest', 'fructification');
+  const h = mb({ status: 'resting', fruiting: '2026-09-20', harvests: [{ date: '2026-09-27', g: 800 }, { date: '2026-10-15', g: 500 }, { date: '2026-11-02', g: 300 }], dryKg: 1.5 });
+  ok(countFlushes(h) === 3 && mushInfo(h, '2026-11-03').next === 'spent', 'volées épuisées');
+  ok(near(bioEfficiency(h)!, (1600 / 1500) * 100), 'efficacité biologique');
+  ok(mushInfo(mb({ harvests: [{ date: '2026-09-27', g: 800 }], status: 'resting' }), '2026-09-28').next === 'nextFlush', 'volée suivante');
+  ok(mushInfo(mb({ dryKg: 2 }), '2026-09-02').expectG?.[0] === 1500, 'récolte attendue');
+  // Planche de strophaire ensemencée en mai : attente, puis saison (juin–octobre) passé le délai.
+  const bed = mb({ speciesId: 'm-wine-cap', stage: 'bed', started: '2026-05-01' });
+  ok(mushInfo(bed, '2026-05-20').next === 'waitSeason' && mushInfo(bed, '2026-08-01').next === 'fruitSeason', 'planche extérieure');
+  // Bûche de shiitake en saison : trempage proposé.
+  ok(mushInfo(mb({ speciesId: 'm-shiitake', stage: 'log', started: '2025-03-01' }), '2026-05-10').next === 'coldShock', 'bûche : trempage');
+});
+
+test('champignons : lignée, clones, souches et tâches', () => {
+  const a = mb({ id: 'a', stage: 'agar', strain: 'Bleue', status: 'colonized' });
+  const a2 = mb({ id: 'a2', stage: 'agar', parentId: 'a' });
+  const g = mb({ id: 'g', stage: 'grain', parentId: 'a2' });
+  const s1 = mb({ id: 's1', parentId: 'g', dryKg: 1, harvests: [{ date: '2026-10-01', g: 900 }], status: 'done' });
+  const c = mb({ id: 'c', stage: 'agar', parentId: 's1', clone: true, strain: 'Bleue-sel' });
+  const s2 = mb({ id: 's2', parentId: 'c', dryKg: 1, harvests: [{ date: '2026-11-01', g: 1200 }], status: 'resting' });
+  const all = [a, a2, g, s1, c, s2];
+  ok(lineage(s1, all).map((x) => x.id).join() === 'a,a2,g,s1', 'chaîne');
+  ok(generation(g, all) === 2 && generation(c, all) === 1, 'générations (clone remet à 1)');
+  ok(strainOf(s1, all) === 'Bleue' && strainOf(s2, all) === 'Bleue-sel', 'souche héritée');
+  const r = strainRanking(all);
+  ok(r[0].strain === 'Bleue-sel' && Math.round(r[0].be) === 120 && r[1].strain === 'Bleue', 'classement');
+  const t = mushroomTasks({ mushrooms: [mb({ id: 'x', stage: 'grain' }), a, mb({ id: 'k', status: 'contam' })] }, '2026-09-03', '2026-09-06');
+  ok(t.some((x) => x.batchId === 'x' && x.what === 'shake') && t.some((x) => x.batchId === 'a' && x.what === 'transfer') && !t.some((x) => x.batchId === 'k'), 'tâches');
+  const d = data({ mushrooms: [mb({ id: 'x', stage: 'grain' })] });
+  ok(generateTasks(d, '2026-09-03').some((x) => x.kind === 'mushroom' && x.mushId === 'x'), 'dans Aujourd’hui');
+  ok(parseBackup(serializeBackup(d, [])).data.mushrooms[0].stage === 'grain', 'sauvegarde');
+  ok(photoIdsOf(data({ mushrooms: [mb({ photoIds: ['pm'] })] })).has('pm'), 'photos des cultures');
 });
 
 const photoJobs: Array<Promise<void>> = [];

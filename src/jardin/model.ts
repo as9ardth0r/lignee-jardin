@@ -791,6 +791,48 @@ export interface MulchEntry extends Meta {
   note?: string;
 }
 
+/** Culture de champignons : une étape de la chaîne (gélose, grain, sac, bûche, planche…). */
+export type MushStage = 'agar' | 'lc' | 'grain' | 'substrate' | 'log' | 'bed';
+export type MushStatus = 'incubating' | 'colonized' | 'fruiting' | 'resting' | 'done' | 'contam';
+export interface MushHarvest {
+  date: ISODate;
+  /** Poids frais, g. */
+  g: number;
+}
+export interface MushBatch {
+  id: string;
+  speciesId: string;
+  /** Nom de la souche (« Bleue d'hiver », « clone du 12/10 »…). */
+  strain?: string;
+  stage: MushStage;
+  /** Culture d'où vient l'inoculum (repiquage, grain, clone). */
+  parentId?: string;
+  /** Clone d'un champignon de la culture parente (sélection). */
+  clone?: boolean;
+  /** Origine hors appli : seringue de spores, kit, blanc acheté. */
+  source?: string;
+  started: ISODate;
+  /** Nombre d'unités (boîtes, bocaux, sacs, bûches) et surface d'une planche (m²). */
+  qty: number;
+  areaM2?: number;
+  substrate?: string;
+  /** Poids de substrat sec (kg), pour l'efficacité biologique. */
+  dryKg?: number;
+  /** Température d'incubation (°C) : sert aux prévisions. */
+  tempC?: number;
+  status: MushStatus;
+  colonized?: ISODate;
+  /** Mise en fructification (ou trempage) la plus récente. */
+  fruiting?: ISODate;
+  harvests: MushHarvest[];
+  contam?: { date: ISODate; problemId?: string; units?: number };
+  ended?: ISODate;
+  /** Planche du jardin (cultures extérieures). */
+  bedId?: string;
+  note?: string;
+  photoIds?: string[];
+}
+
 export interface GardenData {
   settings: Settings;
   beds: Bed[];
@@ -811,6 +853,8 @@ export interface GardenData {
   phenoEvents: PhenoEvent[];
   treatments: Treatment[];
   seeds: SeedLot[];
+  /** Champignons : cultures et souches. */
+  mushrooms: MushBatch[];
   /** Prix au kg choisis par le jardinier (sinon prix de référence du catalogue). */
   prices: Record<string, number>;
   weather?: WeatherCache;
@@ -841,6 +885,7 @@ export const EMPTY_DATA: GardenData = {
   compost: [],
   rainTanks: [],
   wildPlants: [],
+  mushrooms: [],
   water: [],
   tasks: [],
   taskStates: [],

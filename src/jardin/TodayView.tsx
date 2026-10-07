@@ -36,6 +36,7 @@ const TASK_ICON: Record<Task['kind'], string> = {
   compost: '♻',
   raintank: '🛢',
   nursery: '🌱',
+  mushroom: '🍄',
 };
 
 /** Nombre de tâches montrées d'emblée (le reste derrière « voir tout »). */
@@ -73,6 +74,20 @@ export function TodayView() {
       if (m) store.saveTask({ ...m, done: today });
       return;
     }
+    if (t.kind === 'mushroom' && t.mushId) {
+      const b = data.mushrooms.find((x) => x.id === t.mushId);
+      const what = String(t.vars.what);
+      if (b && (what === 'checkColon' || what === 'overdue')) {
+        store.saveMushroom({ ...b, status: 'colonized', colonized: today });
+        nav.toast(tt('mush.toastColonized'));
+      } else if (b && (what === 'initiate' || what === 'coldShock' || what === 'nextFlush' || what === 'fruitSeason')) {
+        store.saveMushroom({ ...b, status: 'fruiting', fruiting: today });
+        nav.toast(tt('mush.toastFruiting'));
+      } else if (b && what !== 'shake') {
+        nav.open({ type: 'mushroom', id: b.id });
+        return;
+      }
+    }
     const p = t.plantId ? data.plants.find((x) => x.id === t.plantId) : undefined;
     if ((t.kind === 'sow' || t.kind === 'plantOut') && p) {
       store.savePlant({ ...p, status: 'growing', sowDate: today });
@@ -93,6 +108,7 @@ export function TodayView() {
     if (t.kind === 'water' && t.bedId) nav.open({ type: 'water', bedId: t.bedId, kind: 'irrigation', liters: Number(t.vars.liters) || undefined });
     else if (t.kind === 'observe' && t.plantId) nav.open({ type: 'observe', plantId: t.plantId });
     else if (t.kind === 'compost') nav.setTab('garden');
+    else if (t.kind === 'mushroom' && t.mushId) nav.open({ type: 'mushroom', id: t.mushId });
     else if (t.plantId) nav.open({ type: 'plant', id: t.plantId });
     else if (t.bedId) nav.open({ type: 'bed', id: t.bedId });
   };

@@ -7,7 +7,7 @@
  * pourra être servie par SQLite (plugin Capacitor) plus tard.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type CompostHeap, type RainTank, type WildPlant, type Reading, type Sensor, type PestCount, type SeasonPlan, type ShoppingItem, type StockItem, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent, type MulchEntry } from './model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type CompostHeap, type RainTank, type WildPlant, type Reading, type Sensor, type PestCount, type SeasonPlan, type ShoppingItem, type StockItem, type SoilTest, type TankChange, type Application, type Bed, type GardenData, type ManualTask, type Obstacle, type Observation, type PhenoEvent, type PhotoMeta, type Plant, type SeedLot, type MushBatch, type Settings, type TaskState, type Treatment, type Variety, type WaterEvent, type MulchEntry } from './model';
 import { mergeWeather, needsRefresh, parseOpenMeteo, weatherURL } from './engine/weather';
 import { demoGarden, parseBackup, serializeBackup, type PhotoExport } from './engine/backup';
 import { todayISO } from './engine/dates';
@@ -174,6 +174,8 @@ export interface GardenStore {
   addTreatment: (t: Omit<Treatment, 'id'>) => void;
   deleteTreatment: (id: string) => void;
   saveSeed: (lot: SeedLot) => void;
+  saveMushroom: (b: MushBatch) => void;
+  deleteMushroom: (id: string) => void;
   deleteSeed: (id: string) => void;
   setPrice: (speciesId: string, priceKg: number | undefined) => void;
   /** Télécharge la météo locale (si une position est connue). */
@@ -552,6 +554,11 @@ export function GardenProvider({ children }: { children: ReactNode }) {
       addTreatment: (t) => mutate((d) => ({ ...d, treatments: [...d.treatments, { ...t, id: uid('tr') }] })),
       deleteTreatment: (id) => mutate((d) => ({ ...d, treatments: d.treatments.filter((x) => x.id !== id) })),
       saveSeed: (lot) => mutate((d) => ({ ...d, seeds: upsert(d.seeds, lot) })),
+      saveMushroom: (b) => mutate((d) => ({ ...d, mushrooms: upsert(d.mushrooms ?? [], b) })),
+      deleteMushroom: (id) => {
+        void deletePhotos((data.mushrooms ?? []).find((x) => x.id === id)?.photoIds ?? []);
+        mutate((d) => ({ ...d, mushrooms: (d.mushrooms ?? []).filter((x) => x.id !== id).map((x) => (x.parentId === id ? { ...x, parentId: undefined } : x)) }));
+      },
       deleteSeed: (id) => {
         void deletePhotos(data.seeds.find((x) => x.id === id)?.photoIds ?? []);
         mutate((d) => ({ ...d, seeds: d.seeds.filter((x) => x.id !== id) }));

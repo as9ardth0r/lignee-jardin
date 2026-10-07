@@ -1,3 +1,4 @@
+import { MUSHROOM_BY_ID } from './data/mushrooms';
 import type { Task } from './engine/tasks';
 import { PRODUCT_BY_ID } from './data/products';
 import { PROBLEM_BY_ID } from './data/problems';
@@ -21,6 +22,11 @@ export function taskText(task: Task, tt: TT, lang: 'fr' | 'en'): string {
   }
   if (task.kind === 'raintank') return tt(Number(task.vars.days) >= 0 ? 'task.raintank.days' : 'task.raintank', { name: String(task.vars.name ?? ''), pct: task.vars.pct, days: task.vars.days });
   if (task.kind === 'nursery') return tt(`task.nursery.${task.vars.what}` as JKey, { name, bed: String(task.vars.bed ?? ''), days: task.vars.days, tmin: task.vars.tmin });
+  if (task.kind === 'mushroom') {
+    const m = MUSHROOM_BY_ID[String(task.vars.mush)];
+    const mname = `${m?.name[lang] ?? ''}${task.vars.strain ? ` · ${task.vars.strain}` : ''}`;
+    return tt(`task.mush.${task.vars.what}` as JKey, { name: mname, stage: tt(`mush.stage.${task.vars.stage}` as JKey), qty: task.vars.qty, days: m?.restDays ?? 0 });
+  }
   if (task.kind === 'compost') return tt(`task.compost.${task.vars.what}` as JKey, { name: String(task.vars.name ?? '') });
   if (task.kind === 'lime') {
     return tt('task.lime', { ...task.vars, product: PRODUCT_BY_ID[String(task.vars.product)]?.name[lang] ?? '', total: fmtNum(Number(task.vars.total), lang, 1) });

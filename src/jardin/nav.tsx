@@ -18,7 +18,9 @@ export type SheetRequest =
   | { type: 'stock'; id?: string; productId?: string }
   | { type: 'pestCount'; plantId?: string; bedId?: string; pestId?: string }
   | { type: 'soil'; id?: string; bedId?: string }
-  | { type: 'sensor'; id?: string; bedId?: string; kind?: import('./model').SensorKind };
+  | { type: 'sensor'; id?: string; bedId?: string; kind?: import('./model').SensorKind }
+  | { type: 'mushroom'; id?: string; speciesId?: string; parentId?: string; clone?: boolean; stage?: import('./model').MushStage; edit?: boolean }
+  | { type: 'mushSpecies'; id: string };
 
 export interface Nav {
   tab: Tab;

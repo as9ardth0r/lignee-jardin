@@ -4,9 +4,15 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { SPECIES } from './data/species';
+import { MUSHROOMS } from './data/mushrooms';
 import { cachedIds, cachedPhoto, clearPhotos, downloadAll, speciesPhoto, type ShownPhoto } from './engine/speciesPhoto';
 import { useJT } from './i18n';
 import type { Species } from './model';
+
+/** Ce qu'il faut pour chercher et afficher une photo (plante ou champignon). */
+type PhotoSubject = Pick<Species, 'id' | 'latin' | 'name' | 'emoji'>;
+/** Plantes et champignons du catalogue. */
+const ALL: PhotoSubject[] = [...SPECIES, ...MUSHROOMS];
 import { useGarden } from './store';
 import { Button, Card, INK500, INK700 } from './ui';
 
@@ -25,7 +31,7 @@ function Viewer({ url, onClose, label, children }: { url: string; onClose: () =>
 }
 
 /** Photo de l'espèce en tête de sa fiche (téléchargée la première fois si internet). */
-export function SpeciesHero({ species }: { species: Species }) {
+export function SpeciesHero({ species }: { species: PhotoSubject }) {
   const { tt } = useJT();
   const [photo, setPhoto] = useState<ShownPhoto | null | undefined>(undefined);
   const [big, setBig] = useState(false);
@@ -71,7 +77,7 @@ export function SpeciesHero({ species }: { species: Species }) {
 }
 
 /** Petite image de la liste du catalogue : la photo si déjà sur l'appareil, sinon l'émoji. */
-export function SpeciesIcon({ species, have }: { species: Species; have: boolean }) {
+export function SpeciesIcon({ species, have }: { species: PhotoSubject; have: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!have) return;
@@ -122,7 +128,7 @@ export function SpeciesPhotosCard() {
     setFinished(null);
     setRun({ done: 0, found: have.size });
     let n = 0;
-    const r = await downloadAll(SPECIES, (done, found) => {
+    const r = await downloadAll(ALL, (done, found) => {
       setRun({ done, found });
       if (++n % 10 === 0) notifyPhotos();
     }, stop.current);
@@ -136,21 +142,21 @@ export function SpeciesPhotosCard() {
         {tt('photo.cardLead')}
       </p>
       <p className="mt-2 text-sm" data-testid="photo-count">
-        {tt('photo.have', { n: run ? run.found : have.size, total: SPECIES.length })}
+        {tt('photo.have', { n: run ? run.found : have.size, total: ALL.length })}
       </p>
       {run && (
         <div className="mt-2">
           <div className="h-2 w-full overflow-hidden rounded" style={{ background: 'var(--color-paper-300)' }}>
-            <div className="h-full" style={{ width: `${(100 * run.done) / SPECIES.length}%`, background: '#4a7f36' }} />
+            <div className="h-full" style={{ width: `${(100 * run.done) / ALL.length}%`, background: '#4a7f36' }} />
           </div>
           <p className="mt-1 text-xs" style={{ color: INK500 }}>
-            {tt('photo.progress', { done: run.done, total: SPECIES.length })}
+            {tt('photo.progress', { done: run.done, total: ALL.length })}
           </p>
         </div>
       )}
       {finished && (
         <p className="mt-2 text-xs" style={{ color: INK700 }}>
-          {finished.found < SPECIES.length ? tt('photo.doneSome', { n: finished.found, missing: SPECIES.length - finished.found }) : tt('photo.doneAll')}
+          {finished.found < ALL.length ? tt('photo.doneSome', { n: finished.found, missing: ALL.length - finished.found }) : tt('photo.doneAll')}
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
@@ -159,7 +165,7 @@ export function SpeciesPhotosCard() {
             {tt('photo.stop')}
           </Button>
         ) : (
-          <Button kind="primary" onClick={start} disabled={have.size >= SPECIES.length}>
+          <Button kind="primary" onClick={start} disabled={have.size >= ALL.length}>
             ⬇ {tt('photo.downloadAll')}
           </Button>
         )}

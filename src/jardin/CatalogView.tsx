@@ -251,7 +251,7 @@ function SpeciesList() {
 }
 
 /** Calendrier sur 12 mois : une ligne par geste, une case par mois (avec texte, pas seulement la couleur). */
-function YearCalendar({ rows }: { rows: Array<{ label: string; ranges: MonthRange[]; color: string }> }) {
+export function YearCalendar({ rows }: { rows: Array<{ label: string; ranges: MonthRange[]; color: string }> }) {
   const { lang } = useJT();
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   return (

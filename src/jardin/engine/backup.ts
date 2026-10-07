@@ -3,7 +3,7 @@
  * variétés fixées dans les apps Lignée, et jardin d'exemple.
  */
 import { SPECIES_BY_ID } from '../data/species';
-import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Sensor, type PestCount, type ShoppingItem, type StockItem, type GardenData, type ISODate, type PhotoMeta, type Variety } from '../model';
+import { DEFAULT_SETTINGS, EMPTY_DATA, uid, type Sensor, type PestCount, type ShoppingItem, type StockItem, type GardenData, type ISODate, type PhotoMeta, type Variety, type MushBatch } from '../model';
 import { addDays, diffDays, isValidISO, yearOf } from './dates';
 
 export const BACKUP_APP = 'lignee-jardin';
@@ -55,6 +55,7 @@ export function parseBackup(raw: string): { data: GardenData; photos: PhotoExpor
     obstacles: arr(d.obstacles, (v) => hasId(v) && obj(v) && typeof v.height === 'number'),
     phenoEvents: arr(d.phenoEvents, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.plantId === 'string'),
     treatments: arr(d.treatments, (v) => hasId(v) && obj(v) && isValidISO(v.date) && typeof v.problemId === 'string'),
+    mushrooms: arr(d.mushrooms, (v) => hasId(v) && obj(v) && typeof v.speciesId === 'string' && typeof v.stage === 'string' && isValidISO(v.started)).map((m) => ({ ...(m as MushBatch), harvests: Array.isArray((m as MushBatch).harvests) ? (m as MushBatch).harvests : [], qty: Number((m as MushBatch).qty) || 1 })),
     seeds: arr(d.seeds, (v) => hasId(v) && obj(v) && typeof v.speciesId === 'string' && !!SPECIES_BY_ID[v.speciesId as string] && typeof v.year === 'number'),
     prices: obj(d.prices) ? Object.fromEntries(Object.entries(d.prices).filter(([, x]) => typeof x === 'number' && x >= 0)) : {},
     weather: obj(d.weather) && Array.isArray((d.weather as { days?: unknown }).days) ? d.weather : undefined,
